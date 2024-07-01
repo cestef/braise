@@ -4,7 +4,7 @@ use braise::{
     error::BraiseError,
     file::{find_file, print_tasks, BraiseFile},
     task::run_task,
-    utils::{init_panic, version},
+    utils::{build_logger, init_panic, version},
 };
 use clap::{arg, Command};
 use color_eyre::eyre::{bail, eyre};
@@ -12,16 +12,27 @@ use log::{debug, trace};
 use toml::Value;
 
 fn main() -> color_eyre::eyre::Result<()> {
+    let mut logger = build_logger();
     trace!("main: entering");
     init_panic()?;
-    pretty_env_logger::init();
 
     let matches = Command::new(env!("CARGO_PKG_NAME"))
         .allow_external_subcommands(true)
         .version(version())
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(arg!(-l --list "List all tasks"))
+        .arg(arg!(-d --debug... "Print debug information"))
         .get_matches();
+
+    let debug_level = matches.get_count("debug");
+    if debug_level == 1 {
+        logger.filter_level(log::LevelFilter::Debug);
+    } else if debug_level > 1 {
+        logger.filter_level(log::LevelFilter::Trace);
+    }
+
+    logger.init();
+
     debug!("Matches: {:#?}", matches);
 
     let path = find_file()?;

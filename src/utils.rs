@@ -53,6 +53,13 @@ pub fn init_panic() -> Result<()> {
     Ok(())
 }
 
+pub fn build_logger() -> pretty_env_logger::env_logger::Builder {
+    trace!("build_logger: entering");
+    let builder = pretty_env_logger::formatted_builder();
+    trace!("build_logger: exiting");
+    builder
+}
+
 pub fn version() -> String {
     trace!("version: entering");
     let author = clap::crate_authors!();
