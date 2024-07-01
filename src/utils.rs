@@ -1,5 +1,17 @@
-use color_eyre::{eyre::Result, owo_colors::OwoColorize};
+use std::collections::HashMap;
+
+use color_eyre::{
+    eyre::{bail, Result},
+    owo_colors::OwoColorize,
+};
 use log::{debug, trace};
+
+use crate::{
+    constants::{ARG_REPLACE_REGEX, ENV_REPLACE_REGEX},
+    error::BraiseError,
+    file::BraiseFile,
+    task::BraiseTask,
+};
 
 pub static GIT_COMMIT_HASH: &str = env!("_GIT_INFO");
 
@@ -74,4 +86,101 @@ pub fn version() -> String {
 Authors: {}",
         author.dimmed().bold(),
     )
+}
+
+pub fn replace_env_vars(input: &str, env_vars: &HashMap<String, String>) -> Result<String> {
+    trace!("replace_env_vars: entering");
+    let captures = ENV_REPLACE_REGEX.captures_iter(input);
+    // Check if there are any missing env vars that don't have a default value
+    for capture in captures {
+        let var = capture.get(1).unwrap().as_str();
+        if !env_vars.contains_key(var) && capture.get(2).is_none() {
+            trace!("replace_env_vars: exiting with error");
+            bail!("Missing environment variable: {}", var);
+        }
+    }
+    let replaced = ENV_REPLACE_REGEX.replace_all(input, |caps: &regex::Captures| {
+        let var = caps.get(1).unwrap().as_str();
+        let default = caps.get(2).map(|m| m.as_str()).unwrap();
+        env_vars
+            .get(var)
+            .map(|e| e.to_string())
+            .unwrap_or(default.to_string())
+    });
+    trace!("replace_env_vars: exiting");
+    Ok(replaced.to_string())
+}
+
+pub fn replace_args(input: &str, args: &[String]) -> Result<(String, Vec<String>)> {
+    trace!("replace_args: entering");
+    let arguments_replace_indexes = ARG_REPLACE_REGEX
+        .find_iter(input)
+        .map(|m| {
+            m.as_str()
+                .chars()
+                .nth(1)
+                .unwrap()
+                .to_string()
+                .parse::<usize>()
+                .unwrap()
+        })
+        .collect::<Vec<_>>();
+
+    // Check if the biggest index is bigger than the number of arguments
+    let max_index = arguments_replace_indexes.iter().max();
+
+    debug!("Max index: {:#?}", max_index);
+    debug!("Args len: {:#?}", args.len());
+    if let Some(max_index) = max_index {
+        if max_index >= &args.len() {
+            trace!("run_task: exiting with error");
+            bail!(BraiseError::InvalidArgIndex(*max_index, args.len()));
+        }
+    }
+
+    let command = arguments_replace_indexes
+        .iter()
+        .fold(input.to_string(), |acc, index| {
+            acc.replacen(&format!("{{{}}}", index), &args[*index], 1)
+        });
+    debug!("Command after replacement: {}", command);
+    // Remove used arguments
+    let args = args
+        .into_iter()
+        .enumerate()
+        .filter(|(i, _)| !arguments_replace_indexes.contains(i))
+        .map(|(_, arg)| arg.to_string())
+        .collect::<Vec<_>>();
+    debug!("Arguments after replacement: {:#?}", args);
+    trace!("replace_args: exiting");
+    Ok((command, args))
+}
+
+pub fn get_shell_command(task: &BraiseTask, file: &BraiseFile) -> String {
+    trace!("get_shell_command: entering");
+    if let Some(ref shell) = task.shell {
+        debug!("Using task shell: {}", shell);
+        shell.to_string()
+    } else if let Some(ref shell) = file.shell {
+        debug!("Using file shell: {}", shell);
+        shell.to_string()
+    } else if let Some(shell) = std::env::var("SHELL").ok() {
+        debug!("Using SHELL env var: {}", shell);
+        match shell.as_str() {
+            "powershell" => format!("{} -Command", shell),
+            "cmd" => format!("{} /c", shell),
+            _ => format!("{} -c", shell),
+        }
+    } else {
+        match std::env::consts::OS {
+            "windows" => {
+                debug!("Using default shell for Windows: powershell");
+                "powershell -Command".to_string()
+            }
+            _ => {
+                debug!("Using default shell for Unix: sh");
+                "sh -c".to_string()
+            }
+        }
+    }
 }

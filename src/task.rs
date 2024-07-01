@@ -5,9 +5,9 @@ use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::{ARG_REPLACE_REGEX, ENV_REPLACE_REGEX},
     error::BraiseError,
     file::BraiseFile,
+    utils::{get_shell_command, replace_args, replace_env_vars},
 };
 
 /// A struct representing a Braise task
@@ -60,92 +60,12 @@ pub fn run_task(
         }
     }
 
-    let arguments_replace_indexes = ARG_REPLACE_REGEX
-        .find_iter(&task.command)
-        .map(|m| {
-            m.as_str()
-                .chars()
-                .nth(1)
-                .unwrap()
-                .to_string()
-                .parse::<usize>()
-                .unwrap()
-        })
-        .collect::<Vec<_>>();
+    let (mut command, args) = replace_args(&task.command, args)?;
 
-    // Check if the biggest index is bigger than the number of arguments
-    let max_index = arguments_replace_indexes.iter().max();
+    command = replace_env_vars(&command, env_vars)?;
 
-    debug!("Max index: {:#?}", max_index);
-    debug!("Args len: {:#?}", args.len());
-    if let Some(max_index) = max_index {
-        if max_index >= &args.len() {
-            trace!("run_task: exiting with error");
-            bail!(BraiseError::InvalidArgIndex(*max_index, args.len()));
-        }
-    }
+    let shell_command = get_shell_command(task, file);
 
-    let command = arguments_replace_indexes
-        .iter()
-        .fold(task.command.clone(), |acc, index| {
-            acc.replacen(&format!("{{{}}}", index), &args[*index], 1)
-        });
-    debug!("Command after replacement: {}", command);
-    // Remove used arguments
-    let args = args
-        .into_iter()
-        .enumerate()
-        .filter(|(i, _)| !arguments_replace_indexes.contains(i))
-        .map(|(_, arg)| arg.to_string())
-        .collect::<Vec<_>>();
-    debug!("Arguments after replacement: {:#?}", args);
-
-    let command = ENV_REPLACE_REGEX
-        .replace_all(&command, |caps: &regex::Captures| {
-            debug!("Replacing env var: {}", caps.get(1).unwrap().as_str());
-            if let Some(env) = env_vars.get(caps.get(1).unwrap().as_str()) {
-                env.to_string()
-            } else {
-                if let Some(default) = caps.get(2) {
-                    debug!(
-                        "Using default: {} for env var: {}",
-                        default.as_str(),
-                        caps.get(1).unwrap().as_str()
-                    );
-                    default.as_str().to_string()
-                } else {
-                    debug!("No default found");
-                    "".to_string()
-                }
-            }
-        })
-        .to_string();
-
-    let shell_command = if let Some(ref shell) = task.shell {
-        debug!("Using task shell: {}", shell);
-        shell.to_string()
-    } else if let Some(ref shell) = file.shell {
-        debug!("Using file shell: {}", shell);
-        shell.to_string()
-    } else if let Some(shell) = std::env::var("SHELL").ok() {
-        debug!("Using SHELL env var: {}", shell);
-        match shell.as_str() {
-            "powershell" => format!("{} -Command", shell),
-            "cmd" => format!("{} /c", shell),
-            _ => format!("{} -c", shell),
-        }
-    } else {
-        match std::env::consts::OS {
-            "windows" => {
-                debug!("Using default shell for Windows: powershell");
-                "powershell -Command".to_string()
-            }
-            _ => {
-                debug!("Using default shell for Unix: sh");
-                "sh -c".to_string()
-            }
-        }
-    };
     let (shell, shell_args) = if shell_command.contains(" ") {
         let mut split = shell_command.split_whitespace();
         let shell = split.next().unwrap();
