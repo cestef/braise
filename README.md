@@ -56,7 +56,7 @@ The following options are available:
 
 ```toml
 # Global configuration
-shell = "sh" # The shell to use (default: $SHELL)
+shell = "sh -c" # The shell to use (default: $SHELL or "sh -c")
 quiet = false # Do not print the command output (default: false)
 default = "NAME" # The default task to run (optional)
 
