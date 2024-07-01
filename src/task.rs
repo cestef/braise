@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use color_eyre::{eyre::bail, owo_colors::OwoColorize};
 use log::{debug, trace};
@@ -36,6 +36,7 @@ pub fn run_task(
     task: &BraiseTask,
     args: &[String],
     file: &BraiseFile,
+    env_vars: &HashMap<String, String>,
     mut ran: Vec<String>,
 ) -> color_eyre::eyre::Result<()> {
     trace!("run_task: entering");
@@ -49,7 +50,7 @@ pub fn run_task(
             if !ran.contains(dep) {
                 debug!("Running dependency: {}", dep);
                 trace!("run_task: recursing");
-                run_task(&file.tasks[dep], args, file, ran.clone())?;
+                run_task(&file.tasks[dep], args, file, env_vars, ran.clone())?;
                 ran.push(dep.to_string());
             }
         }

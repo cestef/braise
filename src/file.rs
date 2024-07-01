@@ -49,6 +49,7 @@ pub struct BraiseFile {
     pub shell: Option<String>,
     pub quiet: Option<bool>,
     pub default: Option<String>,
+    pub dotenv: Option<String>,
 }
 
 impl BraiseFile {
@@ -78,11 +79,14 @@ impl BraiseFile {
             .flatten();
         let quiet = value.get("quiet").map(|q| q.as_bool()).flatten();
         let default = value.get("default").map(|d| d.as_str()).flatten();
+        let dotenv = value.get("dotenv").map(|d| d.as_str()).flatten();
+
         Ok(Self {
             tasks,
             shell,
             quiet,
             default: default.map(|d| d.to_string()),
+            dotenv: dotenv.map(|d| d.to_string()),
         })
     }
 }

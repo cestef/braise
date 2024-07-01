@@ -1,4 +1,4 @@
-use std::ffi::OsString;
+use std::{collections::HashMap, ffi::OsString};
 
 use braise::{
     error::BraiseError,
@@ -7,7 +7,10 @@ use braise::{
     utils::{build_logger, init_panic, version},
 };
 use clap::{arg, Command};
-use color_eyre::eyre::{bail, eyre};
+use color_eyre::{
+    eyre::{bail, eyre, Context},
+    owo_colors::OwoColorize,
+};
 use log::{debug, trace};
 
 fn main() -> color_eyre::eyre::Result<()> {
@@ -37,8 +40,10 @@ fn main() -> color_eyre::eyre::Result<()> {
 
     let path = find_file()?;
     debug!("Found file at: {}", path);
+
     let value = toml::from_str::<toml::Value>(&std::fs::read_to_string(path.clone())?)?;
     debug!("Parsed file: {:#?}", value);
+
     let file = BraiseFile::from_value(value)?;
     debug!("Parsed braisé file: {:#?}", file);
 
@@ -48,6 +53,7 @@ fn main() -> color_eyre::eyre::Result<()> {
         trace!("main: exiting from list");
         return Ok(());
     }
+
     let (task, args) = if let Some((task, matches)) = matches.subcommand() {
         (
             task,
@@ -72,7 +78,36 @@ fn main() -> color_eyre::eyre::Result<()> {
         .get(task)
         .ok_or(BraiseError::InvalidTask(task.to_string()))?;
     debug!("Running task: {}", task);
-    run_task(task, &args, &file, vec![])?;
+    let env_vars = if let Some(dotenv) = &file.dotenv {
+        if dotenv.is_empty() || dotenv == "false" {
+            debug!("Opted-out of dotenv");
+            vec![]
+        } else {
+            debug!("Reading dotenv file: {}", dotenv);
+            dotenvy::from_filename_iter(dotenv)
+                .context(format!("Couldn't read dotenv file: {}", dotenv.bold()))?
+                .collect::<Vec<_>>()
+        }
+    } else {
+        debug!("Reading dotenv file: .env");
+        dotenvy::dotenv_iter()
+            .map(|res| res.collect::<Vec<_>>())
+            .unwrap_or_default()
+    };
+    debug!("Env vars: {:#?}", env_vars);
+
+    let env_vars = env_vars
+        .iter()
+        .filter_map(|res| {
+            if let Ok((key, value)) = res {
+                Some((key.to_string(), value.to_string()))
+            } else {
+                None
+            }
+        })
+        .collect::<HashMap<_, _>>();
+
+    run_task(task, &args, &file, &env_vars, vec![])?;
     trace!("main: exiting");
     Ok(())
 }
