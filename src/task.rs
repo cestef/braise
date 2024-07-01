@@ -118,7 +118,7 @@ pub fn run_task(
             }
         }
     };
-    let (shell, args) = if shell_command.contains(" ") {
+    let (shell, shell_args) = if shell_command.contains(" ") {
         let mut split = shell_command.split_whitespace();
         let shell = split.next().unwrap();
         let args = split.collect::<Vec<_>>();
@@ -139,7 +139,7 @@ pub fn run_task(
         );
     }
 
-    let command = shell.args(args).arg(to_run);
+    let command = shell.args(shell_args).arg(to_run).envs(env_vars);
 
     if quiet {
         trace!("run_task: flushing stdout and stderr");
