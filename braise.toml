@@ -1,9 +1,0 @@
-shell = "bash"
-
-[build]
-command = "cargo build"
-description = "A simple example build script"
-
-[run]
-command = "cargo run"
-description = "A simple example run script"
