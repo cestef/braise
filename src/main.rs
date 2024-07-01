@@ -94,7 +94,6 @@ fn main() -> color_eyre::eyre::Result<()> {
             .map(|res| res.collect::<Vec<_>>())
             .unwrap_or_default()
     };
-    debug!("Env vars: {:#?}", env_vars);
 
     let env_vars = env_vars
         .iter()
@@ -106,6 +105,8 @@ fn main() -> color_eyre::eyre::Result<()> {
             }
         })
         .collect::<HashMap<_, _>>();
+
+    debug!("Env vars: {:#?}", env_vars);
 
     run_task(task, &args, &file, &env_vars, vec![])?;
     trace!("main: exiting");

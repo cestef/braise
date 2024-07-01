@@ -4,7 +4,11 @@ use color_eyre::{eyre::bail, owo_colors::OwoColorize};
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 
-use crate::{constants::REPLACE_REGEX, error::BraiseError, file::BraiseFile};
+use crate::{
+    constants::{ARG_REPLACE_REGEX, ENV_REPLACE_REGEX},
+    error::BraiseError,
+    file::BraiseFile,
+};
 
 /// A struct representing a Braise task
 /// ```toml
@@ -56,7 +60,7 @@ pub fn run_task(
         }
     }
 
-    let arguments_replace_indexes = REPLACE_REGEX
+    let arguments_replace_indexes = ARG_REPLACE_REGEX
         .find_iter(&task.command)
         .map(|m| {
             m.as_str()
@@ -71,7 +75,9 @@ pub fn run_task(
 
     // Check if the biggest index is bigger than the number of arguments
     let max_index = arguments_replace_indexes.iter().max();
-    debug!("Max index: {:#?}\nArgs len: {:#?}", max_index, args.len());
+
+    debug!("Max index: {:#?}", max_index);
+    debug!("Args len: {:#?}", args.len());
     if let Some(max_index) = max_index {
         if max_index >= &args.len() {
             trace!("run_task: exiting with error");
@@ -93,6 +99,17 @@ pub fn run_task(
         .map(|(_, arg)| arg.to_string())
         .collect::<Vec<_>>();
     debug!("Arguments after replacement: {:#?}", args);
+
+    let command = ENV_REPLACE_REGEX
+        .replace_all(&command, |caps: &regex::Captures| {
+            debug!("Replacing env var: {}", caps.get(1).unwrap().as_str());
+            if let Some(env) = env_vars.get(caps.get(1).unwrap().as_str()) {
+                env
+            } else {
+                ""
+            }
+        })
+        .to_string();
 
     let shell_command = if let Some(ref shell) = task.shell {
         debug!("Using task shell: {}", shell);
