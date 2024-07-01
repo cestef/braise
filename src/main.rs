@@ -2,15 +2,12 @@ use std::ffi::OsString;
 
 use braise::{
     error::BraiseError,
-    file::{find_file, BraiseFile},
+    file::{find_file, print_tasks, BraiseFile},
     task::run_task,
     utils::{init_panic, version},
 };
 use clap::{arg, Command};
-use color_eyre::{
-    eyre::{bail, eyre},
-    owo_colors::OwoColorize,
-};
+use color_eyre::eyre::{bail, eyre};
 use log::{debug, trace};
 use toml::Value;
 
@@ -36,17 +33,7 @@ fn main() -> color_eyre::eyre::Result<()> {
 
     if matches.get_flag("list") {
         trace!("main: listing tasks");
-        println!(
-            "{}",
-            format!("Available tasks in {}:\n", path.bold()).underline()
-        );
-        for (task, script) in file.tasks {
-            println!(
-                "{}: {}",
-                task.bold(),
-                script.description.unwrap_or("".to_string()).dimmed()
-            );
-        }
+        print_tasks(file);
         trace!("main: exiting from list");
         return Ok(());
     }

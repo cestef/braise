@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{constants::FILE_NAMES, error::BraiseError, task::BraiseTask};
-use color_eyre::eyre::Result;
+use color_eyre::{eyre::Result, owo_colors::OwoColorize};
 use serde::Deserialize;
 
 pub fn find_file() -> Result<String> {
@@ -21,6 +21,24 @@ pub fn find_file() -> Result<String> {
         Ok(found)
     } else {
         Err(BraiseError::NoBraiseFileFound.into())
+    }
+}
+
+pub fn print_tasks(file: BraiseFile) {
+    println!(
+        "{}",
+        format!("Available tasks in {}:\n", "Braise.toml".bold()).underline()
+    );
+    for (task, script) in file.tasks {
+        println!(
+            "{}{}",
+            task.bold(),
+            if let Some(desc) = script.description {
+                format!(": {}", desc.dimmed())
+            } else {
+                "".to_string()
+            }
+        );
     }
 }
 
