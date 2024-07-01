@@ -97,6 +97,22 @@ Default values for environment variables can also be set:
 command = "echo {env(MISSING:default)}" # This will expand to "echo default"
 ```
 
+### Platform specific commands
+
+You can specify platform specific commands by using the `runs-on` field:
+
+```toml
+[[NAME]]
+command = "echo Hello, World!"
+runs-on = ["windows"]
+
+[[NAME]]
+command = "echo Bonjour, Monde!"
+runs-on = ["linux", "macos"]
+```
+
+Notice the double brackets `[[NAME]]` to define multiple tasks with the same name.
+
 ## License
 
 This project is licensed under the [MIT license](LICENSE) (You can basically do whatever you want with this code)

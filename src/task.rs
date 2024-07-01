@@ -32,7 +32,9 @@ pub struct BraiseTask {
         alias = "runs-on",
         alias = "runs_on",
         alias = "run-on",
-        alias = "run_on"
+        alias = "run_on",
+        alias = "os",
+        alias = "platform"
     )]
     pub runs_on: Option<Vec<String>>,
 }
