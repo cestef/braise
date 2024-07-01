@@ -16,4 +16,8 @@ pub enum BraiseError {
     InvalidArgIndex(usize, usize),
     #[error("Error: {0}")]
     Error(String),
+    #[error("Invalid shell: {0}")]
+    InvalidShell(String),
+    #[error("Invalid dependency: {0}")]
+    InvalidDependency(String),
 }

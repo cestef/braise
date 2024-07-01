@@ -2,7 +2,7 @@ use std::ffi::OsString;
 
 use braise::{
     error::BraiseError,
-    file::{find_file, BraiseFile},
+    file::{find_file, BraiseFile, BraiseTask},
     utils::{init_panic, version},
 };
 use clap::{arg, Command};
@@ -65,34 +65,63 @@ fn main() -> color_eyre::eyre::Result<()> {
         .get(task)
         .ok_or(BraiseError::InvalidTask(task.to_string()))?;
 
+    run_task(task, &args, &file, vec![])?;
+    Ok(())
+}
+
+fn run_task(
+    task: &BraiseTask,
+    args: &[String],
+    file: &BraiseFile,
+    mut ran: Vec<String>,
+) -> color_eyre::eyre::Result<()> {
+    if let Some(deps) = &task.dependencies {
+        for dep in deps {
+            if !file.tasks.contains_key(dep) {
+                bail!(BraiseError::InvalidDependency(dep.to_string()));
+            }
+            if !ran.contains(dep) {
+                run_task(&file.tasks[dep], args, file, ran.clone())?;
+                ran.push(dep.to_string());
+            }
+        }
+    }
+
     let arguments_replace_indexes = REPLACE_REGEX
         .find_iter(&task.command)
-        .map(|m| m.as_str().chars().nth(1).unwrap().to_string())
+        .map(|m| {
+            m.as_str()
+                .chars()
+                .nth(1)
+                .unwrap()
+                .to_string()
+                .parse::<usize>()
+                .unwrap()
+        })
         .collect::<Vec<_>>();
 
-    // Check if the number of arguments provided is the same as the number of indexes
-    if arguments_replace_indexes.len() > args.len() {
-        bail!(BraiseError::InvalidArgIndex(args.len(), args.len()));
+    // Check if the biggest index is bigger than the number of arguments
+    let max_index = arguments_replace_indexes.iter().max();
+    if let Some(max_index) = max_index {
+        if max_index >= &args.len() {
+            bail!(BraiseError::InvalidArgIndex(*max_index, args.len()));
+        }
     }
 
     let command = arguments_replace_indexes
         .iter()
         .fold(task.command.clone(), |acc, index| {
-            acc.replacen(
-                &format!("{{{}}}", index),
-                &args[index.parse::<usize>().unwrap()],
-                1,
-            )
+            acc.replacen(&format!("{{{}}}", index), &args[*index], 1)
         });
     // Remove used arguments
     let args = args
         .into_iter()
         .enumerate()
-        .filter(|(i, _)| !arguments_replace_indexes.contains(&i.to_string()))
-        .map(|(_, arg)| arg)
+        .filter(|(i, _)| !arguments_replace_indexes.contains(i))
+        .map(|(_, arg)| arg.to_string())
         .collect::<Vec<_>>();
 
-    let mut shell = std::process::Command::new(if let Some(shell) = file.shell {
+    let mut shell = std::process::Command::new(if let Some(ref shell) = file.shell {
         shell.to_string()
     } else if let Some(shell) = std::env::var("SHELL").ok() {
         shell
@@ -102,7 +131,7 @@ fn main() -> color_eyre::eyre::Result<()> {
 
     let mut child = shell
         .arg("-c")
-        .arg(format!("{command} {}", args.join(" ")))
+        .arg(format!("{command} {}", args.join("")))
         .spawn()?;
 
     let status = child.wait()?;

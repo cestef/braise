@@ -36,6 +36,8 @@ pub struct BraiseTask {
     pub command: String,
     #[serde(alias = "desc")]
     pub description: Option<String>,
+    #[serde(alias = "deps", alias = "depends", alias = "depends_on")]
+    pub dependencies: Option<Vec<String>>,
 }
 
 impl fmt::Display for BraiseTask {
