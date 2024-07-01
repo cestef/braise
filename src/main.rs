@@ -15,8 +15,6 @@ use log::{debug, trace};
 
 fn main() -> color_eyre::eyre::Result<()> {
     let mut logger = build_logger();
-    trace!("main: entering");
-    init_panic()?;
 
     let matches = Command::new(env!("CARGO_PKG_NAME"))
         .allow_external_subcommands(true)
@@ -35,6 +33,8 @@ fn main() -> color_eyre::eyre::Result<()> {
     }
 
     logger.init();
+    trace!("main: starting");
+    init_panic()?;
 
     debug!("Matches: {:#?}", matches);
 

@@ -66,6 +66,7 @@ dotenv = ".env" # The path to the .env file (optional)
 command = "echo Hello, World!" # The command to run
 description = "A simple task" # The description of the task (optional)
 dependencies = ["OTHER_TASK"] # The list of tasks to run before this one (optional)
+runs-on = ["linux", "macos"] # The platforms on which the task can run (optional)
 ```
 
 The `shell` and `quiet` fields are global and can be overridden for each task.
@@ -113,6 +114,18 @@ runs-on = ["linux", "macos"]
 
 Notice the double brackets `[[NAME]]` to define multiple tasks with the same name.
 
+### JSON Schema
+
+A JSON schema is available [here](schema/braise.schema.json) to help you write your `braise.toml` file.
+
+```toml
+#:schema https://raw.githubusercontent.com/cestef/braise/main/schema/braise.schema.json
+
+[echo]
+command = "echo Hello, World!"
+```
+
+You can use the `#:schema` directive to specify the path to the schema file.
 ## License
 
 This project is licensed under the [MIT license](LICENSE) (You can basically do whatever you want with this code)

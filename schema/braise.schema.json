@@ -1,0 +1,75 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "description": "JSON schema for the braisé configuration",
+    "type": "object",
+    "title": "Braisé Configuration Schema",
+    "definitions": {
+        "task": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "The command to run"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "A description of the task"
+                },
+                "shell": {
+                    "type": "string",
+                    "description": "The shell to use for this task"
+                },
+                "quiet": {
+                    "type": "boolean",
+                    "description": "Whether to suppress output for this task"
+                },
+                "runs-on": {
+                    "type": "string",
+                    "description": "The platform to run the task on"
+                },
+                "depends-on": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "The names of tasks that this task depends on"
+                }
+            },
+            "required": ["command"]
+        }
+    },
+    "properties": {
+        "shell": {
+            "type": "string",
+            "description": "The shell to use for braisé tasks"
+        },
+        "quiet": {
+            "type": "boolean",
+            "description": "Whether to suppress all output"
+        },
+        "default": {
+            "type": "string",
+            "description": "The default command to run when no command is specified"
+        },
+        "dotenv": {
+            "type": "string",
+            "description": "The path to the .env file to load"
+        }
+    },
+    "additionalProperties": {
+        "anyOf": [
+            {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "$ref": "#/definitions/task"
+                }
+            },
+            {
+                "type": "object",
+                "$ref": "#/definitions/task",
+                "required": ["command"]
+            }
+        ]
+    }
+}
