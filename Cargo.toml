@@ -7,6 +7,7 @@ description = "Run your tasks like a chef !"
 homepage = "https://github.com/cestef/braise"
 repository = "https://github.com/cestef/braise"
 readme = "README.md"
+authors = ["cstef <root@cstef.dev>"]
 
 [dependencies]
 better-panic = "0.3.0"
