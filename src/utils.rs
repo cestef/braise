@@ -1,5 +1,4 @@
 use color_eyre::{eyre::Result, owo_colors::OwoColorize};
-use paris::error;
 
 pub static GIT_COMMIT_HASH: &str = env!("_GIT_INFO");
 
@@ -30,7 +29,7 @@ pub fn init_panic() -> Result<()> {
             eprintln!("{}", panic_hook.panic_report(panic_info)); // prints color-eyre stack trace to stderr
         }
         let msg = format!("{}", panic_hook.panic_report(panic_info));
-        error!("Error: {}", strip_ansi_escapes::strip_str(msg));
+        println!("Error: {}", strip_ansi_escapes::strip_str(msg));
 
         #[cfg(debug_assertions)]
         {

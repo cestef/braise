@@ -20,7 +20,6 @@ color-eyre = "0.6.3"
 dirs = "5.0.1"
 human-panic = "2.0.0"
 lazy_static = "1.5.0"
-paris = { version = "1.5.15", features = ["macros"] }
 regex = "1.10.5"
 serde = { version = "1.0.203", features = ["derive"] }
 strip-ansi-escapes = "0.2.0"
