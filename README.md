@@ -59,6 +59,7 @@ The following options are available:
 shell = "sh -c" # The shell to use (default: $SHELL or "sh -c")
 quiet = false # Do not print the command output (default: false)
 default = "NAME" # The default task to run (optional)
+dotenv = ".env" # The path to the .env file (optional)
 
 # Task configuration
 [NAME]
@@ -71,6 +72,30 @@ The `shell` and `quiet` fields are global and can be overridden for each task.
 
 > [!NOTE]
 > If you are a busy person, you can use the `br` alias instead of `braise`
+
+
+### Environment variables
+
+By default `braisé` will look for a `.env` file at the root of your project and load the environment variables from it.
+
+```bash
+# .env
+HELLO=WORLD
+```
+
+```toml
+[NAME]
+command = "echo $HELLO" # This will let the shell grab the environment variable
+# or
+command = "echo {env(HELLO)}" # This will expand to "echo WORLD"
+```
+
+Default values for environment variables can also be set:
+
+```toml
+[NAME]
+command = "echo {env(MISSING:default)}" # This will expand to "echo default"
+```
 
 ## License
 

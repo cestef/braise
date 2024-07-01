@@ -94,14 +94,21 @@ pub fn replace_env_vars(input: &str, env_vars: &HashMap<String, String>) -> Resu
     // Check if there are any missing env vars that don't have a default value
     for capture in captures {
         let var = capture.get(1).unwrap().as_str();
-        if !env_vars.contains_key(var) && capture.get(2).is_none() {
-            trace!("replace_env_vars: exiting with error");
-            bail!("Missing environment variable: {}", var);
+        debug!("Checking env var: {}", var);
+        if !env_vars.contains_key(var) {
+            debug!("Missing env var: {}", var);
+            if capture.get(2).is_none() {
+                trace!("replace_env_vars: exiting with error");
+                bail!(BraiseError::Error(format!(
+                    "Missing environment variable: {}",
+                    var
+                )));
+            }
         }
     }
     let replaced = ENV_REPLACE_REGEX.replace_all(input, |caps: &regex::Captures| {
         let var = caps.get(1).unwrap().as_str();
-        let default = caps.get(2).map(|m| m.as_str()).unwrap();
+        let default = caps.get(2).map(|m| m.as_str()).unwrap_or_default();
         env_vars
             .get(var)
             .map(|e| e.to_string())

@@ -22,4 +22,6 @@ pub enum BraiseError {
     InvalidDependency(String),
     #[error("No shell found")]
     NoShell,
+    #[error("No valid task found for {0}")]
+    NoValidTask(String),
 }

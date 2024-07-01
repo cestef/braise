@@ -73,10 +73,22 @@ fn main() -> color_eyre::eyre::Result<()> {
         }
     };
 
-    let task = file
+    let tasks = file
         .tasks
         .get(task)
         .ok_or(BraiseError::InvalidTask(task.to_string()))?;
+    let task = tasks
+        .iter()
+        .find(|task| {
+            task.runs_on
+                .as_ref()
+                .map(|os| {
+                    os.iter()
+                        .any(|os| os.to_lowercase() == std::env::consts::OS.to_lowercase())
+                })
+                .unwrap_or(true)
+        })
+        .ok_or(BraiseError::TaskNotFound(task.to_string()))?;
     debug!("Running task: {}", task);
     let env_vars = if let Some(dotenv) = &file.dotenv {
         if dotenv.is_empty() || dotenv == "false" {

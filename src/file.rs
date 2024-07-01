@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::{constants::FILE_NAMES, error::BraiseError, task::BraiseTask};
 use color_eyre::{eyre::Result, owo_colors::OwoColorize};
+use log::debug;
 use serde::Deserialize;
 
 pub fn find_file() -> Result<String> {
@@ -29,23 +30,25 @@ pub fn print_tasks(file: BraiseFile) {
         "{}",
         format!("Available tasks in {}:\n", "Braise.toml".bold()).underline()
     );
-    for (task, script) in file.tasks {
-        println!(
-            "{}{}",
-            task.bold(),
-            if let Some(desc) = script.description {
-                format!(": {}", desc.dimmed())
-            } else {
-                "".to_string()
-            }
-        );
+    for (task, scripts) in file.tasks {
+        for script in scripts {
+            println!(
+                "{}{}",
+                task.bold(),
+                if let Some(desc) = script.description {
+                    format!(": {}", desc.dimmed())
+                } else {
+                    "".to_string()
+                }
+            );
+        }
     }
 }
 
 /// A struct representing a Braise file
 #[derive(Debug)]
 pub struct BraiseFile {
-    pub tasks: HashMap<String, BraiseTask>,
+    pub tasks: HashMap<String, Vec<BraiseTask>>,
     pub shell: Option<String>,
     pub quiet: Option<bool>,
     pub default: Option<String>,
@@ -63,15 +66,39 @@ impl BraiseFile {
             .filter_map(|(task, script)| {
                 if script.is_table() {
                     if let Ok(script) = BraiseTask::deserialize(script.clone()) {
-                        Some((task.clone(), script))
+                        Some((task.clone(), vec![script]))
                     } else {
+                        debug!("Couldn't parse task: {}", task);
+                        None
+                    }
+                } else if script.is_array() {
+                    debug!("Task {} is an array", task);
+                    // Check if the array is a table
+                    let script = script.as_array().unwrap();
+                    if script.iter().all(|s| s.is_table()) {
+                        let scripts = script
+                            .iter()
+                            .filter_map(|s| {
+                                if let Ok(s) = BraiseTask::deserialize(s.clone()) {
+                                    Some(s)
+                                } else {
+                                    debug!("Couldn't parse task: {}", task);
+                                    None
+                                }
+                            })
+                            .collect();
+
+                        Some((task.clone(), scripts))
+                    } else {
+                        debug!("Task {} is not a table", task);
                         None
                     }
                 } else {
+                    debug!("Task {} is not a table", task);
                     None
                 }
             })
-            .collect::<HashMap<_, _>>();
+            .collect::<HashMap<_, Vec<_>>>();
 
         let shell = value
             .get("shell")

@@ -28,6 +28,13 @@ pub struct BraiseTask {
     pub shell: Option<String>,
     #[serde(alias = "q")]
     pub quiet: Option<bool>,
+    #[serde(
+        alias = "runs-on",
+        alias = "runs_on",
+        alias = "run-on",
+        alias = "run_on"
+    )]
+    pub runs_on: Option<Vec<String>>,
 }
 
 impl fmt::Display for BraiseTask {
@@ -54,8 +61,22 @@ pub fn run_task(
             if !ran.contains(dep) {
                 debug!("Running dependency: {}", dep);
                 trace!("run_task: recursing");
-                run_task(&file.tasks[dep], args, file, env_vars, ran.clone())?;
-                ran.push(dep.to_string());
+                let dep_tasks = file.tasks.get(dep).unwrap();
+                let dep_task = dep_tasks.iter().find(|task| {
+                    task.runs_on
+                        .as_ref()
+                        .map(|os| {
+                            os.iter()
+                                .any(|os| os.to_lowercase() == std::env::consts::OS.to_lowercase())
+                        })
+                        .unwrap_or(true)
+                });
+                if let Some(dep_task) = dep_task {
+                    run_task(&dep_task, args, file, env_vars, ran.clone())?;
+                    ran.push(dep.to_string());
+                } else {
+                    bail!(BraiseError::NoValidTask(dep.to_string()));
+                }
             }
         }
     }
