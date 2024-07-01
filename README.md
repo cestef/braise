@@ -52,6 +52,7 @@ The following options are available:
 ```toml
 shell = "sh" # The shell to use (default: $SHELL)
 quiet = false # Do not print the command output (default: false)
+default = "NAME" # The default task to run (optional)
 [NAME]
 command = "echo Hello, World!" # The command to run
 description = "A simple task" # The description of the task (optional)
