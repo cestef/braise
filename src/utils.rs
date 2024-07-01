@@ -64,11 +64,6 @@ pub fn version() -> String {
     trace!("version: entering");
     let author = clap::crate_authors!();
     debug!("version: raw_author: {}", author);
-    let config_dir_path = dirs::home_dir()
-        .map(|p| p.join(".config").join(clap::crate_name!()))
-        .map(|p| p.display().to_string())
-        .unwrap_or_else(|| "Unknown".to_string());
-
     let author = author.replace(':', ", ");
     let hash = GIT_COMMIT_HASH.bold();
     trace!("version: exiting");
@@ -76,10 +71,7 @@ pub fn version() -> String {
         "\
 {hash}
 
-Authors: {}
-
-Config directory: {}",
+Authors: {}",
         author.dimmed().bold(),
-        config_dir_path.dimmed().bold()
     )
 }

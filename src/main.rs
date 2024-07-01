@@ -19,6 +19,7 @@ fn main() -> color_eyre::eyre::Result<()> {
     let matches = Command::new(env!("CARGO_PKG_NAME"))
         .allow_external_subcommands(true)
         .version(version())
+        .author(clap::crate_authors!())
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(arg!(-l --list "List all tasks"))
         .arg(arg!(-d --debug... "Print debug information"))
