@@ -121,18 +121,29 @@ fn run_task(
         .map(|(_, arg)| arg.to_string())
         .collect::<Vec<_>>();
 
-    let mut shell = std::process::Command::new(if let Some(ref shell) = file.shell {
+    let shell = if let Some(ref shell) = task.shell {
+        shell.to_string()
+    } else if let Some(ref shell) = file.shell {
         shell.to_string()
     } else if let Some(shell) = std::env::var("SHELL").ok() {
         shell
     } else {
-        "sh".to_string()
-    });
+        bail!(BraiseError::NoShell);
+    };
+    let mut shell = std::process::Command::new(shell);
 
-    let mut child = shell
-        .arg("-c")
-        .arg(format!("{command} {}", args.join("")))
-        .spawn()?;
+    let to_run = format!("{command} {}", args.join(""));
+
+    let quiet = task.quiet.unwrap_or(file.quiet.unwrap_or(false));
+    if !quiet {
+        println!(
+            "[{}] {}",
+            ran.len().dimmed(),
+            to_run.trim().bold().underline()
+        );
+    }
+
+    let mut child = shell.arg("-c").arg(to_run).spawn()?;
 
     let status = child.wait()?;
 

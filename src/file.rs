@@ -38,6 +38,10 @@ pub struct BraiseTask {
     pub description: Option<String>,
     #[serde(alias = "deps", alias = "depends", alias = "depends_on")]
     pub dependencies: Option<Vec<String>>,
+    #[serde(alias = "sh")]
+    pub shell: Option<String>,
+    #[serde(alias = "q")]
+    pub quiet: Option<bool>,
 }
 
 impl fmt::Display for BraiseTask {
@@ -51,6 +55,7 @@ impl fmt::Display for BraiseTask {
 pub struct BraiseFile {
     pub tasks: HashMap<String, BraiseTask>,
     pub shell: Option<String>,
+    pub quiet: Option<bool>,
 }
 
 impl BraiseFile {
@@ -78,7 +83,11 @@ impl BraiseFile {
             .get("shell")
             .map(|s| s.as_str().map(|s| s.to_string()))
             .flatten();
-
-        Ok(Self { tasks, shell })
+        let quiet = value.get("quiet").map(|q| q.as_bool()).flatten();
+        Ok(Self {
+            tasks,
+            shell,
+            quiet,
+        })
     }
 }

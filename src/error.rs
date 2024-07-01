@@ -20,4 +20,6 @@ pub enum BraiseError {
     InvalidShell(String),
     #[error("Invalid dependency: {0}")]
     InvalidDependency(String),
+    #[error("No shell found")]
+    NoShell,
 }
