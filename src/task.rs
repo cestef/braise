@@ -97,9 +97,11 @@ pub fn run_task(
     } else {
         (shell_command, vec![])
     };
+    debug!("Using shell: {}", shell);
+    debug!("Shell args: {:#?}", shell_args);
     let mut shell = std::process::Command::new(shell);
 
-    let to_run = format!("{command} {}", args.join(""));
+    let to_run = format!("{command} {}", args.join(" "));
 
     let quiet = task.quiet.unwrap_or(file.quiet.unwrap_or(false));
     if !quiet {
@@ -110,7 +112,13 @@ pub fn run_task(
         );
     }
 
-    let command = shell.args(shell_args).arg(to_run).envs(env_vars);
+    let command = shell
+        .args(shell_args)
+        .arg(to_run)
+        .current_dir(std::env::current_dir()?)
+        .envs(env_vars);
+
+    debug!("Running command: {:#?}", command);
 
     if quiet {
         trace!("run_task: flushing stdout and stderr");
