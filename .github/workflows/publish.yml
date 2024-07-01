@@ -1,0 +1,19 @@
+name: Publish to crates.io
+
+on:
+    push:
+        tags:
+            - "**[0-9]+.[0-9]+.[0-9]+*"
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  override: true
+            - run: cargo publish --token ${{ secrets.CARGO_TOKEN }}
+              env:
+                  CARGO_TOKEN: ${{ secrets.CARGO_TOKEN }}
