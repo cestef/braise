@@ -1,6 +1,7 @@
 use std::fmt;
 
 use color_eyre::{eyre::bail, owo_colors::OwoColorize};
+use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 
 use crate::{constants::REPLACE_REGEX, error::BraiseError, file::BraiseFile};
@@ -37,12 +38,17 @@ pub fn run_task(
     file: &BraiseFile,
     mut ran: Vec<String>,
 ) -> color_eyre::eyre::Result<()> {
+    trace!("run_task: entering");
     if let Some(deps) = &task.dependencies {
+        trace!("run_task: checking dependencies");
         for dep in deps {
             if !file.tasks.contains_key(dep) {
+                trace!("run_task: exiting with error");
                 bail!(BraiseError::InvalidDependency(dep.to_string()));
             }
             if !ran.contains(dep) {
+                debug!("Running dependency: {}", dep);
+                trace!("run_task: recursing");
                 run_task(&file.tasks[dep], args, file, ran.clone())?;
                 ran.push(dep.to_string());
             }
@@ -64,8 +70,10 @@ pub fn run_task(
 
     // Check if the biggest index is bigger than the number of arguments
     let max_index = arguments_replace_indexes.iter().max();
+    debug!("Max index: {:#?}\nArgs len: {:#?}", max_index, args.len());
     if let Some(max_index) = max_index {
         if max_index >= &args.len() {
+            trace!("run_task: exiting with error");
             bail!(BraiseError::InvalidArgIndex(*max_index, args.len()));
         }
     }
@@ -75,6 +83,7 @@ pub fn run_task(
         .fold(task.command.clone(), |acc, index| {
             acc.replacen(&format!("{{{}}}", index), &args[*index], 1)
         });
+    debug!("Command after replacement: {}", command);
     // Remove used arguments
     let args = args
         .into_iter()
@@ -82,14 +91,20 @@ pub fn run_task(
         .filter(|(i, _)| !arguments_replace_indexes.contains(i))
         .map(|(_, arg)| arg.to_string())
         .collect::<Vec<_>>();
+    debug!("Arguments after replacement: {:#?}", args);
 
     let shell = if let Some(ref shell) = task.shell {
+        debug!("Using task shell: {}", shell);
         shell.to_string()
     } else if let Some(ref shell) = file.shell {
+        debug!("Using file shell: {}", shell);
         shell.to_string()
     } else if let Some(shell) = std::env::var("SHELL").ok() {
+        debug!("Using SHELL env var: {}", shell);
         shell
     } else {
+        debug!("No shell found, exiting");
+        trace!("run_task: exiting with error");
         bail!(BraiseError::NoShell);
     };
     let mut shell = std::process::Command::new(shell);
@@ -108,6 +123,7 @@ pub fn run_task(
     let command = shell.arg("-c").arg(to_run);
 
     if quiet {
+        trace!("run_task: flushing stdout and stderr");
         command.stdout(std::process::Stdio::null());
         command.stderr(std::process::Stdio::null());
     }
@@ -117,6 +133,7 @@ pub fn run_task(
     let status = child.wait()?;
 
     if !status.success() {
+        trace!("run_task: exiting with error");
         bail!(BraiseError::Error(format!(
             "Task {} failed with status code {}",
             task,
@@ -124,5 +141,6 @@ pub fn run_task(
         )));
     }
 
+    trace!("run_task: exiting");
     Ok(())
 }

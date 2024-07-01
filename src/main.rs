@@ -11,10 +11,13 @@ use color_eyre::{
     eyre::{bail, eyre},
     owo_colors::OwoColorize,
 };
+use log::{debug, trace};
 use toml::Value;
 
 fn main() -> color_eyre::eyre::Result<()> {
+    trace!("main: entering");
     init_panic()?;
+    pretty_env_logger::init();
 
     let matches = Command::new(env!("CARGO_PKG_NAME"))
         .allow_external_subcommands(true)
@@ -22,11 +25,17 @@ fn main() -> color_eyre::eyre::Result<()> {
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(arg!(-l --list "List all tasks"))
         .get_matches();
+    debug!("Matches: {:#?}", matches);
 
     let path = find_file()?;
+    debug!("Found file at: {}", path);
     let value = toml::from_str::<Value>(&std::fs::read_to_string(path.clone())?)?;
+    debug!("Parsed file: {:#?}", value);
     let file = BraiseFile::from_value(value)?;
+    debug!("Parsed braisé file: {:#?}", file);
+
     if matches.get_flag("list") {
+        trace!("main: listing tasks");
         println!(
             "{}",
             format!("Available tasks in {}:\n", path.bold()).underline()
@@ -38,6 +47,7 @@ fn main() -> color_eyre::eyre::Result<()> {
                 script.description.unwrap_or("".to_string()).dimmed()
             );
         }
+        trace!("main: exiting from list");
         return Ok(());
     }
     let (task, args) = if let Some((task, matches)) = matches.subcommand() {
@@ -63,7 +73,8 @@ fn main() -> color_eyre::eyre::Result<()> {
         .tasks
         .get(task)
         .ok_or(BraiseError::InvalidTask(task.to_string()))?;
-
+    debug!("Running task: {}", task);
     run_task(task, &args, &file, vec![])?;
+    trace!("main: exiting");
     Ok(())
 }
