@@ -1,3 +1,21 @@
+## v0.1.4 (2024-07-01)
+
+### Feat
+
+- add `runs-on` property to specify the task's platform
+- add support for default env values with env(VAR:default)
+- add inline env var replacement with `env(VAR)`
+- add dotenv support
+
+### Fix
+
+- join arguments with space
+- correctly pass shell args
+
+### Refactor
+
+- move args and env replacements to util functions
+
 ## v0.1.3 (2024-07-01)
 
 ### Feat

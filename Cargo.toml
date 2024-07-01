@@ -1,6 +1,6 @@
 [package]
 name = "braise"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 license-file = "LICENSE"
 description = "Run your tasks like a chef !"
