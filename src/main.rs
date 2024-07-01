@@ -9,7 +9,6 @@ use braise::{
 use clap::{arg, Command};
 use color_eyre::eyre::{bail, eyre};
 use log::{debug, trace};
-use toml::Value;
 
 fn main() -> color_eyre::eyre::Result<()> {
     let mut logger = build_logger();
@@ -38,7 +37,7 @@ fn main() -> color_eyre::eyre::Result<()> {
 
     let path = find_file()?;
     debug!("Found file at: {}", path);
-    let value = toml::from_str::<Value>(&std::fs::read_to_string(path.clone())?)?;
+    let value = toml::from_str::<toml::Value>(&std::fs::read_to_string(path.clone())?)?;
     debug!("Parsed file: {:#?}", value);
     let file = BraiseFile::from_value(value)?;
     debug!("Parsed braisé file: {:#?}", file);

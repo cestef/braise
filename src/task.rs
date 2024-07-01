@@ -93,7 +93,7 @@ pub fn run_task(
         .collect::<Vec<_>>();
     debug!("Arguments after replacement: {:#?}", args);
 
-    let shell = if let Some(ref shell) = task.shell {
+    let shell_command = if let Some(ref shell) = task.shell {
         debug!("Using task shell: {}", shell);
         shell.to_string()
     } else if let Some(ref shell) = file.shell {
@@ -101,11 +101,30 @@ pub fn run_task(
         shell.to_string()
     } else if let Some(shell) = std::env::var("SHELL").ok() {
         debug!("Using SHELL env var: {}", shell);
-        shell
+        match shell.as_str() {
+            "powershell" => format!("{} -Command", shell),
+            "cmd" => format!("{} /c", shell),
+            _ => format!("{} -c", shell),
+        }
     } else {
-        debug!("No shell found, exiting");
-        trace!("run_task: exiting with error");
-        bail!(BraiseError::NoShell);
+        match std::env::consts::OS {
+            "windows" => {
+                debug!("Using default shell for Windows: powershell");
+                "powershell -Command".to_string()
+            }
+            _ => {
+                debug!("Using default shell for Unix: sh");
+                "sh -c".to_string()
+            }
+        }
+    };
+    let (shell, args) = if shell_command.contains(" ") {
+        let mut split = shell_command.split_whitespace();
+        let shell = split.next().unwrap();
+        let args = split.collect::<Vec<_>>();
+        (shell.to_string(), args)
+    } else {
+        (shell_command, vec![])
     };
     let mut shell = std::process::Command::new(shell);
 
@@ -120,7 +139,7 @@ pub fn run_task(
         );
     }
 
-    let command = shell.arg("-c").arg(to_run);
+    let command = shell.args(args).arg(to_run);
 
     if quiet {
         trace!("run_task: flushing stdout and stderr");
