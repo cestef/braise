@@ -3,7 +3,7 @@ name = "braise"
 version = "0.1.0"
 edition = "2021"
 license-file = "LICENSE"
-description = "Run tasks like a chef !"
+description = "Run your tasks like a chef !"
 repository = "https://github.com/cestef/braise"
 readme = "README.md"
 
