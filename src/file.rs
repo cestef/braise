@@ -1,8 +1,8 @@
-use std::{collections::HashMap, fmt};
+use std::collections::HashMap;
 
-use crate::{constants::FILE_NAMES, error::BraiseError};
+use crate::{constants::FILE_NAMES, error::BraiseError, task::BraiseTask};
 use color_eyre::eyre::Result;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 pub fn find_file() -> Result<String> {
     let mut found = None;
@@ -21,32 +21,6 @@ pub fn find_file() -> Result<String> {
         Ok(found)
     } else {
         Err(BraiseError::NoBraiseFileFound.into())
-    }
-}
-
-/// A struct representing a Braise task
-/// ```toml
-/// [task]
-/// cmd = "echo Hello, World!"
-/// desc = "Prints 'Hello, World!'"
-/// ```
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BraiseTask {
-    #[serde(alias = "cmd")]
-    pub command: String,
-    #[serde(alias = "desc")]
-    pub description: Option<String>,
-    #[serde(alias = "deps", alias = "depends", alias = "depends_on")]
-    pub dependencies: Option<Vec<String>>,
-    #[serde(alias = "sh")]
-    pub shell: Option<String>,
-    #[serde(alias = "q")]
-    pub quiet: Option<bool>,
-}
-
-impl fmt::Display for BraiseTask {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.command)
     }
 }
 
