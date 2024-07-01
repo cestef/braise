@@ -52,7 +52,11 @@ fn main() -> color_eyre::eyre::Result<()> {
                 .collect::<Vec<_>>(),
         )
     } else {
-        bail!(BraiseError::NoTask);
+        if let Some(default) = &file.default {
+            (default.as_str(), vec![])
+        } else {
+            bail!(BraiseError::NoTask);
+        }
     };
 
     let task = file

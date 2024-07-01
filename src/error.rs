@@ -10,7 +10,7 @@ pub enum BraiseError {
     TaskNotFound(String),
     #[error("Invalid task: {0}")]
     InvalidTask(String),
-    #[error("No task provided")]
+    #[error("No task or default task found")]
     NoTask,
     #[error("Invalid argument index: {0}, only {1} arguments provided")]
     InvalidArgIndex(usize, usize),

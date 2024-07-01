@@ -30,6 +30,7 @@ pub struct BraiseFile {
     pub tasks: HashMap<String, BraiseTask>,
     pub shell: Option<String>,
     pub quiet: Option<bool>,
+    pub default: Option<String>,
 }
 
 impl BraiseFile {
@@ -58,10 +59,12 @@ impl BraiseFile {
             .map(|s| s.as_str().map(|s| s.to_string()))
             .flatten();
         let quiet = value.get("quiet").map(|q| q.as_bool()).flatten();
+        let default = value.get("default").map(|d| d.as_str()).flatten();
         Ok(Self {
             tasks,
             shell,
             quiet,
+            default: default.map(|d| d.to_string()),
         })
     }
 }
