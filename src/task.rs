@@ -104,9 +104,19 @@ pub fn run_task(
         .replace_all(&command, |caps: &regex::Captures| {
             debug!("Replacing env var: {}", caps.get(1).unwrap().as_str());
             if let Some(env) = env_vars.get(caps.get(1).unwrap().as_str()) {
-                env
+                env.to_string()
             } else {
-                ""
+                if let Some(default) = caps.get(2) {
+                    debug!(
+                        "Using default: {} for env var: {}",
+                        default.as_str(),
+                        caps.get(1).unwrap().as_str()
+                    );
+                    default.as_str().to_string()
+                } else {
+                    debug!("No default found");
+                    "".to_string()
+                }
             }
         })
         .to_string();
