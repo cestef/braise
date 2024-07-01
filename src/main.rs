@@ -143,7 +143,14 @@ fn run_task(
         );
     }
 
-    let mut child = shell.arg("-c").arg(to_run).spawn()?;
+    let command = shell.arg("-c").arg(to_run);
+
+    if quiet {
+        command.stdout(std::process::Stdio::null());
+        command.stderr(std::process::Stdio::null());
+    }
+
+    let mut child = command.spawn()?;
 
     let status = child.wait()?;
 
