@@ -1,3 +1,13 @@
+## v0.1.5 (2024-07-02)
+
+### Feat
+
+- add `--init` command to generate a sample braise.toml file with the schema included
+
+### Fix
+
+- set runs-on as an array in the schema
+
 ## v0.1.4 (2024-07-01)
 
 ### Feat
