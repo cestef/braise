@@ -1,3 +1,16 @@
+## v0.1.6 (2024-07-02)
+
+### Feat
+
+- allow false for dotenv property
+- add confirm to tasks
+- add `--quiet` option for limiting output
+
+### Fix
+
+- trim multi-lines commands
+- define intermidiate types for either<bool, u8> and either <bool, string>
+
 ## v0.1.5 (2024-07-02)
 
 ### Feat
