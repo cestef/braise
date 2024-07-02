@@ -21,6 +21,7 @@ fn main() -> color_eyre::eyre::Result<()> {
         .version(version())
         .author(clap::crate_authors!())
         .about(env!("CARGO_PKG_DESCRIPTION"))
+        .arg(arg!(-i --init "Initialize a sample Braise file with the JSON schema"))
         .arg(arg!(-l --list "List all tasks"))
         .arg(arg!(-d --debug... "Print debug information"))
         .get_matches();
@@ -37,7 +38,35 @@ fn main() -> color_eyre::eyre::Result<()> {
     init_panic()?;
 
     debug!("Matches: {:#?}", matches);
+    if matches.get_flag("init") {
+        trace!("main: initializing");
+        let mut name = "braise.toml".to_string();
+        if let Ok(file) = find_file() {
+            println!("The Braisefile already exists at {}", file.bold());
+            // Ask if they want to overwrite
+            let mut input = String::new();
+            println!("Do you want to overwrite it? [y/{}]", "N".bold());
+            std::io::stdin().read_line(&mut input)?;
+            if input.trim().to_lowercase() != "y" {
+                println!("Exiting...");
+                return Ok(());
+            }
+            name = file;
+        }
+        let content = format!(
+            r#"#:schema {}
 
+[echo]
+command = "echo Hello, world!"
+description = "Prints 'Hello, world!' to the console"
+"#,
+            braise::constants::SCHEMA_URL
+        );
+        std::fs::write(&name, content)?;
+        println!("Initialized the Braisefile at {}", name.bold());
+        trace!("main: exiting from init");
+        return Ok(());
+    }
     let path = find_file()?;
     debug!("Found file at: {}", path);
 
