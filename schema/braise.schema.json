@@ -1,11 +1,14 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "description": "JSON schema for the braisé configuration",
+    "$id": "https://raw.githubusercontent.com/cestef/braise/main/schema/braise.schema.json",
     "type": "object",
     "title": "Braisé Configuration Schema",
     "definitions": {
         "task": {
             "type": "object",
+            "title": "Task",
+            "description": "A task to run in the braisé configuration",
             "properties": {
                 "command": {
                     "type": "string",
@@ -24,8 +27,12 @@
                     "description": "Whether to suppress output for this task"
                 },
                 "runs-on": {
-                    "type": "string",
-                    "description": "The platform to run the task on"
+                    "type": "array",
+                    "description": "The platforms to run the task on",
+                    "items": {
+                        "type": "string",
+                        "enum": ["windows", "macos", "linux","android", "ios"]
+                    }
                 },
                 "depends-on": {
                     "type": "array",
@@ -67,8 +74,7 @@
             },
             {
                 "type": "object",
-                "$ref": "#/definitions/task",
-                "required": ["command"]
+                "$ref": "#/definitions/task"
             }
         ]
     }
