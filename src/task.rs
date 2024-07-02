@@ -27,8 +27,7 @@ pub struct BraiseTask {
     pub dependencies: Option<Vec<String>>,
     #[serde(alias = "sh")]
     pub shell: Option<String>,
-    #[serde(alias = "q")]
-    pub quiet: Either<Option<bool>, Option<u8>>,
+    pub quiet: Option<BoolOrU8>,
     #[serde(
         alias = "runs-on",
         alias = "runs_on",
@@ -38,9 +37,16 @@ pub struct BraiseTask {
         alias = "platform"
     )]
     pub runs_on: Option<Vec<String>>,
-    #[serde(with = "either::serde_untagged")]
-    pub confirm: Either<Option<String>, Option<bool>>,
+    pub confirm: Option<StringOrBool>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct StringOrBool(#[serde(with = "either::serde_untagged")] pub Either<String, bool>);
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct BoolOrU8(#[serde(with = "either::serde_untagged")] pub Either<bool, u8>);
 
 impl fmt::Display for BraiseTask {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -108,9 +114,11 @@ pub fn run_task(
     let to_run = format!("{command} {}", args.join(" "));
 
     let title_quiet = (quiet > 0)
-        || match task.quiet {
-            Either::Left(Some(q)) => q,
-            Either::Right(Some(q)) => q > 0,
+        || match &task.quiet {
+            Some(q) => match q.0 {
+                Either::Left(q) => q,
+                Either::Right(q) => q > 0,
+            },
             _ => false,
         }
         || match file.quiet {
@@ -118,6 +126,7 @@ pub fn run_task(
             Either::Right(Some(q)) => q > 0,
             _ => false,
         };
+
     if !title_quiet {
         println!(
             "[{}] {}",
@@ -134,9 +143,11 @@ pub fn run_task(
 
     debug!("Running command: {:#?}", command);
     let output_quiet = (quiet > 1)
-        || match task.quiet {
-            Either::Left(Some(q)) => q,
-            Either::Right(Some(q)) => q > 1,
+        || match &task.quiet {
+            Some(q) => match q.0 {
+                Either::Left(q) => q,
+                Either::Right(q) => q > 1,
+            },
             _ => false,
         }
         || match file.quiet {

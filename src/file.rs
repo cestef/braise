@@ -66,10 +66,11 @@ impl BraiseFile {
             .iter()
             .filter_map(|(task, script)| {
                 if script.is_table() {
-                    if let Ok(script) = BraiseTask::deserialize(script.clone()) {
+                    let res = BraiseTask::deserialize(script.clone());
+                    if let Ok(script) = res {
                         Some((task.clone(), vec![script]))
                     } else {
-                        debug!("Couldn't parse task: {}", task);
+                        debug!("Couldn't parse task {}: {}", task.bold(), res.unwrap_err());
                         None
                     }
                 } else if script.is_array() {
