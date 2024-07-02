@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt};
 
 use color_eyre::{eyre::bail, owo_colors::OwoColorize};
+use either::Either;
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +28,7 @@ pub struct BraiseTask {
     #[serde(alias = "sh")]
     pub shell: Option<String>,
     #[serde(alias = "q")]
-    pub quiet: Option<bool>,
+    pub quiet: Either<Option<bool>, Option<u8>>,
     #[serde(
         alias = "runs-on",
         alias = "runs_on",
@@ -37,8 +38,8 @@ pub struct BraiseTask {
         alias = "platform"
     )]
     pub runs_on: Option<Vec<String>>,
-    #[serde(alias = "ask")]
-    pub confirm: Option<String>,
+    #[serde(with = "either::serde_untagged")]
+    pub confirm: Either<Option<String>, Option<bool>>,
 }
 
 impl fmt::Display for BraiseTask {
@@ -106,7 +107,17 @@ pub fn run_task(
 
     let to_run = format!("{command} {}", args.join(" "));
 
-    let title_quiet = (quiet > 0) || task.quiet.unwrap_or(file.quiet.unwrap_or(false));
+    let title_quiet = (quiet > 0)
+        || match task.quiet {
+            Either::Left(Some(q)) => q,
+            Either::Right(Some(q)) => q > 0,
+            _ => false,
+        }
+        || match file.quiet {
+            Either::Left(Some(q)) => q,
+            Either::Right(Some(q)) => q > 0,
+            _ => false,
+        };
     if !title_quiet {
         println!(
             "[{}] {}",
@@ -122,7 +133,17 @@ pub fn run_task(
         .envs(env_vars);
 
     debug!("Running command: {:#?}", command);
-    let output_quiet = (quiet > 1) || task.quiet.unwrap_or(file.quiet.unwrap_or(false));
+    let output_quiet = (quiet > 1)
+        || match task.quiet {
+            Either::Left(Some(q)) => q,
+            Either::Right(Some(q)) => q > 1,
+            _ => false,
+        }
+        || match file.quiet {
+            Either::Left(Some(q)) => q,
+            Either::Right(Some(q)) => q > 1,
+            _ => false,
+        };
     if output_quiet {
         trace!("run_task: flushing stdout and stderr");
         command.stdout(std::process::Stdio::null());

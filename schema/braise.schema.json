@@ -23,8 +23,17 @@
                     "description": "The shell to use for this task"
                 },
                 "quiet": {
-                    "type": "boolean",
-                    "description": "Whether to suppress output for this task"
+                    "description": "Whether to suppress output for this task",
+                    "anyOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 2
+                        }
+                    ]
                 },
                 "runs-on": {
                     "type": "array",
@@ -51,16 +60,32 @@
             "description": "The shell to use for braisé tasks"
         },
         "quiet": {
-            "type": "boolean",
-            "description": "Whether to suppress all output"
+            "description": "Whether to suppress all output",
+            "anyOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2
+                }
+            ]
         },
         "default": {
             "type": "string",
             "description": "The default command to run when no command is specified"
         },
         "dotenv": {
-            "type": "string",
-            "description": "The path to the .env file to load"
+            "description": "The path to the .env file to load, or false to disable",
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "boolean"
+                }
+            ]
         }
     },
     "additionalProperties": {

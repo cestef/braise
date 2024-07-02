@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::{constants::FILE_NAMES, error::BraiseError, task::BraiseTask};
 use color_eyre::{eyre::Result, owo_colors::OwoColorize};
+use either::Either;
 use log::debug;
 use serde::Deserialize;
 
@@ -50,9 +51,9 @@ pub fn print_tasks(file: BraiseFile) {
 pub struct BraiseFile {
     pub tasks: HashMap<String, Vec<BraiseTask>>,
     pub shell: Option<String>,
-    pub quiet: Option<bool>,
+    pub quiet: Either<Option<bool>, Option<u8>>,
     pub default: Option<String>,
-    pub dotenv: Option<String>,
+    pub dotenv: Either<Option<String>, Option<bool>>,
 }
 
 impl BraiseFile {
@@ -104,16 +105,39 @@ impl BraiseFile {
             .get("shell")
             .map(|s| s.as_str().map(|s| s.to_string()))
             .flatten();
-        let quiet = value.get("quiet").map(|q| q.as_bool()).flatten();
+
+        let quiet = if let Some(quiet) = value.get("quiet") {
+            if quiet.is_bool() {
+                Either::Left(Some(quiet.as_bool().unwrap()))
+            } else if quiet.is_integer() {
+                Either::Right(Some(quiet.as_integer().unwrap() as u8))
+            } else {
+                Either::Left(None)
+            }
+        } else {
+            Either::Left(None)
+        };
+
         let default = value.get("default").map(|d| d.as_str()).flatten();
-        let dotenv = value.get("dotenv").map(|d| d.as_str()).flatten();
+
+        let dotenv = if let Some(dotenv) = value.get("dotenv") {
+            if dotenv.is_str() {
+                Either::Left(Some(dotenv.as_str().unwrap().to_string()))
+            } else if dotenv.is_bool() {
+                Either::Right(Some(dotenv.as_bool().unwrap()))
+            } else {
+                Either::Left(None)
+            }
+        } else {
+            Either::Left(None)
+        };
 
         Ok(Self {
             tasks,
             shell,
             quiet,
             default: default.map(|d| d.to_string()),
-            dotenv: dotenv.map(|d| d.to_string()),
+            dotenv,
         })
     }
 }

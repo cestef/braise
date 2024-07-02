@@ -15,6 +15,18 @@ use crate::{
 
 pub static GIT_COMMIT_HASH: &str = env!("_GIT_INFO");
 
+pub fn confirm_action(prompt: &str) -> std::io::Result<bool> {
+    println!("{}", prompt);
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    if input.trim().to_lowercase() != "y" {
+        println!("Exiting...");
+        Ok(false)
+    } else {
+        Ok(true)
+    }
+}
+
 pub fn init_panic() -> Result<()> {
     trace!("init_panic: entering");
     let (panic_hook, eyre_hook) = color_eyre::config::HookBuilder::default()

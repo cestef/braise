@@ -4,13 +4,14 @@ use braise::{
     error::BraiseError,
     file::{find_file, print_tasks, BraiseFile},
     task::run_task,
-    utils::{build_logger, init_panic, version},
+    utils::{build_logger, confirm_action, init_panic, version},
 };
 use clap::{arg, Command};
 use color_eyre::{
     eyre::{bail, eyre, Context},
     owo_colors::OwoColorize,
 };
+use either::Either;
 use log::{debug, trace};
 
 fn main() -> color_eyre::eyre::Result<()> {
@@ -121,38 +122,58 @@ description = "Prints 'Hello, world!' to the console"
         .ok_or(BraiseError::TaskNotFound(task.to_string()))?;
     debug!("Running task: {}", task);
 
-    if let Some(confirm) = &task.confirm {
-        let mut input = String::new();
-        println!(
-            "{}",
-            if confirm.is_empty() {
+    match task.confirm {
+        Either::Left(Some(ref confirm)) => {
+            let prompt = if confirm.is_empty() {
                 "Are you sure? [y/N]"
             } else {
                 confirm
+            };
+            if !confirm_action(prompt)? {
+                return Ok(());
             }
-        );
-        std::io::stdin().read_line(&mut input)?;
-        if input.trim().to_lowercase() != "y" {
-            println!("Exiting...");
-            return Ok(());
         }
+        Either::Right(Some(true)) => {
+            if !confirm_action("Are you sure? [y/N]")? {
+                return Ok(());
+            }
+        }
+        _ => {}
     }
 
-    let env_vars = if let Some(dotenv) = &file.dotenv {
-        if dotenv.is_empty() || dotenv == "false" {
-            debug!("Opted-out of dotenv");
-            vec![]
-        } else {
+    // let env_vars = if let Some(dotenv) = &file.dotenv {
+    //     if dotenv.is_empty() || dotenv == "false" {
+    //         debug!("Opted-out of dotenv");
+    //         vec![]
+    //     } else {
+    //         debug!("Reading dotenv file: {}", dotenv);
+    //         dotenvy::from_filename_iter(dotenv)
+    //             .context(format!("Couldn't read dotenv file: {}", dotenv.bold()))?
+    //             .collect::<Vec<_>>()
+    //     }
+    // } else {
+    //     debug!("Reading dotenv file: .env");
+    //     dotenvy::dotenv_iter()
+    //         .map(|res| res.collect::<Vec<_>>())
+    //         .unwrap_or_default()
+    // };
+    let env_vars = match &file.dotenv {
+        Either::Left(Some(dotenv)) => {
             debug!("Reading dotenv file: {}", dotenv);
             dotenvy::from_filename_iter(dotenv)
                 .context(format!("Couldn't read dotenv file: {}", dotenv.bold()))?
                 .collect::<Vec<_>>()
         }
-    } else {
-        debug!("Reading dotenv file: .env");
-        dotenvy::dotenv_iter()
-            .map(|res| res.collect::<Vec<_>>())
-            .unwrap_or_default()
+        Either::Right(Some(true)) => {
+            debug!("Reading dotenv file: .env");
+            dotenvy::dotenv_iter()
+                .map(|res| res.collect::<Vec<_>>())
+                .unwrap_or_default()
+        }
+        _ => {
+            debug!("Not reading dotenv file");
+            vec![]
+        }
     };
 
     let env_vars = env_vars

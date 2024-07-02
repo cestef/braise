@@ -20,7 +20,7 @@ clap = { version = "4.5.8", features = [
 color-eyre = "0.6.3"
 dirs = "5.0.1"
 dotenvy = "0.15.7"
-either = "1.13.0"
+either = { version = "1.13.0", features = ["serde"] }
 human-panic = "2.0.0"
 lazy_static = "1.5.0"
 log = "0.4.22"
