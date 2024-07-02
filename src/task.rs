@@ -131,7 +131,16 @@ pub fn run_task(
         println!(
             "[{}] {}",
             ran.len().dimmed(),
-            to_run.trim().bold().underline()
+            (if task.command.lines().count() > 1 {
+                format!(
+                    "{} {}",
+                    task.command.lines().next().unwrap().bold().underline(),
+                    "...".dimmed()
+                )
+            } else {
+                task.command.clone().bold().underline().to_string()
+            })
+            .trim()
         );
     }
 
