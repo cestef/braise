@@ -37,6 +37,8 @@ pub struct BraiseTask {
         alias = "platform"
     )]
     pub runs_on: Option<Vec<String>>,
+    #[serde(alias = "ask")]
+    pub confirm: Option<String>,
 }
 
 impl fmt::Display for BraiseTask {

@@ -120,6 +120,24 @@ description = "Prints 'Hello, world!' to the console"
         })
         .ok_or(BraiseError::TaskNotFound(task.to_string()))?;
     debug!("Running task: {}", task);
+
+    if let Some(confirm) = &task.confirm {
+        let mut input = String::new();
+        println!(
+            "{}",
+            if confirm.is_empty() {
+                "Are you sure? [y/N]"
+            } else {
+                confirm
+            }
+        );
+        std::io::stdin().read_line(&mut input)?;
+        if input.trim().to_lowercase() != "y" {
+            println!("Exiting...");
+            return Ok(());
+        }
+    }
+
     let env_vars = if let Some(dotenv) = &file.dotenv {
         if dotenv.is_empty() || dotenv == "false" {
             debug!("Opted-out of dotenv");
