@@ -46,6 +46,7 @@ impl fmt::Display for BraiseTask {
 }
 
 pub fn run_task(
+    quiet: u8,
     task: &BraiseTask,
     args: &[String],
     file: &BraiseFile,
@@ -74,7 +75,7 @@ pub fn run_task(
                         .unwrap_or(true)
                 });
                 if let Some(dep_task) = dep_task {
-                    run_task(&dep_task, args, file, env_vars, ran.clone())?;
+                    run_task(quiet, &dep_task, args, file, env_vars, ran.clone())?;
                     ran.push(dep.to_string());
                 } else {
                     bail!(BraiseError::NoValidTask(dep.to_string()));
@@ -103,8 +104,8 @@ pub fn run_task(
 
     let to_run = format!("{command} {}", args.join(" "));
 
-    let quiet = task.quiet.unwrap_or(file.quiet.unwrap_or(false));
-    if !quiet {
+    let title_quiet = (quiet > 0) || task.quiet.unwrap_or(file.quiet.unwrap_or(false));
+    if !title_quiet {
         println!(
             "[{}] {}",
             ran.len().dimmed(),
@@ -119,8 +120,8 @@ pub fn run_task(
         .envs(env_vars);
 
     debug!("Running command: {:#?}", command);
-
-    if quiet {
+    let output_quiet = (quiet > 1) || task.quiet.unwrap_or(file.quiet.unwrap_or(false));
+    if output_quiet {
         trace!("run_task: flushing stdout and stderr");
         command.stdout(std::process::Stdio::null());
         command.stderr(std::process::Stdio::null());

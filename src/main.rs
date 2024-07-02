@@ -23,6 +23,7 @@ fn main() -> color_eyre::eyre::Result<()> {
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(arg!(-i --init "Initialize a sample Braise file with the JSON schema"))
         .arg(arg!(-l --list "List all tasks"))
+        .arg(arg!(-q --quiet... "Suppress all output"))
         .arg(arg!(-d --debug... "Print debug information"))
         .get_matches();
 
@@ -149,7 +150,14 @@ description = "Prints 'Hello, world!' to the console"
 
     debug!("Env vars: {:#?}", env_vars);
 
-    run_task(task, &args, &file, &env_vars, vec![])?;
+    run_task(
+        matches.get_count("quiet"),
+        task,
+        &args,
+        &file,
+        &env_vars,
+        vec![],
+    )?;
     trace!("main: exiting");
     Ok(())
 }
