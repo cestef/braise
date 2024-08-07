@@ -128,19 +128,27 @@ pub fn run_task(
         };
 
     if !title_quiet {
+        // Check if the title is too long for the current terminal width or if it has a newline
+        let title = if task.command.lines().count() > 1 {
+            format!(
+                "{} {}",
+                task.command.lines().next().unwrap().bold().underline(),
+                "...".dimmed()
+            )
+        } else {
+            task.command.clone().bold().underline().to_string()
+        };
+
+        let terminal_width = term_size::dimensions().map(|(w, _)| w).unwrap_or(80);
+
         println!(
             "[{}] {}",
             ran.len().dimmed(),
-            (if task.command.lines().count() > 1 {
-                format!(
-                    "{} {}",
-                    task.command.lines().next().unwrap().bold().underline(),
-                    "...".dimmed()
-                )
+            if title.len() > terminal_width - 4 {
+                title[..terminal_width - 4].to_string()
             } else {
-                task.command.clone().bold().underline().to_string()
-            })
-            .trim()
+                title
+            }
         );
     }
 
