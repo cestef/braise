@@ -162,7 +162,7 @@ description = "Prints 'Hello, world!' to the console"
         _ => {}
     }
 
-    let env_vars = match &file.dotenv {
+    let mut env_vars = match &file.dotenv {
         Either::Left(Some(dotenv)) => {
             debug!("Reading dotenv file: {}", dotenv);
             dotenvy::from_filename_iter(dotenv)
@@ -180,6 +180,9 @@ description = "Prints 'Hello, world!' to the console"
             vec![]
         }
     };
+
+    // Extend with the environment variables from the system
+    env_vars.extend(std::env::vars().map(|(key, value)| Ok((key, value))));
 
     let env_vars = env_vars
         .iter()
