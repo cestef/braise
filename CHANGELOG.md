@@ -1,3 +1,9 @@
+## v0.1.7 (2024-08-07)
+
+### Feat
+
+- trim output based on terminal size
+
 ## v0.1.6 (2024-07-02)
 
 ### Feat
