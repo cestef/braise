@@ -125,7 +125,7 @@ description = "Prints 'Hello, world!' to the console"
         .collect::<Vec<_>>();
 
     let parallel = matches.get_flag("parallel") || file.parallel.unwrap_or(false);
-    for task in inputs {
+    for task_name in inputs {
         let file = file.clone();
         let args = args.clone();
         if !parallel {
@@ -139,8 +139,8 @@ description = "Prints 'Hello, world!' to the console"
         let handle = spawn(move || {
             let tasks = file
                 .tasks
-                .get(&task)
-                .ok_or(BraiseError::InvalidTask(task.to_string()))?;
+                .get(&task_name)
+                .ok_or(BraiseError::InvalidTask(task_name.to_string()))?;
             let task = tasks
                 .iter()
                 .find(|task| {
@@ -152,8 +152,8 @@ description = "Prints 'Hello, world!' to the console"
                         })
                         .unwrap_or(true)
                 })
-                .ok_or(BraiseError::TaskNotFound(task.to_string()))?;
-            debug!("Running task: {}", task);
+                .ok_or(BraiseError::TaskNotFound(task_name.to_string()))?;
+            debug!("Running task: {}", task_name);
 
             match &task.confirm {
                 Some(confirm) => match confirm.0 {
@@ -212,7 +212,15 @@ description = "Prints 'Hello, world!' to the console"
 
             debug!("Env vars: {:#?}", env_vars);
 
-            run_task(quiet_level, task, &args, &file, &env_vars, vec![])?;
+            run_task(
+                quiet_level,
+                task,
+                &args,
+                &file,
+                &env_vars,
+                &task_name,
+                vec![],
+            )?;
             color_eyre::eyre::Ok(())
         });
         handles.push(handle);

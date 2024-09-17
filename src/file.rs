@@ -27,21 +27,50 @@ pub fn find_file() -> Result<String> {
 }
 
 pub fn print_tasks(file: &BraiseFile) {
+    let manifest = cargo_toml::Manifest::from_path("Cargo.toml");
     println!(
         "{}",
         format!("Available tasks in {}:\n", "Braise.toml".bold()).underline()
     );
     for (task, scripts) in &file.tasks {
+        let is_default = if let Some(ref default) = file.default {
+            default == task
+        } else {
+            false
+        };
         for script in scripts {
             println!(
-                "{}{}",
+                "{}{}{}",
                 task.bold(),
                 if let Some(ref desc) = script.description {
                     format!(": {}", desc.dimmed())
                 } else {
                     "".to_string()
+                },
+                if is_default {
+                    " (default)".dimmed().to_string()
+                } else {
+                    "".to_string()
                 }
             );
+        }
+    }
+    if let Ok(manifest) = manifest {
+        if let Some(workspace) = manifest.workspace {
+            println!(
+                "{}",
+                format!("\nAvailable binaries in {}:\n", "Cargo.toml".bold()).underline()
+            );
+            for member in workspace.members {
+                let name = member
+                    .split('/')
+                    .last()
+                    .unwrap_or(&member)
+                    .split('.')
+                    .next()
+                    .unwrap_or(&member);
+                println!("{}", name.bold());
+            }
         }
     }
 }

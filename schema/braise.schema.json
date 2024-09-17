@@ -51,7 +51,14 @@
                     "description": "The names of tasks that this task depends on"
                 }
             },
-            "required": ["command"]
+            "oneOf": [
+                {
+                    "required": ["command"]
+                },
+                {
+                    "required": ["workspace"]
+                }
+            ]
         }
     },
     "properties": {

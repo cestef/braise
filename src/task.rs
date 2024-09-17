@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt};
+use std::collections::HashMap;
 
 use color_eyre::{eyre::bail, owo_colors::OwoColorize};
 use either::Either;
@@ -19,15 +19,20 @@ use crate::{
 /// ```
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BraiseTask {
+    /// The command to run
     #[serde(alias = "cmd")]
-    pub command: String,
+    pub command: Option<String>,
     #[serde(alias = "desc")]
     pub description: Option<String>,
+    /// References to other tasks that need to be run before this one
     #[serde(alias = "deps", alias = "depends", alias = "depends_on")]
     pub dependencies: Option<Vec<String>>,
+    /// The shell used to run the command
     #[serde(alias = "sh")]
     pub shell: Option<String>,
+    /// Whether to suppress output (q (1) = braise output, qq (2) = braise + command output)
     pub quiet: Option<BoolOrU8>,
+    /// The OSes the task can run on
     #[serde(
         alias = "runs-on",
         alias = "runs_on",
@@ -37,7 +42,10 @@ pub struct BraiseTask {
         alias = "platform"
     )]
     pub runs_on: Option<Vec<String>>,
+    /// Whether to confirm before running the task (string = message, bool = confirm with default message)
     pub confirm: Option<StringOrBool>,
+    /// Try to find the command from the current cargo workspace
+    pub workspace: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -48,21 +56,26 @@ pub struct StringOrBool(#[serde(with = "either::serde_untagged")] pub Either<Str
 #[serde(transparent)]
 pub struct BoolOrU8(#[serde(with = "either::serde_untagged")] pub Either<bool, u8>);
 
-impl fmt::Display for BraiseTask {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.command)
-    }
-}
-
 pub fn run_task(
     quiet: u8,
     task: &BraiseTask,
     args: &[String],
     file: &BraiseFile,
     env_vars: &HashMap<String, String>,
+    task_name: &str,
     mut ran: Vec<String>,
 ) -> color_eyre::eyre::Result<()> {
     trace!("run_task: entering");
+
+    let use_workspace = task.workspace.unwrap_or(false);
+
+    if task.command.is_none() && !use_workspace {
+        trace!("run_task: exiting with error");
+        bail!(BraiseError::InvalidTask(
+            "Need either a command or workspace to run".to_string()
+        ));
+    }
+
     if let Some(deps) = &task.dependencies {
         trace!("run_task: checking dependencies");
         for dep in deps {
@@ -84,7 +97,15 @@ pub fn run_task(
                         .unwrap_or(true)
                 });
                 if let Some(dep_task) = dep_task {
-                    run_task(quiet, &dep_task, args, file, env_vars, ran.clone())?;
+                    run_task(
+                        quiet,
+                        &dep_task,
+                        args,
+                        file,
+                        env_vars,
+                        task_name,
+                        ran.clone(),
+                    )?;
                     ran.push(dep.to_string());
                 } else {
                     bail!(BraiseError::NoValidTask(dep.to_string()));
@@ -93,7 +114,37 @@ pub fn run_task(
         }
     }
 
-    let (mut command, args) = replace_args(&task.command, args)?;
+    let resolved_command = if use_workspace {
+        let manifest = cargo_toml::Manifest::from_path("Cargo.toml")?;
+        if let Some(workspace) = manifest.workspace {
+            let members: Vec<String> = workspace
+                .members
+                .iter()
+                .map(|member| {
+                    member
+                        .split('/')
+                        .last()
+                        .unwrap_or(&member)
+                        .split('.')
+                        .next()
+                        .unwrap_or(&member)
+                        .to_string()
+                })
+                .collect();
+            let member = members.iter().find(|member| *member == task_name);
+            if let Some(member) = member {
+                format!("cargo run --bin {}", member)
+            } else {
+                bail!(BraiseError::NoValidTask(task_name.to_string()));
+            }
+        } else {
+            bail!(BraiseError::NoValidTask("No workspace found".to_string()));
+        }
+    } else {
+        task.command.clone().unwrap()
+    };
+
+    let (mut command, args) = replace_args(&resolved_command, args)?;
 
     command = replace_env_vars(&command, env_vars)?;
 
@@ -129,14 +180,14 @@ pub fn run_task(
 
     if !title_quiet {
         // Check if the title is too long for the current terminal width or if it has a newline
-        let title = if task.command.lines().count() > 1 {
+        let title = if command.lines().count() > 1 {
             format!(
                 "{} {}",
-                task.command.lines().next().unwrap().bold().underline(),
+                command.lines().next().unwrap().bold().underline(),
                 "...".dimmed()
             )
         } else {
-            task.command.clone().bold().underline().to_string()
+            command.clone().bold().underline().to_string()
         };
 
         let terminal_width = term_size::dimensions().map(|(w, _)| w).unwrap_or(80);
@@ -186,7 +237,7 @@ pub fn run_task(
         trace!("run_task: exiting with error");
         bail!(BraiseError::Error(format!(
             "Task {} failed with status code {}",
-            task,
+            task_name,
             status.code().unwrap_or(1)
         )));
     }
