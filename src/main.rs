@@ -46,7 +46,6 @@ fn main() -> Result<()> {
     }
 
     logger.try_init()?;
-    println!("{}", log::max_level());
     trace!("main: starting");
     init_panic()?;
 
