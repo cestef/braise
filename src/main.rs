@@ -1,6 +1,8 @@
 use std::{
     collections::HashMap,
+    env,
     ffi::OsString,
+    path::Path,
     sync::Arc,
     thread::{spawn, JoinHandle},
 };
@@ -28,7 +30,7 @@ fn main() -> Result<()> {
         .version(version())
         .author(clap::crate_authors!())
         .about(env!("CARGO_PKG_DESCRIPTION"))
-        .arg(arg!(-i --init "Initialize a sample Braise file with the JSON schema"))
+        .arg(arg!(-i --init <PATH> "Initialize a sample Braise file with the JSON schema"))
         .arg(arg!(-l --list "List all tasks"))
         .arg(arg!(-q --quiet... "Suppress all output"))
         .arg(arg!(-d --debug... "Print debug information"))
@@ -43,12 +45,14 @@ fn main() -> Result<()> {
         logger.filter_level(log::LevelFilter::Trace);
     }
 
-    logger.init();
+    logger.try_init()?;
+    println!("{}", log::max_level());
     trace!("main: starting");
     init_panic()?;
 
     debug!("Matches: {:#?}", matches);
-    if matches.get_flag("init") {
+
+    if let Some(path) = matches.get_one::<String>("init") {
         trace!("main: initializing");
         let mut name = "braise.toml".to_string();
         if let Ok(file) = find_file() {
@@ -72,8 +76,10 @@ description = "Prints 'Hello, world!' to the console"
 "#,
             braise::constants::SCHEMA_URL
         );
-        std::fs::write(&name, content)?;
-        println!("Initialized the Braisefile at {}", name.bold());
+        let file_path = Path::new(&path);
+        let joined = file_path.join(name);
+        std::fs::write(&joined, content)?;
+        println!("Initialized the Braisefile at {}", joined.display().bold());
         trace!("main: exiting from init");
         return Ok(());
     }
