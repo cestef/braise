@@ -26,17 +26,17 @@ pub fn find_file() -> Result<String> {
     }
 }
 
-pub fn print_tasks(file: BraiseFile) {
+pub fn print_tasks(file: &BraiseFile) {
     println!(
         "{}",
         format!("Available tasks in {}:\n", "Braise.toml".bold()).underline()
     );
-    for (task, scripts) in file.tasks {
+    for (task, scripts) in &file.tasks {
         for script in scripts {
             println!(
                 "{}{}",
                 task.bold(),
-                if let Some(desc) = script.description {
+                if let Some(ref desc) = script.description {
                     format!(": {}", desc.dimmed())
                 } else {
                     "".to_string()

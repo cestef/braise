@@ -24,4 +24,6 @@ pub enum BraiseError {
     NoShell,
     #[error("No valid task found for {0}")]
     NoValidTask(String),
+    #[error("Thread error")]
+    ThreadError,
 }

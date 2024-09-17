@@ -1,6 +1,12 @@
-use std::{collections::HashMap, ffi::OsString};
+use std::{
+    collections::HashMap,
+    ffi::OsString,
+    sync::Arc,
+    thread::{spawn, JoinHandle},
+};
 
 use braise::{
+    constants::TASKS_SEPARATOR,
     error::BraiseError,
     file::{find_file, print_tasks, BraiseFile},
     task::run_task,
@@ -8,13 +14,13 @@ use braise::{
 };
 use clap::{arg, Command};
 use color_eyre::{
-    eyre::{bail, eyre, Context},
+    eyre::{bail, eyre, Context, Result},
     owo_colors::OwoColorize,
 };
 use either::Either;
 use log::{debug, trace};
 
-fn main() -> color_eyre::eyre::Result<()> {
+fn main() -> Result<()> {
     let mut logger = build_logger();
 
     let matches = Command::new(env!("CARGO_PKG_NAME"))
@@ -26,9 +32,11 @@ fn main() -> color_eyre::eyre::Result<()> {
         .arg(arg!(-l --list "List all tasks"))
         .arg(arg!(-q --quiet... "Suppress all output"))
         .arg(arg!(-d --debug... "Print debug information"))
+        .arg(arg!(-p --parallel "Run tasks in parallel"))
         .get_matches();
 
     let debug_level = matches.get_count("debug");
+    let quiet_level = matches.get_count("quiet");
     if debug_level == 1 {
         logger.filter_level(log::LevelFilter::Debug);
     } else if debug_level > 1 {
@@ -75,19 +83,19 @@ description = "Prints 'Hello, world!' to the console"
     let value = toml::from_str::<toml::Value>(&std::fs::read_to_string(path.clone())?)?;
     debug!("Parsed file: {:#?}", value);
 
-    let file = BraiseFile::from_value(value)?;
+    let file = Arc::new(BraiseFile::from_value(value)?);
     debug!("Parsed braisé file: {:#?}", file);
 
     if matches.get_flag("list") {
         trace!("main: listing tasks");
-        print_tasks(file);
+        print_tasks(&file);
         trace!("main: exiting from list");
         return Ok(());
     }
 
-    let (task, args) = if let Some((task, matches)) = matches.subcommand() {
+    let (input, args) = if let Some((input, matches)) = matches.subcommand() {
         (
-            task,
+            input.to_string(),
             matches
                 .get_many::<OsString>("")
                 .ok_or(eyre!("Couldn't parse external args"))?
@@ -97,114 +105,119 @@ description = "Prints 'Hello, world!' to the console"
                 .collect::<Vec<_>>(),
         )
     } else {
-        if let Some(default) = &file.default {
-            (default.as_str(), vec![])
+        if let Some(ref default) = file.default {
+            (default.to_string(), vec![])
         } else {
             bail!(BraiseError::NoTask);
         }
     };
+    let args = Arc::new(args);
 
-    let tasks = file
-        .tasks
-        .get(task)
-        .ok_or(BraiseError::InvalidTask(task.to_string()))?;
-    let task = tasks
-        .iter()
-        .find(|task| {
-            task.runs_on
-                .as_ref()
-                .map(|os| {
-                    os.iter()
-                        .any(|os| os.to_lowercase() == std::env::consts::OS.to_lowercase())
+    let mut handles: Vec<JoinHandle<Result<()>>> = vec![];
+    let inputs = input
+        .split(TASKS_SEPARATOR)
+        .map(|e| e.to_owned())
+        .collect::<Vec<_>>();
+    for task in inputs {
+        let file = file.clone();
+        let args = args.clone();
+        if !matches.get_flag("parallel") {
+            for handle in handles.drain(..) {
+                handle.join().map_err(|e| {
+                    debug!("Error joining thread: {:#?}", e);
+                    BraiseError::ThreadError
+                })??;
+            }
+        }
+        let handle = spawn(move || {
+            let tasks = file
+                .tasks
+                .get(&task)
+                .ok_or(BraiseError::InvalidTask(task.to_string()))?;
+            let task = tasks
+                .iter()
+                .find(|task| {
+                    task.runs_on
+                        .as_ref()
+                        .map(|os| {
+                            os.iter()
+                                .any(|os| os.to_lowercase() == std::env::consts::OS.to_lowercase())
+                        })
+                        .unwrap_or(true)
                 })
-                .unwrap_or(true)
-        })
-        .ok_or(BraiseError::TaskNotFound(task.to_string()))?;
-    debug!("Running task: {}", task);
+                .ok_or(BraiseError::TaskNotFound(task.to_string()))?;
+            debug!("Running task: {}", task);
 
-    // match task.confirm.0 {
-    //     Either::Left(Some(ref confirm)) => {
-    //         let prompt = if confirm.is_empty() {
-    //             "Are you sure? [y/N]"
-    //         } else {
-    //             confirm
-    //         };
-    //         if !confirm_action(prompt)? {
-    //             return Ok(());
-    //         }
-    //     }
-    //     Either::Right(Some(true)) => {
-    //         if !confirm_action("Are you sure? [y/N]")? {
-    //             return Ok(());
-    //         }
-    //     }
-    //     _ => {}
-    // }
-    match &task.confirm {
-        Some(confirm) => match confirm.0 {
-            Either::Left(ref confirm) => {
-                let prompt = if confirm.is_empty() {
-                    "Are you sure? [y/N]"
-                } else {
-                    confirm
-                };
-                if !confirm_action(prompt)? {
-                    return Ok(());
-                }
+            match &task.confirm {
+                Some(confirm) => match confirm.0 {
+                    Either::Left(ref confirm) => {
+                        let prompt = if confirm.is_empty() {
+                            "Are you sure? [y/N]"
+                        } else {
+                            confirm
+                        };
+                        if !confirm_action(prompt)? {
+                            return Ok(());
+                        }
+                    }
+                    Either::Right(true) => {
+                        if !confirm_action("Are you sure? [y/N]")? {
+                            return Ok(());
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {}
             }
-            Either::Right(true) => {
-                if !confirm_action("Are you sure? [y/N]")? {
-                    return Ok(());
+
+            let mut env_vars = match &file.dotenv {
+                Either::Left(Some(dotenv)) => {
+                    debug!("Reading dotenv file: {}", dotenv);
+                    dotenvy::from_filename_iter(dotenv)
+                        .context(format!("Couldn't read dotenv file: {}", dotenv.bold()))?
+                        .collect::<Vec<_>>()
                 }
-            }
-            _ => {}
-        },
-        _ => {}
+                Either::Right(Some(true)) => {
+                    debug!("Reading dotenv file: .env");
+                    dotenvy::dotenv_iter()
+                        .map(|res| res.collect::<Vec<_>>())
+                        .unwrap_or_default()
+                }
+                _ => {
+                    debug!("Not reading dotenv file");
+                    vec![]
+                }
+            };
+
+            // Extend with the environment variables from the system
+            env_vars.extend(std::env::vars().map(|(key, value)| Ok((key, value))));
+
+            let env_vars = env_vars
+                .iter()
+                .filter_map(|res| {
+                    if let Ok((key, value)) = res {
+                        Some((key.to_string(), value.to_string()))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<HashMap<_, _>>();
+
+            debug!("Env vars: {:#?}", env_vars);
+
+            run_task(quiet_level, task, &args, &file, &env_vars, vec![])?;
+            color_eyre::eyre::Ok(())
+        });
+        handles.push(handle);
     }
 
-    let mut env_vars = match &file.dotenv {
-        Either::Left(Some(dotenv)) => {
-            debug!("Reading dotenv file: {}", dotenv);
-            dotenvy::from_filename_iter(dotenv)
-                .context(format!("Couldn't read dotenv file: {}", dotenv.bold()))?
-                .collect::<Vec<_>>()
-        }
-        Either::Right(Some(true)) => {
-            debug!("Reading dotenv file: .env");
-            dotenvy::dotenv_iter()
-                .map(|res| res.collect::<Vec<_>>())
-                .unwrap_or_default()
-        }
-        _ => {
-            debug!("Not reading dotenv file");
-            vec![]
-        }
-    };
+    for handle in handles {
+        handle.join().map_err(|e| {
+            debug!("Error joining thread: {:#?}", e);
+            BraiseError::ThreadError
+        })??;
+    }
 
-    // Extend with the environment variables from the system
-    env_vars.extend(std::env::vars().map(|(key, value)| Ok((key, value))));
-
-    let env_vars = env_vars
-        .iter()
-        .filter_map(|res| {
-            if let Ok((key, value)) = res {
-                Some((key.to_string(), value.to_string()))
-            } else {
-                None
-            }
-        })
-        .collect::<HashMap<_, _>>();
-
-    debug!("Env vars: {:#?}", env_vars);
-
-    run_task(
-        matches.get_count("quiet"),
-        task,
-        &args,
-        &file,
-        &env_vars,
-        vec![],
-    )?;
     trace!("main: exiting");
     Ok(())
 }
