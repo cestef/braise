@@ -54,6 +54,7 @@ pub struct BraiseFile {
     pub quiet: Either<Option<bool>, Option<u8>>,
     pub default: Option<String>,
     pub dotenv: Either<Option<String>, Option<bool>>,
+    pub parallel: Option<bool>,
 }
 
 impl BraiseFile {
@@ -133,12 +134,15 @@ impl BraiseFile {
             Either::Left(None)
         };
 
+        let parallel = value.get("parallel").map(|p| p.as_bool()).flatten();
+
         Ok(Self {
             tasks,
             shell,
             quiet,
             default: default.map(|d| d.to_string()),
             dotenv,
+            parallel,
         })
     }
 }

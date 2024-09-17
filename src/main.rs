@@ -123,10 +123,12 @@ description = "Prints 'Hello, world!' to the console"
         .split(TASKS_SEPARATOR)
         .map(|e| e.to_owned())
         .collect::<Vec<_>>();
+
+    let parallel = matches.get_flag("parallel") || file.parallel.unwrap_or(false);
     for task in inputs {
         let file = file.clone();
         let args = args.clone();
-        if !matches.get_flag("parallel") {
+        if !parallel {
             for handle in handles.drain(..) {
                 handle.join().map_err(|e| {
                     debug!("Error joining thread: {:#?}", e);

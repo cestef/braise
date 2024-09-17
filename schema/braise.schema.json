@@ -86,6 +86,10 @@
                     "type": "boolean"
                 }
             ]
+        },
+        "parallel": {
+            "type": "boolean",
+            "description": "Whether to run tasks in parallel"
         }
     },
     "additionalProperties": {
