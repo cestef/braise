@@ -49,6 +49,10 @@
                         "type": "string"
                     },
                     "description": "The names of tasks that this task depends on"
+                },
+                "workspace": {
+                    "type": "boolean",
+                    "description": "Whether to automatically infer the command from the current cargo workspace"
                 }
             },
             "oneOf": [
