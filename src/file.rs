@@ -32,9 +32,13 @@ pub fn print_tasks(file: &BraiseFile, path: String) {
         "{}",
         format!("Available tasks in {}:\n", path.bold()).underline()
     );
+    let maybe_defaults: Option<Vec<_>> = file
+        .default
+        .clone()
+        .map(|d| d.split(',').map(|d| d.to_string()).collect());
     for (task, scripts) in &file.tasks {
-        let is_default = if let Some(ref default) = file.default {
-            default == task
+        let is_default = if let Some(ref defaults) = maybe_defaults {
+            defaults.contains(&task)
         } else {
             false
         };
