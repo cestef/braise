@@ -26,11 +26,11 @@ pub fn find_file() -> Result<String> {
     }
 }
 
-pub fn print_tasks(file: &BraiseFile) {
+pub fn print_tasks(file: &BraiseFile, path: String) {
     let manifest = cargo_toml::Manifest::from_path("Cargo.toml");
     println!(
         "{}",
-        format!("Available tasks in {}:\n", "Braise.toml".bold()).underline()
+        format!("Available tasks in {}:\n", path.bold()).underline()
     );
     for (task, scripts) in &file.tasks {
         let is_default = if let Some(ref default) = file.default {

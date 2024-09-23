@@ -93,7 +93,7 @@ description = "Prints 'Hello, world!' to the console"
 
     if matches.get_flag("list") {
         trace!("main: listing tasks");
-        print_tasks(&file);
+        print_tasks(&file, path);
         trace!("main: exiting from list");
         return Ok(());
     }
