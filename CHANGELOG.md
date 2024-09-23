@@ -1,3 +1,17 @@
+## v0.1.9 (2024-09-23)
+
+### Feat
+
+- automatically infer command for cargo workspace members
+- add parallel field in files
+- require a path for init
+- add parallel tasks
+
+### Fix
+
+- allow aliases in json schema
+- include workspace in json schema
+
 ## v0.1.8 (2024-08-07)
 
 ### Fix
