@@ -191,10 +191,7 @@ pub fn run_task(
             command.clone().bold().underline().to_string()
         };
 
-        let terminal_width = terminal_size::terminal_size()
-            .map(|(w, _)| w)
-            .unwrap_or(Width(80))
-            .0 as usize;
+        let terminal_width = terminal_size().map(|(w, _)| w).unwrap_or(Width(80)).0 as usize;
 
         println!(
             "[{}] {}",

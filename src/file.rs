@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{constants::FILE_NAMES, error::BraiseError, task::BraiseTask};
+use crate::{
+    constants::{FILE_NAMES, TASKS_SEPARATOR},
+    error::BraiseError,
+    task::BraiseTask,
+};
 use color_eyre::{eyre::Result, owo_colors::OwoColorize};
 use either::Either;
 use log::debug;
@@ -35,7 +39,7 @@ pub fn print_tasks(file: &BraiseFile, path: String) {
     let maybe_defaults: Option<Vec<_>> = file
         .default
         .clone()
-        .map(|d| d.split(',').map(|d| d.to_string()).collect());
+        .map(|d| d.split(TASKS_SEPARATOR).map(|d| d.to_string()).collect());
     for (task, scripts) in &file.tasks {
         let is_default = if let Some(ref defaults) = maybe_defaults {
             defaults.contains(&task)
