@@ -4,6 +4,7 @@ use color_eyre::{eyre::bail, owo_colors::OwoColorize};
 use either::Either;
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
+use terminal_size::{terminal_size, Width};
 
 use crate::{
     error::BraiseError,
@@ -190,7 +191,10 @@ pub fn run_task(
             command.clone().bold().underline().to_string()
         };
 
-        let terminal_width = term_size::dimensions().map(|(w, _)| w).unwrap_or(80);
+        let terminal_width = terminal_size::terminal_size()
+            .map(|(w, _)| w)
+            .unwrap_or(Width(80))
+            .0 as usize;
 
         println!(
             "[{}] {}",
