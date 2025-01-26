@@ -13,7 +13,7 @@ pub const FILE_NAMES: [&str; 8] = [
 ];
 
 pub const SCHEMA_URL: &str =
-    "https://raw.githubusercontent.com/cestef/braise/main/schema/braise.schema.json";
+    "https://raw.githubusercontent.com/cestef/braise/main/braise.schema.json";
 
 lazy_static! {
     pub static ref ARG_REPLACE_REGEX: Regex = Regex::new(r"\{\d\}").unwrap(); // {0}, {1}, {2}, etc.
