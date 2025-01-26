@@ -8,7 +8,7 @@ use std::{
 };
 
 use braise::{
-    constants::TASKS_SEPARATOR,
+    constants::{DEFAULT_CONFIG, TASKS_SEPARATOR},
     error::BraiseError,
     file::{find_file, print_tasks, BraiseFile},
     task::run_task,
@@ -66,18 +66,10 @@ fn main() -> Result<()> {
             }
             name = file;
         }
-        let content = format!(
-            r#"#:schema {}
 
-[echo]
-command = "echo Hello, world!"
-description = "Prints 'Hello, world!' to the console"
-"#,
-            braise::constants::SCHEMA_URL
-        );
         let file_path = Path::new(&path);
         let joined = file_path.join(name);
-        std::fs::write(&joined, content)?;
+        std::fs::write(&joined, DEFAULT_CONFIG)?;
         println!("Initialized the Braisefile at {}", joined.display().bold());
         trace!("main: exiting from init");
         return Ok(());

@@ -19,6 +19,7 @@ clap = { version = "4.5", features = [
     "string",
 ] }
 color-eyre = "0.6.3"
+const_format = "0.2.34"
 dirs = "5.0.1"
 dotenvy = "0.15.7"
 either = { version = "1.13.0", features = ["serde"] }
