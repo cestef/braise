@@ -1,3 +1,21 @@
+## v0.1.10 (2025-01-26)
+
+### Fix
+
+- support displaying multiple default tasks in `-l`
+- display correct path in `-l`
+- schema url for `--init`
+
+### Refactor
+
+- use dashmap instead
+- task runner
+- move helper functions to structs
+- move default config to constants
+- use `TASKS_SEPARATOR` instead of `,`
+- switch from `term_size` to `terminal_size`
+- move JSON schema out of `/schema`
+
 ## v0.1.9 (2024-09-23)
 
 ### Feat
