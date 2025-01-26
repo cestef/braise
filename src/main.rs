@@ -44,17 +44,6 @@ fn handle_init(path: &str) -> Result<()> {
     Ok(())
 }
 
-// Parse and load Braise file
-fn load_braise_file(path: String) -> Result<Arc<BraiseFile>> {
-    debug!("Found file at: {}", path);
-    let value = toml::from_str::<toml::Value>(&std::fs::read_to_string(path)?)?;
-    debug!("Parsed file: {:#?}", value);
-
-    let file = Arc::new(BraiseFile::from_value(value)?);
-    debug!("Parsed braisé file: {:#?}", file);
-    Ok(file)
-}
-
 // Parse task input and arguments
 fn parse_task_input(
     matches: &clap::ArgMatches,
@@ -104,7 +93,7 @@ fn main() -> Result<()> {
 
     // Load and parse Braise file
     let path = BraiseFile::find_path()?;
-    let file = load_braise_file(path.clone())?;
+    let file = BraiseFile::load(&path)?;
 
     // Handle task listing if requested
     if matches.get_flag("list") {

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     constants::{FILE_NAMES, TASKS_SEPARATOR},
@@ -40,6 +40,16 @@ impl BraiseFile {
         } else {
             Err(BraiseError::NoBraiseFileFound.into())
         }
+    }
+
+    pub fn load(path: &str) -> Result<Arc<BraiseFile>> {
+        debug!("Found file at: {}", path);
+        let value = toml::from_str::<toml::Value>(&std::fs::read_to_string(path)?)?;
+        debug!("Parsed file: {:#?}", value);
+
+        let file = Arc::new(BraiseFile::from_value(value)?);
+        debug!("Parsed braisé file: {:#?}", file);
+        Ok(file)
     }
 
     pub fn from_value(value: toml::Value) -> Result<Self> {
@@ -159,7 +169,7 @@ impl BraiseFile {
         );
         let maybe_defaults: Option<Vec<_>> = self
             .default
-            .clone()
+            .as_ref()
             .map(|d| d.split(TASKS_SEPARATOR).map(|d| d.to_string()).collect());
         for (task, scripts) in &self.tasks {
             let is_default = if let Some(ref defaults) = maybe_defaults {

@@ -1,8 +1,9 @@
 use color_eyre::{eyre::bail, owo_colors::OwoColorize};
+use dashmap::DashMap;
 use either::Either;
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
 use std::sync::Arc;
 use terminal_size::{terminal_size, Width};
 
@@ -130,12 +131,12 @@ impl CommandResolver for BraiseTask {
 pub struct TaskRunner<'a> {
     quiet_settings: QuietSettings,
     file: &'a BraiseFile,
-    env_vars: Arc<HashMap<String, String>>,
+    env_vars: Arc<DashMap<String, String>>,
     ran: Vec<String>,
 }
 
 impl<'a> TaskRunner<'a> {
-    pub fn new(quiet: u8, file: &'a BraiseFile, env_vars: Arc<HashMap<String, String>>) -> Self {
+    pub fn new(quiet: u8, file: &'a BraiseFile, env_vars: Arc<DashMap<String, String>>) -> Self {
         Self {
             quiet_settings: QuietSettings {
                 task_quiet: None,
@@ -248,11 +249,16 @@ impl<'a> TaskRunner<'a> {
         // Prepare command
         let to_run = format!("{command} {}", args.join(" "));
         let mut command = std::process::Command::new(shell);
+
         command
             .args(shell_args)
             .arg(to_run)
             .current_dir(std::env::current_dir()?)
-            .envs(self.env_vars.as_ref());
+            .envs(
+                self.env_vars
+                    .iter()
+                    .map(|e| (e.key().to_string(), e.value().to_string())),
+            );
 
         if self.quiet_settings.is_output_quiet() {
             trace!("run_task: flushing stdout and stderr");
@@ -282,12 +288,11 @@ pub fn run(
     task: &BraiseTask,
     args: &[String],
     file: &BraiseFile,
-    env_vars: &HashMap<String, String>,
+    env_vars: &Arc<DashMap<String, String>>,
     task_name: &str,
     ran: Vec<String>,
 ) -> color_eyre::eyre::Result<()> {
-    let env_vars = Arc::new(env_vars.clone());
-    let mut runner = TaskRunner::new(quiet, file, env_vars);
+    let mut runner = TaskRunner::new(quiet, file, env_vars.clone());
     runner.ran = ran;
     runner.run_task(task, args, task_name)
 }

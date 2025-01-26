@@ -1,9 +1,8 @@
-use std::collections::HashMap;
-
 use color_eyre::{
     eyre::{bail, Result},
     owo_colors::OwoColorize,
 };
+use dashmap::DashMap;
 use log::{debug, trace};
 
 use crate::{
@@ -100,7 +99,7 @@ Authors: {}",
     )
 }
 
-pub fn replace_env_vars(input: &str, env_vars: &HashMap<String, String>) -> Result<String> {
+pub fn replace_env_vars(input: &str, env_vars: &DashMap<String, String>) -> Result<String> {
     trace!("replace_env_vars: entering");
     let captures = ENV_REPLACE_REGEX.captures_iter(input);
     // Check if there are any missing env vars that don't have a default value

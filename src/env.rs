@@ -1,11 +1,11 @@
 use crate::file::BraiseFile;
 use color_eyre::{eyre::Context, owo_colors::OwoColorize, Result};
+use dashmap::DashMap;
 use either::Either;
 use log::debug;
-use std::collections::HashMap;
 
 // Load environment variables
-pub fn load(file: &BraiseFile) -> Result<HashMap<String, String>> {
+pub fn load(file: &BraiseFile) -> Result<DashMap<String, String>> {
     let mut env_vars = match &file.dotenv {
         Either::Left(Some(dotenv)) => {
             debug!("Reading dotenv file: {}", dotenv);
