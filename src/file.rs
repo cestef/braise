@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{constants::FILE_NAMES, error::BraiseError, task::BraiseTask};
+use crate::{
+    constants::{FILE_NAMES, TASKS_SEPARATOR},
+    error::BraiseError,
+    task::BraiseTask,
+};
 use color_eyre::{eyre::Result, owo_colors::OwoColorize};
 use either::Either;
 use log::debug;
@@ -26,22 +30,55 @@ pub fn find_file() -> Result<String> {
     }
 }
 
-pub fn print_tasks(file: BraiseFile) {
+pub fn print_tasks(file: &BraiseFile, path: String) {
+    let manifest = cargo_toml::Manifest::from_path("Cargo.toml");
     println!(
         "{}",
-        format!("Available tasks in {}:\n", "Braise.toml".bold()).underline()
+        format!("Available tasks in {}:\n", path.bold()).underline()
     );
-    for (task, scripts) in file.tasks {
+    let maybe_defaults: Option<Vec<_>> = file
+        .default
+        .clone()
+        .map(|d| d.split(TASKS_SEPARATOR).map(|d| d.to_string()).collect());
+    for (task, scripts) in &file.tasks {
+        let is_default = if let Some(ref defaults) = maybe_defaults {
+            defaults.contains(&task)
+        } else {
+            false
+        };
         for script in scripts {
             println!(
-                "{}{}",
+                "{}{}{}",
                 task.bold(),
-                if let Some(desc) = script.description {
+                if let Some(ref desc) = script.description {
                     format!(": {}", desc.dimmed())
+                } else {
+                    "".to_string()
+                },
+                if is_default {
+                    " (default)".dimmed().to_string()
                 } else {
                     "".to_string()
                 }
             );
+        }
+    }
+    if let Ok(manifest) = manifest {
+        if let Some(workspace) = manifest.workspace {
+            println!(
+                "{}",
+                format!("\nAvailable binaries in {}:\n", "Cargo.toml".bold()).underline()
+            );
+            for member in workspace.members {
+                let name = member
+                    .split('/')
+                    .last()
+                    .unwrap_or(&member)
+                    .split('.')
+                    .next()
+                    .unwrap_or(&member);
+                println!("{}", name.bold());
+            }
         }
     }
 }
@@ -54,6 +91,7 @@ pub struct BraiseFile {
     pub quiet: Either<Option<bool>, Option<u8>>,
     pub default: Option<String>,
     pub dotenv: Either<Option<String>, Option<bool>>,
+    pub parallel: Option<bool>,
 }
 
 impl BraiseFile {
@@ -133,12 +171,15 @@ impl BraiseFile {
             Either::Left(None)
         };
 
+        let parallel = value.get("parallel").map(|p| p.as_bool()).flatten();
+
         Ok(Self {
             tasks,
             shell,
             quiet,
             default: default.map(|d| d.to_string()),
             dotenv,
+            parallel,
         })
     }
 }
