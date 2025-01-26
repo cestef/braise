@@ -57,7 +57,7 @@ pub struct StringOrBool(#[serde(with = "either::serde_untagged")] pub Either<Str
 #[serde(transparent)]
 pub struct BoolOrU8(#[serde(with = "either::serde_untagged")] pub Either<bool, u8>);
 
-pub fn run_task(
+pub fn run(
     quiet: u8,
     task: &BraiseTask,
     args: &[String],
@@ -98,7 +98,7 @@ pub fn run_task(
                         .unwrap_or(true)
                 });
                 if let Some(dep_task) = dep_task {
-                    run_task(
+                    run(
                         quiet,
                         &dep_task,
                         args,

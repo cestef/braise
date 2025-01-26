@@ -10,79 +10,6 @@ use either::Either;
 use log::debug;
 use serde::Deserialize;
 
-pub fn find_file() -> Result<String> {
-    let mut found = None;
-    // With and without the .toml extension
-    let candidates = FILE_NAMES
-        .iter()
-        .map(|name| format!("{}.toml", name))
-        .chain(FILE_NAMES.iter().map(|name| name.to_string()));
-    for candidate in candidates {
-        if std::path::Path::new(&candidate).exists() {
-            found = Some(candidate);
-            break;
-        }
-    }
-    if let Some(found) = found {
-        Ok(found)
-    } else {
-        Err(BraiseError::NoBraiseFileFound.into())
-    }
-}
-
-pub fn print_tasks(file: &BraiseFile, path: String) {
-    let manifest = cargo_toml::Manifest::from_path("Cargo.toml");
-    println!(
-        "{}",
-        format!("Available tasks in {}:\n", path.bold()).underline()
-    );
-    let maybe_defaults: Option<Vec<_>> = file
-        .default
-        .clone()
-        .map(|d| d.split(TASKS_SEPARATOR).map(|d| d.to_string()).collect());
-    for (task, scripts) in &file.tasks {
-        let is_default = if let Some(ref defaults) = maybe_defaults {
-            defaults.contains(&task)
-        } else {
-            false
-        };
-        for script in scripts {
-            println!(
-                "{}{}{}",
-                task.bold(),
-                if let Some(ref desc) = script.description {
-                    format!(": {}", desc.dimmed())
-                } else {
-                    "".to_string()
-                },
-                if is_default {
-                    " (default)".dimmed().to_string()
-                } else {
-                    "".to_string()
-                }
-            );
-        }
-    }
-    if let Ok(manifest) = manifest {
-        if let Some(workspace) = manifest.workspace {
-            println!(
-                "{}",
-                format!("\nAvailable binaries in {}:\n", "Cargo.toml".bold()).underline()
-            );
-            for member in workspace.members {
-                let name = member
-                    .split('/')
-                    .last()
-                    .unwrap_or(&member)
-                    .split('.')
-                    .next()
-                    .unwrap_or(&member);
-                println!("{}", name.bold());
-            }
-        }
-    }
-}
-
 /// A struct representing a Braise file
 #[derive(Debug)]
 pub struct BraiseFile {
@@ -95,6 +22,26 @@ pub struct BraiseFile {
 }
 
 impl BraiseFile {
+    pub fn find_path() -> Result<String> {
+        let mut found = None;
+        // With and without the .toml extension
+        let candidates = FILE_NAMES
+            .iter()
+            .map(|name| format!("{}.toml", name))
+            .chain(FILE_NAMES.iter().map(|name| name.to_string()));
+        for candidate in candidates {
+            if std::path::Path::new(&candidate).exists() {
+                found = Some(candidate);
+                break;
+            }
+        }
+        if let Some(found) = found {
+            Ok(found)
+        } else {
+            Err(BraiseError::NoBraiseFileFound.into())
+        }
+    }
+
     pub fn from_value(value: toml::Value) -> Result<Self> {
         let tasks = value
             .as_table()
@@ -181,5 +128,79 @@ impl BraiseFile {
             dotenv,
             parallel,
         })
+    }
+
+    // Helper function to find matching task for current OS
+    pub fn find_task<'a>(&'a self, task_name: &str) -> Result<&'a BraiseTask> {
+        let tasks = self
+            .tasks
+            .get(task_name)
+            .ok_or(BraiseError::InvalidTask(task_name.to_string()))?;
+
+        tasks
+            .iter()
+            .find(|task| {
+                task.runs_on
+                    .as_ref()
+                    .map(|os| {
+                        os.iter()
+                            .any(|os| os.to_lowercase() == std::env::consts::OS.to_lowercase())
+                    })
+                    .unwrap_or(true)
+            })
+            .ok_or(BraiseError::TaskNotFound(task_name.to_string()).into())
+    }
+
+    pub fn display(&self, path: &str) {
+        let manifest = cargo_toml::Manifest::from_path("Cargo.toml");
+        println!(
+            "{}",
+            format!("Available tasks in {}:\n", path.bold()).underline()
+        );
+        let maybe_defaults: Option<Vec<_>> = self
+            .default
+            .clone()
+            .map(|d| d.split(TASKS_SEPARATOR).map(|d| d.to_string()).collect());
+        for (task, scripts) in &self.tasks {
+            let is_default = if let Some(ref defaults) = maybe_defaults {
+                defaults.contains(&task)
+            } else {
+                false
+            };
+            for script in scripts {
+                println!(
+                    "{}{}{}",
+                    task.bold(),
+                    if let Some(ref desc) = script.description {
+                        format!(": {}", desc.dimmed())
+                    } else {
+                        "".to_string()
+                    },
+                    if is_default {
+                        " (default)".dimmed().to_string()
+                    } else {
+                        "".to_string()
+                    }
+                );
+            }
+        }
+        if let Ok(manifest) = manifest {
+            if let Some(workspace) = manifest.workspace {
+                println!(
+                    "{}",
+                    format!("\nAvailable binaries in {}:\n", "Cargo.toml".bold()).underline()
+                );
+                for member in workspace.members {
+                    let name = member
+                        .split('/')
+                        .last()
+                        .unwrap_or(&member)
+                        .split('.')
+                        .next()
+                        .unwrap_or(&member);
+                    println!("{}", name.bold());
+                }
+            }
+        }
     }
 }
