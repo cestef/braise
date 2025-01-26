@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     ffi::OsString,
     path::Path,
     sync::Arc,
@@ -9,6 +8,7 @@ use std::{
 use braise::{
     cli,
     constants::{DEFAULT_CONFIG, TASKS_SEPARATOR},
+    env,
     error::BraiseError,
     file::BraiseFile,
     task,
@@ -16,10 +16,10 @@ use braise::{
 };
 
 use color_eyre::{
-    eyre::{bail, eyre, Context, Result},
+    eyre::{bail, eyre, Result},
     owo_colors::OwoColorize,
 };
-use either::Either;
+
 use log::{debug, trace};
 
 // Handle initialization of a new Braise file
@@ -78,40 +78,6 @@ fn parse_task_input(
     }
 }
 
-// Load environment variables
-fn load_env_vars(file: &BraiseFile) -> Result<HashMap<String, String>> {
-    let mut env_vars = match &file.dotenv {
-        Either::Left(Some(dotenv)) => {
-            debug!("Reading dotenv file: {}", dotenv);
-            dotenvy::from_filename_iter(dotenv)
-                .context(format!("Couldn't read dotenv file: {}", dotenv.bold()))?
-                .collect::<Vec<_>>()
-        }
-        Either::Right(Some(true)) => {
-            debug!("Reading dotenv file: .env");
-            dotenvy::dotenv_iter()
-                .map(|res| res.collect::<Vec<_>>())
-                .unwrap_or_default()
-        }
-        _ => {
-            debug!("Not reading dotenv file");
-            vec![]
-        }
-    };
-
-    // Extend with the environment variables from the system
-    env_vars.extend(std::env::vars().map(|(key, value)| Ok((key, value))));
-
-    Ok(env_vars
-        .iter()
-        .filter_map(|res| {
-            res.as_ref()
-                .ok()
-                .map(|(key, value)| (key.to_string(), value.to_string()))
-        })
-        .collect())
-}
-
 fn main() -> Result<()> {
     // Initialize logger
     let mut logger = build_logger();
@@ -157,7 +123,7 @@ fn main() -> Result<()> {
     let parallel = matches.get_flag("parallel") || file.parallel.unwrap_or(false);
 
     // Load environment variables
-    let env_vars = load_env_vars(&file)?;
+    let env_vars = Arc::new(env::load(&file)?);
     debug!("Env vars: {:#?}", env_vars);
 
     // Execute tasks
