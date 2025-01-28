@@ -2,7 +2,6 @@ use async_recursion::async_recursion;
 use either::Either;
 use paris_log::{__private_exports_do_not_use::__export_colorize_string as colorize_string, debug};
 use serde::Deserialize;
-use tokio::sync::RwLock;
 
 use crate::{
     BraiseError, FILE_NAMES, Result, TASKS_SEPARATOR, bail,
@@ -10,7 +9,12 @@ use crate::{
     utils::QuietSettings,
 };
 
-use std::{collections::HashMap, ffi::OsString, path::PathBuf, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    ffi::OsString,
+    path::PathBuf,
+    sync::Arc,
+};
 
 #[derive(Debug)]
 pub struct BraiseFile {
@@ -275,39 +279,63 @@ impl BraiseFile {
     // depends = [task3] // task2.dependencies = ["task3"]
     // [task3]
     // command = "echo 3" // task3.dependencies = []
-    pub fn build_graph(&self, inputs: &[String]) -> Result<Vec<TaskNode>> {
-        let mut graph = vec![];
-        for input in inputs {
-            let task = self
-                .tasks
-                .get(input)
-                .ok_or(BraiseError::TaskNotFound(input.to_string()))?;
-            for task in task {
-                let node = self.build_node(task)?;
-                graph.push(node);
-            }
-        }
-        Ok(graph)
-    }
-
-    fn build_node(&self, task: &BraiseTask) -> Result<TaskNode> {
+    fn build_node(&self, task: &BraiseTask, visited: &mut HashSet<String>) -> Result<TaskNode> {
         let mut dependencies = vec![];
+
+        // Get the task name by finding it in the tasks HashMap
+        let task_name = self
+            .tasks
+            .iter()
+            .find(|(_, tasks)| tasks.iter().any(|t| t == task))
+            .map(|(name, _)| name.clone())
+            .ok_or_else(|| BraiseError::TaskNotFound("Unknown task".to_string()))?;
+
+        // Check for circular dependencies
+        if !visited.insert(task_name.clone()) {
+            return Err(BraiseError::CircularDependency(task_name).into());
+        }
+
         if let Some(deps) = &task.dependencies {
             for dep in deps {
                 let task = self
                     .tasks
                     .get(dep)
-                    .ok_or(BraiseError::TaskNotFound(dep.to_string()))?;
+                    .ok_or_else(|| BraiseError::TaskNotFound(dep.clone()))?;
+
                 for task in task {
-                    let node = self.build_node(task)?;
+                    let node = self.build_node(task, visited)?;
                     dependencies.push(node);
                 }
             }
         }
+
+        // Remove the task from visited set when we're done with it
+        visited.remove(&task_name);
+
         Ok(TaskNode {
             task: task.clone(),
             dependencies,
+            depth_index: vec![], // Initially empty, will be set when running
         })
+    }
+
+    pub fn build_graph(&self, inputs: &[String]) -> Result<Vec<TaskNode>> {
+        let mut graph = vec![];
+        let mut visited = HashSet::new();
+
+        for (i, input) in inputs.iter().enumerate() {
+            let task = self
+                .tasks
+                .get(input)
+                .ok_or_else(|| BraiseError::TaskNotFound(input.clone()))?;
+
+            for task in task {
+                let mut node = self.build_node(task, &mut visited)?;
+                node.depth_index = vec![i + 1]; // Set root index
+                graph.push(node);
+            }
+        }
+        Ok(graph)
     }
 
     pub fn resolve_globs(&self, inputs: Vec<String>) -> Result<Vec<String>> {
@@ -348,6 +376,7 @@ impl BraiseFile {
 pub struct TaskNode {
     pub task: BraiseTask,
     pub dependencies: Vec<TaskNode>,
+    pub depth_index: Vec<usize>, // Store the depth indices
 }
 
 impl TaskNode {
@@ -358,12 +387,26 @@ impl TaskNode {
         args: Arc<Vec<String>>,
         quiet: Arc<QuietSettings>,
     ) -> Result<()> {
-        for dependency in self.dependencies {
-            dependency
+        // Print the current task depth before execution
+        let depth_str = self
+            .depth_index
+            .iter()
+            .map(|i| i.to_string())
+            .collect::<Vec<_>>()
+            .join(".");
+
+        for (i, dependency) in self.dependencies.iter().enumerate() {
+            let mut dep_depth = self.depth_index.clone();
+            dep_depth.push(i + 1);
+
+            let mut dep_node = dependency.clone();
+            dep_node.depth_index = dep_depth;
+
+            dep_node
                 .run(env_vars.clone(), args.clone(), quiet.clone())
                 .await?;
         }
 
-        self.task.run(env_vars, args, &quiet).await
+        self.task.run(env_vars, args, &quiet, Some(depth_str)).await
     }
 }

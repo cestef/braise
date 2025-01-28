@@ -3,6 +3,7 @@ use crate::{
     utils::{QuietSettings, replace_args, replace_env_vars},
 };
 use either::Either;
+use paris_log::__private_exports_do_not_use::__export_colorize_string as colorize_string;
 use paris_log::{debug, trace};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, process::Stdio, sync::Arc};
@@ -53,7 +54,9 @@ impl BraiseTask {
         env_vars: Arc<HashMap<String, String>>,
         args: Arc<Vec<String>>,
         quiet: &QuietSettings,
+        depth_str: Option<String>,
     ) -> Result<()> {
+        // Print depth indicator if provided
         let command = self
             .command
             .clone()
@@ -61,7 +64,18 @@ impl BraiseTask {
             .to_string();
         let (command, args) = replace_args(&command, &args)?;
         let command = replace_env_vars(&command, &env_vars)?;
-
+        if quiet.title() {
+            if let Some(depth) = depth_str {
+                println!(
+                    "{}",
+                    colorize_string(format!(
+                        "[<dimmed>{}</>] <b><u>{}</>",
+                        depth,
+                        command[..command.len().min(25)].to_string()
+                    ))
+                );
+            }
+        }
         // Get shell command
         let shell_command = self.get_shell_command();
         let (shell, shell_args) = if shell_command.contains(' ') {

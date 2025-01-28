@@ -34,6 +34,8 @@ pub enum BraiseError {
     ThreadError(#[from] tokio::task::JoinError),
     #[error("Task error: {0}")]
     TaskError(String),
+    #[error("Circular dependency detected: {0}")]
+    CircularDependency(String),
 }
 
 pub type Result<T, E = BraiseError> = std::result::Result<T, E>;
