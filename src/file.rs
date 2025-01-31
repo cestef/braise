@@ -1,4 +1,3 @@
-use async_recursion::async_recursion;
 use either::Either;
 use paris_log::{__private_exports_do_not_use::__export_colorize_string as colorize_string, debug};
 use serde::Deserialize;
@@ -297,7 +296,7 @@ impl BraiseFile {
     // depends = [task3] // task2.dependencies = ["task3"]
     // [task3]
     // command = "echo 3" // task3.dependencies = []
-    fn build_node(&self, task: &BraiseTask, visited: &mut HashSet<String>) -> Result<TaskNode> {
+    fn build_node(&self, task: &BraiseTask, visited: &mut HashSet<String>) -> Result<BraiseTask> {
         let mut dependencies = vec![];
 
         // Get the task name by finding it in the tasks HashMap
@@ -330,26 +329,21 @@ impl BraiseFile {
         // Remove the task from visited set when we're done with it
         visited.remove(&task_name);
 
-        Ok(TaskNode {
-            task: task.clone(),
-            dependencies,
-            depth_index: vec![], // Initially empty, will be set when running
-        })
+        Ok(task.clone())
     }
 
-    pub fn build_graph(&self, inputs: &[String]) -> Result<Vec<TaskNode>> {
+    pub fn build_graph(&self, inputs: &[String]) -> Result<Vec<BraiseTask>> {
         let mut graph = vec![];
         let mut visited = HashSet::new();
 
-        for (i, input) in inputs.iter().enumerate() {
+        for input in inputs.iter() {
             let task = self
                 .tasks
                 .get(input)
                 .ok_or_else(|| BraiseError::TaskNotFound(input.clone()))?;
 
             for task in task {
-                let mut node = self.build_node(task, &mut visited)?;
-                node.depth_index = vec![i + 1]; // Set root index
+                let node = self.build_node(task, &mut visited)?;
                 graph.push(node);
             }
         }
@@ -387,34 +381,5 @@ impl BraiseFile {
             task_quiet,
             global_quiet,
         })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct TaskNode {
-    pub task: BraiseTask,
-    pub dependencies: Vec<TaskNode>,
-    pub depth_index: Vec<usize>, // Store the depth indices
-}
-
-impl TaskNode {
-    #[async_recursion]
-    pub async fn run(
-        self,
-        env_vars: Arc<HashMap<String, String>>,
-        args: Arc<Vec<String>>,
-        quiet: Arc<QuietSettings>,
-        task_map: Arc<HashMap<String, Vec<BraiseTask>>>,
-    ) -> Result<()> {
-        let depth_str = self
-            .depth_index
-            .iter()
-            .map(|i| i.to_string())
-            .collect::<Vec<_>>()
-            .join(".");
-
-        self.task
-            .run(env_vars, args, &quiet, Some(depth_str), Some(&task_map))
-            .await
     }
 }

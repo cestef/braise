@@ -65,11 +65,11 @@ async fn main() -> color_eyre::Result<()> {
 
     let task_map = Arc::new(file.tasks.clone());
 
-    for node in &graph {
+    for task in graph {
         let env_vars = env_vars.clone();
         let args = args.clone();
-        let node = node.clone();
-        let quiet = file.quiet_settings(quiet_level, node.task.quiet.clone());
+
+        let quiet = file.quiet_settings(quiet_level, task.quiet.clone());
         let task_map = task_map.clone();
 
         if !parallel {
@@ -80,7 +80,11 @@ async fn main() -> color_eyre::Result<()> {
             }
         }
 
-        let handle = tokio::spawn(async move { node.run(env_vars, args, quiet, task_map).await });
+        let handle = tokio::spawn(async move {
+            let name = task.name.clone();
+            task.run(env_vars, args, &quiet, Some(name), Some(&task_map))
+                .await
+        });
         handles.push(handle);
     }
 
