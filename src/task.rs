@@ -31,10 +31,10 @@ pub struct StringOrVecString(
     #[serde(with = "either::serde_untagged")] pub Either<String, Vec<String>>,
 );
 
-impl StringOrVecString {
-    pub fn to_string(self) -> String {
-        match self.0 {
-            Either::Left(s) => s,
+impl ToString for StringOrVecString {
+    fn to_string(&self) -> String {
+        match &self.0 {
+            Either::Left(s) => s.to_string(),
             Either::Right(v) => v.join(" "),
         }
     }

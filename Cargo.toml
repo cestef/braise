@@ -1,6 +1,7 @@
 [package]
 name = "braise"
-version = "0.1.0"
+authors = ["cstef <hi@cstef.dev>"]
+version = "0.2.0"
 edition = "2024"
 repository = "https://github.com/cestef/braise"
 homepage = "https://github.com/cestef/braise"
