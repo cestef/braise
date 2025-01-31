@@ -75,7 +75,6 @@ async fn main() -> color_eyre::Result<()> {
         if !parallel {
             debug!("main: running task sequentially");
             for handle in handles.drain(..) {
-                println!("Waiting for task to finish");
                 handle.await.map_err(BraiseError::from)??;
             }
         }
