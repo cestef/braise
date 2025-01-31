@@ -62,61 +62,57 @@ impl BraiseTask {
         env_vars: Arc<HashMap<String, String>>,
         args: Arc<Vec<String>>,
         quiet: &QuietSettings,
-        depth_str: Option<String>,
-        task_map: Option<&HashMap<String, Vec<BraiseTask>>>,
+        depth_str: Vec<String>,
+        task_map: &HashMap<String, Vec<BraiseTask>>,
     ) -> Result<()> {
         // First handle dependencies if any
         if let Some(deps) = &self.dependencies {
             for dep in deps {
-                if let Some(task_map) = task_map {
-                    if let Some(tasks) = task_map.get(dep) {
-                        for task in tasks {
-                            task.clone()
-                                .run(
-                                    env_vars.clone(),
-                                    args.clone(),
-                                    quiet,
-                                    Some(format!("{}→{}", depth_str.as_deref().unwrap_or(""), dep)),
-                                    Some(task_map),
-                                )
-                                .await?;
-                        }
-                    } else {
-                        bail!(BraiseError::TaskNotFound(dep.clone()));
+                if let Some(tasks) = task_map.get(dep) {
+                    for task in tasks {
+                        let mut depth_str = depth_str.clone();
+                        depth_str.push(dep.clone());
+                        task.clone()
+                            .run(
+                                env_vars.clone(),
+                                args.clone(),
+                                quiet,
+                                depth_str.clone(),
+                                task_map,
+                            )
+                            .await?;
                     }
+                } else {
+                    bail!(BraiseError::TaskNotFound(dep.clone()));
                 }
             }
         }
 
         // If this is a task group, execute its tasks
         if let Some(tasks) = &self.tasks {
-            if let Some(task_map) = task_map {
-                for task_name in tasks {
-                    if let Some(tasks) = task_map.get(task_name) {
-                        for task in tasks {
-                            task.clone()
-                                .run(
-                                    env_vars.clone(),
-                                    args.clone(),
-                                    quiet,
-                                    Some(format!(
-                                        "{}→{}",
-                                        depth_str.as_deref().unwrap_or(""),
-                                        task_name
-                                    )),
-                                    Some(task_map),
-                                )
-                                .await?;
-                        }
-                    } else {
-                        bail!(BraiseError::TaskNotFound(task_name.clone()));
+            for task_name in tasks {
+                if let Some(tasks) = task_map.get(task_name) {
+                    for task in tasks {
+                        let mut depth_str = depth_str.clone();
+                        depth_str.push(task_name.clone());
+                        task.clone()
+                            .run(
+                                env_vars.clone(),
+                                args.clone(),
+                                quiet,
+                                depth_str.clone(),
+                                task_map,
+                            )
+                            .await?;
                     }
+                } else {
+                    bail!(BraiseError::TaskNotFound(task_name.clone()));
                 }
+
                 return Ok(());
             }
         }
 
-        // Regular task execution (your existing code)
         let command = self
             .command
             .as_ref()
@@ -127,11 +123,21 @@ impl BraiseTask {
 
         let (command, args) = replace_args(&command, &args)?;
         let command = replace_env_vars(&command, &env_vars)?;
+
         if !quiet.title() {
-            if let Some(depth) = depth_str {
-                println!("{}", colorize_string(format!("[<dimmed>{}</>]", depth)));
-            }
+            println!(
+                "{}",
+                colorize_string(format!(
+                    "[{}]",
+                    depth_str
+                        .iter()
+                        .map(|s| format!("<dimmed>{}</>", s))
+                        .collect::<Vec<String>>()
+                        .join(" > ")
+                ))
+            );
         }
+
         // Get shell command
         let shell_command = self.get_shell_command();
         let (shell, shell_args) = if shell_command.contains(' ') {

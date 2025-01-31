@@ -81,9 +81,8 @@ async fn main() -> color_eyre::Result<()> {
         }
 
         let handle = tokio::spawn(async move {
-            let name = task.name.clone();
-            task.run(env_vars, args, &quiet, Some(name), Some(&task_map))
-                .await
+            let name = vec![task.name.clone()];
+            task.run(env_vars, args, &quiet, name, &task_map).await
         });
         handles.push(handle);
     }
