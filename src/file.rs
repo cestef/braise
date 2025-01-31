@@ -4,9 +4,10 @@ use paris_log::{__private_exports_do_not_use::__export_colorize_string as colori
 use serde::Deserialize;
 
 use crate::{
-    BraiseError, FILE_NAMES, Result, TASKS_SEPARATOR, bail,
+    bail,
     task::{BoolOrU8, BraiseTask},
     utils::QuietSettings,
+    BraiseError, Result, FILE_NAMES, TASKS_SEPARATOR,
 };
 
 use std::{
@@ -157,6 +158,20 @@ impl BraiseFile {
         };
 
         let parallel = value.get("parallel").map(|p| p.as_bool()).flatten();
+
+        const KNOWN_KEYS: [&str; 5] = ["shell", "quiet", "default", "dotenv", "parallel"];
+
+        for key in value
+            .as_table()
+            .ok_or(BraiseError::InvalidFileFormat(
+                "File is not a table".to_string(),
+            ))?
+            .keys()
+        {
+            if !KNOWN_KEYS.contains(&key.as_str()) {
+                debug!("Unknown key: {}", key);
+            }
+        }
 
         Ok(Self {
             tasks: parsed_tasks,
@@ -386,8 +401,8 @@ impl TaskNode {
         env_vars: Arc<HashMap<String, String>>,
         args: Arc<Vec<String>>,
         quiet: Arc<QuietSettings>,
+        task_map: Arc<HashMap<String, Vec<BraiseTask>>>,
     ) -> Result<()> {
-        // Print the current task depth before execution
         let depth_str = self
             .depth_index
             .iter()
@@ -395,18 +410,8 @@ impl TaskNode {
             .collect::<Vec<_>>()
             .join(".");
 
-        for (i, dependency) in self.dependencies.iter().enumerate() {
-            let mut dep_depth = self.depth_index.clone();
-            dep_depth.push(i + 1);
-
-            let mut dep_node = dependency.clone();
-            dep_node.depth_index = dep_depth;
-
-            dep_node
-                .run(env_vars.clone(), args.clone(), quiet.clone())
-                .await?;
-        }
-
-        self.task.run(env_vars, args, &quiet, Some(depth_str)).await
+        self.task
+            .run(env_vars, args, &quiet, Some(depth_str), Some(&task_map))
+            .await
     }
 }

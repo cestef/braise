@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use braise::{
-    BraiseError, Result, TASKS_SEPARATOR, cli, env, file::BraiseFile, panic, utils::build_logger,
+    cli, env, file::BraiseFile, panic, utils::build_logger, BraiseError, Result, TASKS_SEPARATOR,
 };
 use paris_log::{debug, trace};
 use tokio::task::JoinHandle;
@@ -63,22 +63,24 @@ async fn main() -> color_eyre::Result<()> {
     // Handle task execution
     let mut handles: Vec<JoinHandle<Result<()>>> = Vec::new();
 
+    let task_map = Arc::new(file.tasks.clone());
+
     for node in &graph {
         let env_vars = env_vars.clone();
         let args = args.clone();
         let node = node.clone();
         let quiet = file.quiet_settings(quiet_level, node.task.quiet.clone());
+        let task_map = task_map.clone();
 
         if !parallel {
-            // Wait for previous task to complete if not running in parallel
+            debug!("main: running task sequentially");
             for handle in handles.drain(..) {
+                println!("Waiting for task to finish");
                 handle.await.map_err(BraiseError::from)??;
             }
         }
 
-        // Set the depth of the task
-
-        let handle = tokio::spawn(async move { node.run(env_vars, args, quiet).await });
+        let handle = tokio::spawn(async move { node.run(env_vars, args, quiet, task_map).await });
         handles.push(handle);
     }
 
@@ -86,5 +88,6 @@ async fn main() -> color_eyre::Result<()> {
     for handle in handles {
         handle.await.map_err(BraiseError::from)??;
     }
+
     Ok(())
 }

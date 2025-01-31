@@ -1,6 +1,7 @@
-# default = "dev"
+parallel = false
 
-# [dev]
+[dev]
+tasks = ["dev-css", "dev-zola"]
 
 [dev-css]
 command = "echo css"

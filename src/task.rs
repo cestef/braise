@@ -1,7 +1,9 @@
 use crate::{
-    BraiseError, Result, bail,
-    utils::{QuietSettings, replace_args, replace_env_vars},
+    bail,
+    utils::{replace_args, replace_env_vars, QuietSettings},
+    BraiseError, Result,
 };
+use async_recursion::async_recursion;
 use either::Either;
 use paris_log::__private_exports_do_not_use::__export_colorize_string as colorize_string;
 use paris_log::{debug, trace};
@@ -12,6 +14,8 @@ use std::{collections::HashMap, process::Stdio, sync::Arc};
 pub struct BraiseTask {
     #[serde(alias = "cmd")]
     pub command: Option<StringOrVecString>,
+    #[serde(alias = "run")]
+    pub tasks: Option<Vec<String>>,
     #[serde(alias = "desc")]
     pub description: Option<String>,
     #[serde(alias = "deps", alias = "depends", alias = "depends-on")]
@@ -49,22 +53,78 @@ pub struct StringOrBool(#[serde(with = "either::serde_untagged")] pub Either<Str
 pub struct BoolOrU8(#[serde(with = "either::serde_untagged")] pub Either<bool, u8>);
 
 impl BraiseTask {
+    #[async_recursion]
     pub async fn run(
         self,
         env_vars: Arc<HashMap<String, String>>,
         args: Arc<Vec<String>>,
         quiet: &QuietSettings,
         depth_str: Option<String>,
+        task_map: Option<&HashMap<String, Vec<BraiseTask>>>,
     ) -> Result<()> {
-        // Print depth indicator if provided
+        // First handle dependencies if any
+        if let Some(deps) = &self.dependencies {
+            for dep in deps {
+                if let Some(task_map) = task_map {
+                    if let Some(tasks) = task_map.get(dep) {
+                        for task in tasks {
+                            task.clone()
+                                .run(
+                                    env_vars.clone(),
+                                    args.clone(),
+                                    quiet,
+                                    Some(format!("{}→{}", depth_str.as_deref().unwrap_or(""), dep)),
+                                    Some(task_map),
+                                )
+                                .await?;
+                        }
+                    } else {
+                        bail!(BraiseError::TaskNotFound(dep.clone()));
+                    }
+                }
+            }
+        }
+
+        // If this is a task group, execute its tasks
+        if let Some(tasks) = &self.tasks {
+            if let Some(task_map) = task_map {
+                for task_name in tasks {
+                    if let Some(tasks) = task_map.get(task_name) {
+                        for task in tasks {
+                            task.clone()
+                                .run(
+                                    env_vars.clone(),
+                                    args.clone(),
+                                    quiet,
+                                    Some(format!(
+                                        "{}→{}",
+                                        depth_str.as_deref().unwrap_or(""),
+                                        task_name
+                                    )),
+                                    Some(task_map),
+                                )
+                                .await?;
+                        }
+                    } else {
+                        bail!(BraiseError::TaskNotFound(task_name.clone()));
+                    }
+                }
+                return Ok(());
+            }
+        }
+
+        // Regular task execution (your existing code)
         let command = self
             .command
-            .clone()
-            .ok_or_else(|| BraiseError::InvalidTaskFormat("Missing field: 'command'".to_string()))?
+            .as_ref()
+            .ok_or_else(|| {
+                BraiseError::InvalidTaskFormat("Missing field: 'command' or 'tasks'".to_string())
+            })?
             .to_string();
+
         let (command, args) = replace_args(&command, &args)?;
         let command = replace_env_vars(&command, &env_vars)?;
-        if quiet.title() {
+        if !quiet.title() {
             if let Some(depth) = depth_str {
                 println!(
                     "{}",
