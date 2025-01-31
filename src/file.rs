@@ -361,10 +361,7 @@ impl BraiseFile {
                 .map(|task| task.to_string())
                 .collect::<Vec<_>>();
             if matches.is_empty() {
-                bail!(BraiseError::GlobError(format!(
-                    "No tasks found for pattern: {}",
-                    input
-                )));
+                bail!(BraiseError::NoTaskFoundFor(input));
             }
             resolved.extend(matches);
         }

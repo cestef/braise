@@ -14,6 +14,8 @@ pub enum BraiseError {
     TomlError(#[from] toml::de::Error),
     #[error("No task or default task found")]
     NoTask,
+    #[error("No task found for: {0}")]
+    NoTaskFoundFor(String),
     #[error("Invalid argument index: {0}, only {1} arguments provided")]
     InvalidArgIndex(usize, usize),
     #[error("Missing environment variable: {0}")]
