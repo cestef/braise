@@ -81,6 +81,7 @@ impl BraiseFile {
                     let res = BraiseTask::deserialize(script.clone());
                     if let Ok(mut script) = res {
                         script.shell = script.shell.or(shell.clone());
+                        script.name = task.clone();
                         Some((task.clone(), vec![script]))
                     } else {
                         debug!("Couldn't parse task <b>{}</>: {}", task, res.unwrap_err());
@@ -91,6 +92,7 @@ impl BraiseFile {
                             .filter_map(|(task, script)| {
                                 if let Ok(mut script) = BraiseTask::deserialize(script.clone()) {
                                     script.shell = script.shell.or(shell.clone());
+                                    script.name = task.clone();
                                     Some(script)
                                 } else {
                                     debug!("Couldn't parse task: {}", task);
@@ -111,6 +113,7 @@ impl BraiseFile {
                             .filter_map(|s| {
                                 if let Ok(mut s) = BraiseTask::deserialize(s.clone()) {
                                     s.shell = s.shell.or(shell.clone());
+                                    s.name = task.clone();
                                     Some(s)
                                 } else {
                                     debug!("Couldn't parse task: {}", task);

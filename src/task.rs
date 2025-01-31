@@ -27,6 +27,9 @@ pub struct BraiseTask {
     pub runs_on: Option<Vec<String>>,
     pub confirm: Option<StringOrBool>,
     pub workspace: Option<bool>,
+
+    #[serde(skip)]
+    pub name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -126,14 +129,7 @@ impl BraiseTask {
         let command = replace_env_vars(&command, &env_vars)?;
         if !quiet.title() {
             if let Some(depth) = depth_str {
-                println!(
-                    "{}",
-                    colorize_string(format!(
-                        "[<dimmed>{}</>] <b><u>{}</>",
-                        depth,
-                        command[..command.len().min(25)].to_string()
-                    ))
-                );
+                println!("{}", colorize_string(format!("[<dimmed>{}</>]", depth)));
             }
         }
         // Get shell command
