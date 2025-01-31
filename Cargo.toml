@@ -2,7 +2,7 @@
 name = "braise"
 authors = ["cstef <hi@cstef.dev>"]
 version = "0.2.0"
-edition = "2024"
+edition = "2021"
 repository = "https://github.com/cestef/braise"
 homepage = "https://github.com/cestef/braise"
 description = "Run your tasks like a chef!"
