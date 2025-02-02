@@ -43,7 +43,7 @@ pub enum BraiseError {
     #[error("Missing field '{0}' for: {1}")]
     MissingField(String, String),
     #[error("Dependency cannot be a group: {0}")]
-    GroupDependecy(String),
+    GroupDependency(String),
 }
 
 pub type Result<T, E = BraiseError> = std::result::Result<T, E>;

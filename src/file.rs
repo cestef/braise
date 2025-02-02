@@ -56,10 +56,10 @@ impl BraiseFile {
         let path = path.into();
         debug!("Found file at: {}", path);
         let value = toml::from_str::<toml::Value>(&std::fs::read_to_string(&path)?)?;
-        debug!("Parsed file: {:#?}", value);
+        // debug!("Parsed file: {:#?}", value);
 
         let file = Self::from_value(value, &path)?;
-        debug!("Parsed braisé file: {:#?}", file);
+        // debug!("Parsed braisé file: {:#?}", file);
         Ok(file)
     }
 

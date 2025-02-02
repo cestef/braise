@@ -3,6 +3,7 @@ use std::sync::Arc;
 use braise::{
     cli, env, file::BraiseFile, panic, utils::build_logger, BraiseError, Result, TASKS_SEPARATOR,
 };
+
 use paris_log::{debug, trace};
 use tokio::task::JoinHandle;
 
@@ -75,17 +76,15 @@ async fn main() -> color_eyre::Result<()> {
         let task_map = task_map.clone();
 
         if !parallel {
-            debug!("main: running task sequentially");
+            debug!("main: waiting for previous handles");
             for handle in handles.drain(..) {
                 handle.await.map_err(BraiseError::from)??;
             }
         }
 
-        let handle = tokio::spawn(async move {
-            let name = vec![task.name.clone()];
-            task.run(env_vars, args, &quiet, name, &task_map).await
-        });
-        handles.push(handle);
+        let spawned = task.spawn(env_vars, args, quiet, &task_map).await?;
+
+        handles.extend(spawned);
     }
 
     // Wait for all tasks to finish
