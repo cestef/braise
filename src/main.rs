@@ -57,15 +57,17 @@ async fn main() -> color_eyre::Result<()> {
     let env_vars = Arc::new(env::load(&file)?);
     let args = Arc::new(args);
 
-    // Build the dependency graph
-    let graph = file.build_graph(&inputs)?;
+    // Resolve the task groups
+    let resolved = file.resolve(&inputs)?;
+
+    debug!("{:#?}", resolved);
 
     // Handle task execution
     let mut handles: Vec<JoinHandle<Result<()>>> = Vec::new();
 
     let task_map = Arc::new(file.tasks.clone());
 
-    for task in graph {
+    for task in resolved {
         let env_vars = env_vars.clone();
         let args = args.clone();
 

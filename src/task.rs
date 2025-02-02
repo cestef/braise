@@ -1,6 +1,6 @@
 use crate::{
     bail,
-    utils::{replace_args, replace_env_vars, QuietSettings},
+    utils::{self, replace_args, replace_env_vars, QuietSettings},
     BraiseError, Result,
 };
 use async_recursion::async_recursion;
@@ -30,6 +30,8 @@ pub struct BraiseTask {
 
     #[serde(skip)]
     pub name: String,
+    #[serde(skip)]
+    pub is_dependency: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -56,6 +58,10 @@ pub struct StringOrBool(#[serde(with = "either::serde_untagged")] pub Either<Str
 pub struct BoolOrU8(#[serde(with = "either::serde_untagged")] pub Either<bool, u8>);
 
 impl BraiseTask {
+    pub fn is_group(&self) -> bool {
+        self.tasks.as_ref().is_some_and(|e| !e.is_empty())
+    }
+
     #[async_recursion]
     pub async fn run(
         self,
@@ -68,10 +74,16 @@ impl BraiseTask {
         // First handle dependencies if any
         if let Some(deps) = &self.dependencies {
             for dep in deps {
-                if let Some(tasks) = task_map.get(dep) {
+                if let Some(tasks) = utils::get_matching(task_map, dep) {
                     for task in tasks {
                         let mut depth_str = depth_str.clone();
                         depth_str.push(dep.clone());
+
+                        if task.is_group() {
+                            // TODO: Support group dependencies ?
+                            bail!(BraiseError::GroupDependecy(task.name.clone()))
+                        }
+
                         task.clone()
                             .run(
                                 env_vars.clone(),
@@ -88,37 +100,10 @@ impl BraiseTask {
             }
         }
 
-        // If this is a task group, execute its tasks
-        if let Some(tasks) = &self.tasks {
-            for task_name in tasks {
-                if let Some(tasks) = task_map.get(task_name) {
-                    for task in tasks {
-                        let mut depth_str = depth_str.clone();
-                        depth_str.push(task_name.clone());
-                        task.clone()
-                            .run(
-                                env_vars.clone(),
-                                args.clone(),
-                                quiet,
-                                depth_str.clone(),
-                                task_map,
-                            )
-                            .await?;
-                    }
-                } else {
-                    bail!(BraiseError::TaskNotFound(task_name.clone()));
-                }
-
-                return Ok(());
-            }
-        }
-
         let command = self
             .command
             .as_ref()
-            .ok_or_else(|| {
-                BraiseError::InvalidTaskFormat("Missing field: 'command' or 'tasks'".to_string())
-            })?
+            .ok_or_else(|| BraiseError::MissingField("command".to_string(), self.name.clone()))?
             .to_string();
 
         let (command, args) = replace_args(&command, &args)?;

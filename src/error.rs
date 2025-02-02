@@ -38,13 +38,19 @@ pub enum BraiseError {
     TaskError(String),
     #[error("Circular dependency detected: {0}")]
     CircularDependency(String),
+    #[error("A task cannot have both a group and a command: {0}")]
+    BothGroupAndCommand(String),
+    #[error("Missing field '{0}' for: {1}")]
+    MissingField(String, String),
+    #[error("Dependency cannot be a group: {0}")]
+    GroupDependecy(String),
 }
 
 pub type Result<T, E = BraiseError> = std::result::Result<T, E>;
 
 macro_rules! bail {
     ($err:expr) => {
-        return Err(From::from($err));
+        return Err(From::from($err))
     };
 }
 pub(crate) use bail;

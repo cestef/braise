@@ -5,7 +5,7 @@ use serde::Deserialize;
 use crate::{
     bail,
     task::{BoolOrU8, BraiseTask},
-    utils::QuietSettings,
+    utils::{self, QuietSettings},
     BraiseError, Result, FILE_NAMES, TASKS_SEPARATOR,
 };
 
@@ -186,25 +186,6 @@ impl BraiseFile {
         })
     }
 
-    // Get the tasks that can be run on this platform (runs_on)
-    pub fn get_tasks(&self, task: &str) -> Option<Vec<&BraiseTask>> {
-        self.tasks.get(task).map(|tasks| {
-            tasks
-                .iter()
-                .filter(|task| {
-                    if let Some(runs_on) = &task.runs_on {
-                        runs_on.iter().any(|platform| {
-                            let platform = platform.to_lowercase();
-                            platform == "all" || platform == std::env::consts::OS.to_lowercase()
-                        })
-                    } else {
-                        true
-                    }
-                })
-                .collect()
-        })
-    }
-
     // Parse task input and arguments
     // Returns the task name and the arguments
     pub fn parse_matches(&self, matches: &clap::ArgMatches) -> Result<(String, Vec<String>)> {
@@ -287,67 +268,43 @@ impl BraiseFile {
         }
     }
 
-    // Build the dependency graph, returns a list of tasks to run in order
-    // [task1]
-    // command = "echo 1"
-    // depends = [task2] // task1.dependencies = ["task2"]
-    // [task2]
-    // command = "echo 2"
-    // depends = [task3] // task2.dependencies = ["task3"]
-    // [task3]
-    // command = "echo 3" // task3.dependencies = []
-    fn build_node(&self, task: &BraiseTask, visited: &mut HashSet<String>) -> Result<BraiseTask> {
-        let mut dependencies = vec![];
-
-        // Get the task name by finding it in the tasks HashMap
-        let task_name = self
-            .tasks
-            .iter()
-            .find(|(_, tasks)| tasks.iter().any(|t| t == task))
-            .map(|(name, _)| name.clone())
-            .ok_or_else(|| BraiseError::TaskNotFound("Unknown task".to_string()))?;
-
-        // Check for circular dependencies
-        if !visited.insert(task_name.clone()) {
-            return Err(BraiseError::CircularDependency(task_name).into());
-        }
-
-        if let Some(deps) = &task.dependencies {
-            for dep in deps {
-                let task = self
-                    .tasks
-                    .get(dep)
-                    .ok_or_else(|| BraiseError::TaskNotFound(dep.clone()))?;
-
-                for task in task {
-                    let node = self.build_node(task, visited)?;
-                    dependencies.push(node);
-                }
-            }
-        }
-
-        // Remove the task from visited set when we're done with it
-        visited.remove(&task_name);
-
-        Ok(task.clone())
+    pub fn resolve(&self, inputs: &[String]) -> Result<Vec<BraiseTask>> {
+        let mut visited = HashSet::new();
+        self._resolve(inputs, &mut visited)
     }
 
-    pub fn build_graph(&self, inputs: &[String]) -> Result<Vec<BraiseTask>> {
-        let mut graph = vec![];
-        let mut visited = HashSet::new();
+    fn _resolve(
+        &self,
+        inputs: &[String],
+        visited: &mut HashSet<String>,
+    ) -> Result<Vec<BraiseTask>> {
+        debug!("{:#?}", visited);
+        let mut out = vec![];
 
-        for input in inputs.iter() {
-            let task = self
-                .tasks
-                .get(input)
+        for input in inputs {
+            // Check for circular tasks
+            if !visited.insert(input.clone()) {
+                bail!(BraiseError::CircularDependency(input.clone()))
+            }
+
+            let tasks = utils::get_matching(&self.tasks, input)
                 .ok_or_else(|| BraiseError::TaskNotFound(input.clone()))?;
 
-            for task in task {
-                let node = self.build_node(task, &mut visited)?;
-                graph.push(node);
+            for entry in tasks {
+                if let Some(ref subtasks) = entry.tasks {
+                    if entry.command.is_some() {
+                        bail!(BraiseError::BothGroupAndCommand(entry.name.clone()))
+                    }
+                    let tasks = self._resolve(&subtasks, visited)?;
+                    out.extend(tasks);
+                } else {
+                    out.push(entry.clone());
+                }
             }
+
+            visited.clear();
         }
-        Ok(graph)
+        Ok(out)
     }
 
     pub fn resolve_globs(&self, inputs: Vec<String>) -> Result<Vec<String>> {

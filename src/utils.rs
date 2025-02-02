@@ -7,9 +7,10 @@ use paris_log::{
 };
 
 use crate::{
-    BraiseError, Result, bail,
+    bail,
     constants::{ARG_REPLACE_REGEX, ENV_REPLACE_REGEX},
-    task::BoolOrU8,
+    task::{BoolOrU8, BraiseTask},
+    BraiseError, Result,
 };
 
 pub static GIT_COMMIT_HASH: &str = env!("_GIT_INFO");
@@ -156,4 +157,26 @@ impl QuietSettings {
                 _ => false,
             }
     }
+}
+
+// Get the tasks that can be run on this platform (runs_on)
+pub fn get_matching<'a>(
+    task_map: &'a HashMap<String, Vec<BraiseTask>>,
+    task: &'a str,
+) -> Option<Vec<&'a BraiseTask>> {
+    task_map.get(task).map(|tasks| {
+        tasks
+            .iter()
+            .filter(|task| {
+                if let Some(runs_on) = &task.runs_on {
+                    runs_on.iter().any(|platform| {
+                        let platform = platform.to_lowercase();
+                        platform == "all" || platform == std::env::consts::OS.to_lowercase()
+                    })
+                } else {
+                    true
+                }
+            })
+            .collect()
+    })
 }
