@@ -52,6 +52,7 @@ pub fn replace_env_vars(input: &str, env_vars: &HashMap<String, String>) -> Resu
     // Check if there are any missing env vars that don't have a default value
     for capture in captures {
         let var = capture.get(1).unwrap().as_str();
+        println!("{:#?}", capture);
         debug!("Checking env var: {}", var);
         if !env_vars.contains_key(var) {
             debug!("Missing env var: {}", var);

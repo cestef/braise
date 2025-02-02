@@ -26,7 +26,7 @@ description = "Prints 'Hello, world!' to the console""#,
 
 lazy_static! {
     pub static ref ARG_REPLACE_REGEX: Regex = Regex::new(r"\{\d\}").unwrap(); // {0}, {1}, {2}, etc.
-    pub static ref ENV_REPLACE_REGEX: Regex = Regex::new(r"\{env\((\w+(?:\:(.+))?)\)\}").unwrap(); // {env(VAR)} or {env(VAR:default)}
+    pub static ref ENV_REPLACE_REGEX: Regex = Regex::new(r"\{env\((\w+)(?:\:(.+))?\)\}").unwrap(); // {env(VAR)} or {env(VAR:default)}
 }
 
 pub const TASKS_SEPARATOR: char = ',';
