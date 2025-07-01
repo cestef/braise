@@ -13,9 +13,9 @@ impl ExecutionContext {
         }
     }
 
-    pub fn with_parameters(params: HashMap<String, Value>) -> Self {
-        Self { variables: params }
-    }
+    // pub fn with_parameters(params: HashMap<String, Value>) -> Self {
+    //     Self { variables: params }
+    // }
 
     pub fn set(&mut self, name: String, value: Value) {
         self.variables.insert(name, value);

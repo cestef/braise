@@ -32,12 +32,9 @@ impl Runtime {
         }
     }
 
-    pub fn with_dry_run(config: Config) -> Self {
-        Self {
-            config,
-            builtins: BuiltinModules::new(),
-            dry_run: true,
-        }
+    pub fn with_dry_run(mut self) -> Self {
+        self.dry_run = true;
+        self
     }
 
     pub fn execute_recipe(&self, name: &str, user_params: HashMap<String, String>) -> Result<()> {

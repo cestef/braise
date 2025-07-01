@@ -1,14 +1,27 @@
-#[derive(Debug, thiserror::Error)]
+use miette::{Diagnostic, SourceSpan};
+use owo_colors::OwoColorize;
+use thiserror::Error;
+
+#[derive(Debug, Error, Diagnostic)]
 pub enum ParseError {
-    #[error("Unexpected token: expected {expected:?}, found {found:?}")]
+    #[error("Unexpected token: expected {}, found {}", expected.bold().green(), found.bold().red())]
+    #[diagnostic(code(braise::parser::unexpected_token))]
     UnexpectedToken {
         expected: String,
         found: crate::lexer::Token,
+        #[source_code]
+        code: String,
+        #[label("right here")]
+        span: SourceSpan,
     },
-    #[error("Unexpected end of file while parsing")]
-    UnexpectedEof,
-    #[error("Invalid expression: {0}")]
-    InvalidExpression(String),
+    #[error("Invalid expression")]
+    InvalidExpression {
+        expression: String,
+        #[source_code]
+        code: String,
+        #[label("right here")]
+        span: SourceSpan,
+    },
 
     #[error("Error: {0}")]
     Other(String),

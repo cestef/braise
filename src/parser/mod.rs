@@ -1,20 +1,51 @@
+// parser/mod.rs - Updated implementation
 pub mod ast;
 
+use crate::lexer::{SpannedToken, Token};
 use ast::*;
-
-use crate::lexer::Token;
+use miette::SourceSpan;
+use std::rc::Rc;
 
 pub mod error;
 pub use error::*;
 
 pub struct Parser {
-    tokens: Vec<Token>,
+    tokens: Vec<SpannedToken>,
+    source: Rc<String>,
     pub current: usize,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
-        Parser { tokens, current: 0 }
+    pub fn new(tokens: Vec<SpannedToken>, source: String) -> Self {
+        Parser {
+            tokens,
+            current: 0,
+            source: Rc::new(source),
+        }
+    }
+
+    // Helper method to create errors with proper spans
+    fn create_error(&self, expected: String, found: Token) -> ParseError {
+        let (span, code) = if self.current < self.tokens.len() {
+            let token_span = &self.tokens[self.current].span;
+            (
+                SourceSpan::new(token_span.start.into(), token_span.len()),
+                self.source.as_ref().clone(),
+            )
+        } else {
+            // EOF case - point to the end of the file
+            (
+                SourceSpan::new(self.source.len().into(), 0),
+                self.source.as_ref().clone(),
+            )
+        };
+
+        ParseError::UnexpectedToken {
+            expected,
+            found,
+            code,
+            span,
+        }
     }
 
     pub fn parse(&mut self) -> Result<Config> {
@@ -80,10 +111,7 @@ impl Parser {
             Token::If => self.parse_if_statement(),
             Token::Match => self.parse_match_statement(),
             Token::For => self.parse_for_statement(),
-            e => Err(ParseError::UnexpectedToken {
-                expected: "statement".to_string(),
-                found: e.clone(),
-            }),
+            e => Err(self.create_error("statement".to_string(), e.clone())),
         }
     }
 
@@ -145,10 +173,7 @@ impl Parser {
             } else if self.match_token(&Token::Identifier("_".to_string())) {
                 MatchPattern::Wildcard
             } else {
-                return Err(ParseError::UnexpectedToken {
-                    expected: "match pattern".to_string(),
-                    found: self.peek().clone(),
-                });
+                return Err(self.create_error("match pattern".to_string(), self.peek().clone()));
             };
 
             self.consume_token(Token::FatArrow)?;
@@ -305,10 +330,7 @@ impl Parser {
                 Ok(expr)
             }
 
-            _ => Err(ParseError::UnexpectedToken {
-                expected: "expression".to_string(),
-                found: self.peek().clone(),
-            }),
+            _ => Err(self.create_error("expression".to_string(), self.peek().clone())),
         }
     }
 
@@ -542,10 +564,7 @@ impl Parser {
                     Ok(ParamType::Array(Box::new(element_type)))
                 }
             }
-            _ => Err(ParseError::UnexpectedToken {
-                expected: "parameter type".to_string(),
-                found: self.peek().clone(),
-            }),
+            _ => Err(self.create_error("parameter type".to_string(), self.peek().clone())),
         }
     }
 
@@ -556,10 +575,7 @@ impl Parser {
                 self.advance();
                 Ok(result)
             }
-            _ => Err(ParseError::UnexpectedToken {
-                expected: "identifier".to_string(),
-                found: self.peek().clone(),
-            }),
+            _ => Err(self.create_error("identifier".to_string(), self.peek().clone())),
         }
     }
 
@@ -570,10 +586,7 @@ impl Parser {
                 self.advance();
                 Ok(result)
             }
-            _ => Err(ParseError::UnexpectedToken {
-                expected: "string".to_string(),
-                found: self.peek().clone(),
-            }),
+            _ => Err(self.create_error("string".to_string(), self.peek().clone())),
         }
     }
 
@@ -582,7 +595,10 @@ impl Parser {
     }
 
     fn peek(&self) -> &Token {
-        self.tokens.get(self.current).unwrap_or(&Token::Recipe) // dummy token for EOF
+        self.tokens
+            .get(self.current)
+            .map(|e| &e.token)
+            .unwrap_or(&Token::EOF)
     }
 
     fn advance(&mut self) -> &Token {
@@ -593,7 +609,11 @@ impl Parser {
     }
 
     fn previous(&self) -> &Token {
-        &self.tokens[self.current - 1]
+        if self.current > 0 && self.current <= self.tokens.len() {
+            &self.tokens[self.current - 1].token
+        } else {
+            &Token::EOF
+        }
     }
 
     fn check(&self, token_type: &Token) -> bool {
@@ -616,10 +636,7 @@ impl Parser {
         if self.check(&expected) {
             Ok(self.advance())
         } else {
-            Err(ParseError::UnexpectedToken {
-                expected: format!("{:?}", expected),
-                found: self.peek().clone(),
-            })
+            Err(self.create_error(expected.to_string(), self.peek().clone()))
         }
     }
 }

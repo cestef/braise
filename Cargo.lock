@@ -109,9 +109,11 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "logos",
+ "logos-display",
  "miette",
  "num_cpus",
  "once_cell",
+ "owo-colors",
  "thiserror",
 ]
 
@@ -128,7 +130,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40b6887a1d8685cebccf115538db5c0efe625ccac9696ad45c409d96566e910f"
 dependencies = [
  "clap_builder",
- "clap_derive",
 ]
 
 [[package]]
@@ -141,18 +142,6 @@ dependencies = [
  "anstyle",
  "clap_lex",
  "strsim",
-]
-
-[[package]]
-name = "clap_derive"
-version = "4.5.40"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2c7947ae4cc3d851207c1adb5b5e260ff0cca11446b1d6d1423788e442257ce"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -188,12 +177,6 @@ name = "gimli"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
-
-[[package]]
-name = "heck"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hermit-abi"
@@ -234,8 +217,7 @@ checksum = "cd945864f07fe9f5371a27ad7b52a172b4b499999f1d97574c9fa68373937e12"
 [[package]]
 name = "logos"
 version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab6f536c1af4c7cc81edf73da1f8029896e7e1e16a219ef09b184e76a296f3db"
+source = "git+https://github.com/maciejhirsz/logos.git?rev=274c7a0#274c7a0dc6ccb6be515cef325470069a1762ada4"
 dependencies = [
  "logos-derive",
 ]
@@ -243,8 +225,7 @@ dependencies = [
 [[package]]
 name = "logos-codegen"
 version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "189bbfd0b61330abea797e5e9276408f2edbe4f822d7ad08685d67419aafb34e"
+source = "git+https://github.com/maciejhirsz/logos.git?rev=274c7a0#274c7a0dc6ccb6be515cef325470069a1762ada4"
 dependencies = [
  "beef",
  "fnv",
@@ -259,10 +240,20 @@ dependencies = [
 [[package]]
 name = "logos-derive"
 version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebfe8e1a19049ddbfccbd14ac834b215e11b85b90bab0c2dba7c7b92fb5d5cba"
+source = "git+https://github.com/maciejhirsz/logos.git?rev=274c7a0#274c7a0dc6ccb6be515cef325470069a1762ada4"
 dependencies = [
  "logos-codegen",
+]
+
+[[package]]
+name = "logos-display"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc86c83b7987a3e715d39dafd361c01bc36c9eb58cea1b9f01a7705beb334f52"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

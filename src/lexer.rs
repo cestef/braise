@@ -1,7 +1,10 @@
+use std::ops::Range;
+
 use logos::Logos;
 
-#[derive(Logos, Debug, PartialEq, Clone)]
+#[derive(Logos, Debug, PartialEq, Clone, logos_display::Display)]
 #[logos(skip r"[ \t\n\f]+")] // Skip whitespace
+#[logos(error(Range<usize>, callback = |lex| lex.span()))]
 pub enum Token {
     // Keywords
     #[token("recipe")]
@@ -84,4 +87,18 @@ pub enum Token {
     Comma,
     #[token(":")]
     Colon,
+
+    EOF,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpannedToken {
+    pub token: Token,
+    pub span: Range<usize>,
+}
+
+impl SpannedToken {
+    pub fn new(token: Token, span: Range<usize>) -> Self {
+        SpannedToken { token, span }
+    }
 }
