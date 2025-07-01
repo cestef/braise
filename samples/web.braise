@@ -1,0 +1,28 @@
+recipe "dev" {
+    run "npm run dev"
+}
+
+recipe "build" -> ["test", "lint"] {
+    run "npm run build"
+}
+
+recipe "test" {
+    run "npm test"
+}
+
+recipe "lint" {
+    run "eslint src/"
+}
+
+recipe "deploy" {
+    param env: ["staging", "prod"] = "staging"
+    
+    if env == "prod" {
+        run "npm run build:prod"
+    } else {
+        run "npm run build"
+    }
+    
+    run "docker build -t myapp:${git.commit_hash_short()} ."
+    run "kubectl apply -f k8s/${env}/"
+}

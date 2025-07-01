@@ -1,0 +1,29 @@
+recipe "test" {
+    param coverage: bool = false
+    
+    if coverage {
+        run "cargo tarpaulin --out html"
+    } else {
+        run "cargo test"
+    }
+}
+
+recipe "build" {
+    param profile: ["debug", "release"] = if env.CI { "release" } else { "debug" }
+    param jobs: int = cpu.count()
+    
+    run "cargo build --profile ${profile} -j ${jobs}"
+}
+
+recipe "ci" -> ["lint", "test", "build"] {
+    run "echo 'All checks passed!'"
+}
+
+recipe "release" {
+    if !git.is_clean() {
+        run "echo 'Working directory must be clean'"
+        exit 1
+    }
+    
+    run "cargo release"
+}

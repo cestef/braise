@@ -1,0 +1,32 @@
+recipe "build" {
+    if cpu.count() > 4 && env.CI {
+        run "cargo build -j ${cpu.count()} --release"
+    } else if cpu.count() >= 2 {
+        run "cargo build -j 2"
+    } else {
+        run "cargo build"
+    }
+}
+
+recipe "deploy" {
+    param env: ["dev", "staging", "prod"] = "dev"
+    
+    if !git.is_clean() {
+        run "echo 'Working directory must be clean for deployment'"
+    } else if env == "staging" || env == "prod" {
+        run "docker build -t app:${git.commit_hash()} ."
+        run "kubectl apply -f k8s/${env}/"
+    } else {
+        run "echo 'Deployment only allowed for staging or production environments'"
+    }
+}
+
+recipe "test" {
+    param threads: int = cpu.count()
+    
+    if threads <= 1 {
+        run "cargo test"
+    } else {
+        run "cargo test -- --test-threads=${threads}"
+    }
+}

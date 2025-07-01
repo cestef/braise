@@ -1,0 +1,20 @@
+recipe "test" {
+    param service: ["api", "web", "worker", "all"] = "all"
+    
+    match service {
+        "all" => {
+            run "nx test api"
+            run "nx test web" 
+            run "nx test worker"
+        },
+        _ => run "nx test ${service}"
+    }
+}
+
+recipe "dev" {
+    param services: [string] = ["api", "web"]
+    
+    for service in services {
+        run "nx serve ${service}"
+    } async
+}
