@@ -1,6 +1,6 @@
 {
     "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-    "name": "Braise",
+    "name": "Braisé",
     "scopeName": "source.braise",
     "patterns": [
         {
@@ -116,6 +116,9 @@
                     "include": "#exit-statement"
                 },
                 {
+                    "include": "#print-statement"
+                },
+                {
                     "include": "#expressions"
                 }
             ]
@@ -215,17 +218,18 @@
                             "name": "keyword.control.loop.braise"
                         }
                     },
-                    "end": "(?<=\\})",
+                    "end": "(?<=\\})\\s*(async)?",
+                    "endCaptures": {
+                        "1": {
+                            "name": "keyword.control.async.braise"
+                        }
+                    },
                     "patterns": [
                         {
                             "include": "#expressions"
                         },
                         {
                             "include": "#block"
-                        },
-                        {
-                            "name": "keyword.control.async.braise",
-                            "match": "\\basync\\b"
                         }
                     ]
                 }
@@ -258,6 +262,25 @@
                 {
                     "name": "meta.exit.braise",
                     "begin": "\\b(exit)\\b",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.braise"
+                        }
+                    },
+                    "end": "$",
+                    "patterns": [
+                        {
+                            "include": "#expressions"
+                        }
+                    ]
+                }
+            ]
+        },
+        "print-statement": {
+            "patterns": [
+                {
+                    "name": "meta.print.braise",
+                    "begin": "\\b(print)\\b",
                     "beginCaptures": {
                         "1": {
                             "name": "keyword.control.braise"
