@@ -4,10 +4,6 @@ use crate::runtime::value::Value;
 
 use super::error::*;
 
-// Helper functions for Value conversion (assuming these methods exist on Value)
-// Remove these if Value already has to_number() and to_bool() methods
-
-// Base trait for builtin modules
 pub trait BuiltinModule: Send + Sync {
     fn call_function(&self, function: &str, args: Vec<Value>) -> Result<Value>;
     fn get_field(&self, field: &str) -> Result<Value> {
@@ -18,7 +14,6 @@ pub trait BuiltinModule: Send + Sync {
     }
 }
 
-// Simplified macro that handles all cases uniformly
 macro_rules! builtin_module {
     (
         $module_name:ident {
@@ -67,7 +62,6 @@ macro_rules! builtin_module {
         }
     };
 
-    // No arguments
     (@call_function $self:expr, $func_method:ident, $args:ident) => {
         {
             if !$args.is_empty() {
@@ -81,7 +75,6 @@ macro_rules! builtin_module {
         }
     };
 
-    // With arguments
     (@call_function $self:expr, $func_method:ident, $args:ident, $($arg_type:ty),+) => {
         {
             if $args.len() != 1 {
@@ -105,7 +98,6 @@ macro_rules! builtin_module {
     };
 }
 
-// Macro to register modules in the global map
 macro_rules! register_modules {
     (
         $(

@@ -30,3 +30,13 @@ recipe "test" {
         run "cargo test -- --test-threads=${threads}"
     }
 }
+
+recipe "format" {
+    param check: bool = false
+
+    if check {
+        run "cargo fmt -- --check"
+    } else {
+        run "cargo fmt"
+    }
+}

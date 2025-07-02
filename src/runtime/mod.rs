@@ -76,10 +76,8 @@ impl Runtime {
 
         for param in &recipe.parameters {
             let value = if let Some(user_value) = user_params.get(&param.name) {
-                // User provided a value - validate and convert it
                 self.validate_and_convert_parameter(param, user_value)?
             } else if let Some(default_expr) = &param.default {
-                // Use default value
                 self.evaluate_expression(default_expr, &context)?
             } else {
                 return Err(RuntimeError::InvalidParameter {
@@ -126,7 +124,6 @@ impl Runtime {
                 }
             }
             ParamType::Array(_) => {
-                // Simple comma-separated parsing for now
                 let items: Vec<Value> = user_value
                     .split(',')
                     .map(|s| Value::String(s.trim().to_string()))

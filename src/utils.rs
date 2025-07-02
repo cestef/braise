@@ -9,8 +9,8 @@ pub fn find_first_existing_file(files: &[&str]) -> Option<String> {
     None
 }
 
-// --arg1 value1 --arg2=value2 -x 21 -y=23
-// {"arg1": "value1", "arg2": "value2", "x": "21", "y": "23"}
+// --arg1 value1 --arg2=value2 -x 21 -y=23 --z
+// {"arg1": "value1", "arg2": "value2", "x": "21", "y": "23", "z": "true"}
 pub fn extract_args(args: &[String]) -> HashMap<String, String> {
     let mut result = HashMap::new();
     let mut i = 0;
@@ -32,7 +32,7 @@ pub fn extract_args(args: &[String]) -> HashMap<String, String> {
                 i += 1;
             } else {
                 // Case: --arg (with no value)
-                result.insert(arg_name.to_string(), String::new());
+                result.insert(arg_name.to_string(), "true".to_string());
             }
         } else if arg.starts_with('-') {
             // Handle short options: -x or -x=value
@@ -48,7 +48,7 @@ pub fn extract_args(args: &[String]) -> HashMap<String, String> {
                 i += 1;
             } else {
                 // Case: -x (with no value)
-                result.insert(arg_name.to_string(), String::new());
+                result.insert(arg_name.to_string(), "true".to_string());
             }
         }
 
