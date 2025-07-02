@@ -3,7 +3,7 @@ name = "braise-lexer"
 edition = "2024"
 
 [dependencies]
-logos-display = "0.1.3"
 logos.workspace = true
 
+logos-display = { path = "../logos-display" }
 braise-core = { path = "../braise-core" }

@@ -57,14 +57,30 @@ pub enum Token {
     #[token("print")]
     Print,
 
+    // Type keywords - These should be recognized as keywords, not identifiers
+    #[token("string")]
+    StringType,
+    #[token("number")]
+    NumberType,
+    #[token("int")]
+    IntType,
+    #[token("bool")]
+    BoolType,
+    #[token("array")]
+    ArrayType,
+
     // Literals
     #[regex(r#""[^"]*""#, |lex| lex.slice().trim_matches('"').to_string())]
+    #[alias("string")]
     String(String),
     #[regex(r#"[0-9]+(\.[0-9]+)?"#, |lex| lex.slice().parse::<f64>().unwrap())]
+    #[alias("number")]
     Number(f64),
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
+    #[alias("identifier")]
     Identifier(String),
     #[regex(r"true|false", |lex| lex.slice().parse::<bool>().unwrap())]
+    #[alias("bool")]
     Bool(bool),
 
     // Logical operators
@@ -119,8 +135,10 @@ pub enum Token {
 
     // Comments
     #[regex(r"//[^\n]*", logos::skip)]
+    #[alias("line_comment")]
     LineComment,
     #[regex(r"/\*[^*]*\*+(?:[^/*][^*/]*)*\*/", logos::skip)]
+    #[alias("block_comment")]
     BlockComment,
 
     EOF,

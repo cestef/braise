@@ -617,6 +617,58 @@ impl Parser {
         Ok(Expression::Variable(trimmed.to_string()))
     }
 
+    fn parse_param_type(&mut self) -> Result<ParamType> {
+        match self.peek() {
+            // Handle type keywords
+            Token::StringType => {
+                self.advance();
+                Ok(ParamType::String)
+            }
+            Token::NumberType | Token::IntType => {
+                self.advance();
+                Ok(ParamType::Number)
+            }
+            Token::BoolType => {
+                self.advance();
+                Ok(ParamType::Bool)
+            }
+            Token::ArrayType => {
+                self.advance();
+                self.consume_token(Token::LeftBracket)?;
+                let element_type = self.parse_param_type()?;
+                self.consume_token(Token::RightBracket)?;
+                Ok(ParamType::Array(Box::new(element_type)))
+            }
+
+            Token::LeftBracket => {
+                self.advance();
+
+                // Check if this is an enum [value1, value2, ...] or array [element_type]
+                if self.check(&Token::String(String::new())) {
+                    // Enum type: [value1, value2, ...]
+                    let mut values = Vec::new();
+
+                    loop {
+                        values.push(self.parse_string()?);
+                        if !self.match_token(&Token::Comma) {
+                            break;
+                        }
+                    }
+
+                    self.consume_token(Token::RightBracket)?;
+                    Ok(ParamType::Enum(values))
+                } else {
+                    // Array type: [element_type]
+                    let element_type = self.parse_param_type()?;
+                    self.consume_token(Token::RightBracket)?;
+                    Ok(ParamType::Array(Box::new(element_type)))
+                }
+            }
+
+            _ => Err(self.create_error("parameter type".to_string(), self.peek().clone())),
+        }
+    }
+
     fn parse_parameter(&mut self) -> Result<SpannedNode<Parameter>> {
         let start_token = self.current;
 
@@ -643,45 +695,6 @@ impl Parser {
         };
 
         Ok(SpannedNode::new(parameter, span))
-    }
-
-    fn parse_param_type(&mut self) -> Result<ParamType> {
-        match self.peek() {
-            Token::Identifier(name) => {
-                let name_clone = name.clone();
-                self.advance();
-                match name_clone.as_str() {
-                    "string" => Ok(ParamType::String),
-                    "int" | "number" => Ok(ParamType::Number),
-                    "bool" => Ok(ParamType::Bool),
-                    _ => Err(ParseError::Other(format!("Unknown type: {}", name_clone))),
-                }
-            }
-            Token::LeftBracket => {
-                self.advance();
-
-                // is an enum [value1, value2, ...] ?
-                if self.check(&Token::String(String::new())) {
-                    let mut values = Vec::new();
-
-                    loop {
-                        values.push(self.parse_string()?);
-                        if !self.match_token(&Token::Comma) {
-                            break;
-                        }
-                    }
-
-                    self.consume_token(Token::RightBracket)?;
-                    Ok(ParamType::Enum(values))
-                } else {
-                    // array [element_type]
-                    let element_type = self.parse_param_type()?;
-                    self.consume_token(Token::RightBracket)?;
-                    Ok(ParamType::Array(Box::new(element_type)))
-                }
-            }
-            _ => Err(self.create_error("parameter type".to_string(), self.peek().clone())),
-        }
     }
 
     fn parse_identifier(&mut self) -> Result<String> {

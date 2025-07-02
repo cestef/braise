@@ -23,13 +23,93 @@ pub struct Parameter {
     pub default: Option<SpannedNode<Expression>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ParamType {
     String,
     Number,
     Bool,
     Array(Box<ParamType>),
     Enum(Vec<String>),
+    // TODO: more types ?
+}
+
+impl ParamType {
+    /// Check if a type is compatible with another (for validation)
+    pub fn is_compatible_with(&self, other: &ParamType) -> bool {
+        match (self, other) {
+            (ParamType::String, ParamType::String) => true,
+            (ParamType::Number, ParamType::Number) => true,
+            (ParamType::Bool, ParamType::Bool) => true,
+            (ParamType::Array(a), ParamType::Array(b)) => a.is_compatible_with(b),
+            (ParamType::Enum(a), ParamType::Enum(b)) => a == b,
+            // Number can be used as string in some contexts
+            (ParamType::Number, ParamType::String) => true,
+            (ParamType::Bool, ParamType::String) => true,
+            _ => false,
+        }
+    }
+
+    /// Get the default value for this type
+    pub fn default_value(&self) -> Expression {
+        match self {
+            ParamType::String => Expression::String(String::new()),
+            ParamType::Number => Expression::Number(0.0),
+            ParamType::Bool => Expression::Bool(false),
+            ParamType::Array(_) => Expression::Array(Vec::new()),
+            ParamType::Enum(variants) => {
+                if let Some(first) = variants.first() {
+                    Expression::String(first.clone())
+                } else {
+                    Expression::String(String::new())
+                }
+            }
+        }
+    }
+
+    /// Validate a string value against this type
+    pub fn validate_string_value(&self, value: &str) -> Result<(), String> {
+        match self {
+            ParamType::String => Ok(()),
+            ParamType::Number => value
+                .parse::<f64>()
+                .map(|_| ())
+                .map_err(|_| format!("'{}' is not a valid number", value)),
+            ParamType::Bool => match value.to_lowercase().as_str() {
+                "true" | "false" | "1" | "0" | "yes" | "no" => Ok(()),
+                _ => Err(format!(
+                    "'{}' is not a valid boolean. Use: true, false, 1, 0, yes, or no",
+                    value
+                )),
+            },
+            ParamType::Array(_) => {
+                // Could validate array elements here
+                Ok(())
+            }
+            ParamType::Enum(variants) => {
+                if variants.contains(&value.to_string()) {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "'{}' is not a valid option. Choose from: {}",
+                        value,
+                        variants.join(", ")
+                    ))
+                }
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for ParamType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParamType::String => write!(f, "string"),
+            ParamType::Number => write!(f, "number"),
+            ParamType::Bool => write!(f, "bool"),
+            ParamType::Array(element_type) => write!(f, "array[{}]", element_type),
+            ParamType::Enum(variants) => write!(f, "enum[{}]", variants.join(", ")),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

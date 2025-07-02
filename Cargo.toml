@@ -8,6 +8,7 @@ members = [
     "crates/braise-lexer",
     "crates/braise-runtime",
     "crates/braise-cli",
+    "crates/logos-display",
 ]
 
 [workspace.dependencies]
