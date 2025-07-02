@@ -1,6 +1,6 @@
 use miette::Diagnostic;
 
-#[derive(Debug, thiserror::Error, Diagnostic)]
+#[derive(Debug, thiserror::Error, Diagnostic, Clone)]
 pub enum RuntimeError {
     #[error("Undefined variable: {0}")]
     UndefinedVariable(String),

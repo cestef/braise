@@ -2,8 +2,10 @@ use crate::parser::ast::{
     BinaryOperator, Config, Expression, InterpolationPart, MatchPattern, ParamType, Parameter,
     Recipe, Statement, UnaryOperator,
 };
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 
 pub mod error;
 pub use error::*;
@@ -193,13 +195,39 @@ impl Runtime {
                         } else {
                             println!("  → Running {} iterations in parallel", items.len());
                         }
-                        // TODO: task spawning
-                        for item in items {
-                            let mut loop_context = context.clone();
-                            loop_context.set(var.clone(), item);
-                            for stmt in body {
-                                self.execute_statement(stmt, &mut loop_context)?;
+
+                        let context_arc = Arc::new(Mutex::new(context.clone()));
+                        let self_arc = Arc::new(self);
+
+                        let errors = Arc::new(Mutex::new(Vec::new()));
+
+                        items.par_iter().for_each(|item| {
+                            let context_clone = context_arc.clone();
+                            let self_clone = self_arc.clone();
+                            let errors_clone = errors.clone();
+                            let var_clone = var.clone();
+
+                            let mut loop_context;
+                            {
+                                let guard = context_clone.lock().unwrap();
+                                loop_context = guard.clone();
                             }
+                            loop_context.set(var_clone, item.clone());
+
+                            for stmt in body {
+                                if let Err(e) =
+                                    self_clone.execute_statement(stmt, &mut loop_context)
+                                {
+                                    let mut errors_guard = errors_clone.lock().unwrap();
+                                    errors_guard.push(e);
+                                    break;
+                                }
+                            }
+                        });
+
+                        let errors_guard = errors.lock().unwrap();
+                        if let Some(first_error) = errors_guard.first() {
+                            return Err(first_error.clone());
                         }
                     } else {
                         for item in items {
