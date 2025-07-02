@@ -4,11 +4,9 @@ use core::{
     constants::DEFAULT_FILES,
     utils::{extract_args, find_first_existing_file},
 };
-use lexer::{SpannedToken, Token};
+use lexer::tokenize;
 use parser::Parser;
 use runtime::Runtime;
-
-use logos::Logos;
 
 fn main() -> miette::Result<()> {
     Ok(run()?)
@@ -28,21 +26,12 @@ fn run() -> core::Result<()> {
         file: file.clone(),
     })?;
 
-    let mut lexer = Token::lexer(&contents).spanned();
+    let tokens = tokenize(&contents).map_err(|error_span| BraiseError::LexerError {
+        code: contents.clone(),
+        span: miette::SourceSpan::new(error_span.start.into(), error_span.len()),
+    })?;
 
-    let mut tokens = vec![];
-    while let Some((token, span)) = lexer.next() {
-        if let Ok(token) = token {
-            tokens.push(SpannedToken::new(token, span));
-        } else {
-            return Err(BraiseError::LexerError {
-                code: contents.clone(),
-                span: span.into(),
-            });
-        }
-    }
-
-    let mut parser = Parser::new(tokens, contents);
+    let mut parser = Parser::new(tokens, contents, file.clone());
     let ast = parser.parse()?;
 
     let mut runtime = Runtime::new(ast);

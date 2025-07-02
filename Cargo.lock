@@ -130,6 +130,7 @@ dependencies = [
 name = "braise-lexer"
 version = "0.0.0"
 dependencies = [
+ "braise-core",
  "logos",
  "logos-display",
 ]

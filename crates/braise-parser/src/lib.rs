@@ -9,25 +9,35 @@ use std::rc::Rc;
 pub struct Parser {
     tokens: Vec<SpannedToken>,
     source: Rc<String>,
+    // source_map: SourceMap,
     pub current: usize,
     file_id: FileId,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<SpannedToken>, source: String) -> Self {
+    pub fn new(tokens: Vec<SpannedToken>, source: String, filename: String) -> Self {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        filename.hash(&mut hasher);
+        let file_id = FileId(hasher.finish() as usize);
+        // let source_map = SourceMap::new(source.clone(), file_id);
+
         Parser {
             tokens,
             current: 0,
             source: Rc::new(source),
-            file_id: FileId(0), // TODO: proper file ID management
+            // source_map,
+            file_id,
         }
     }
 
     fn create_error(&self, expected: String, found: Token) -> ParseError {
         let (span, code) = if self.current < self.tokens.len() {
             let token_span = &self.tokens[self.current].span;
+            let start_offset = token_span.start.offset;
+            let end_offset = token_span.end.offset;
             (
-                SourceSpan::new(token_span.start.into(), token_span.len()),
+                SourceSpan::new(start_offset.into(), end_offset.saturating_sub(start_offset)),
                 self.source.as_ref().clone(),
             )
         } else {
@@ -48,46 +58,49 @@ impl Parser {
     fn get_current_span(&self) -> Span {
         if self.current < self.tokens.len() {
             let token_span = &self.tokens[self.current].span;
-            Span::new(
-                Position::new(1, 1, token_span.start), // TODO: proper line/col tracking
-                Position::new(1, 1, token_span.end),
-                self.file_id,
-            )
+            Span::from_token_span(token_span, self.file_id)
         } else {
-            Span::new(
-                Position::new(1, 1, self.source.len()),
-                Position::new(1, 1, self.source.len()),
-                self.file_id,
-            )
+            // EOF span
+            let end_pos = Position::new(1, 1, self.source.len());
+            Span::new(end_pos, end_pos, self.file_id)
         }
     }
 
-    fn span_range(&self, start_pos: usize, end_pos: usize) -> Span {
-        Span::new(
-            Position::new(1, 1, start_pos), // TODO: proper line/col tracking
-            Position::new(1, 1, end_pos),
-            self.file_id,
-        )
+    fn span_from_token_range(&self, start_token: usize, end_token: usize) -> Span {
+        if start_token < self.tokens.len() && end_token <= self.tokens.len() {
+            let start_span = &self.tokens[start_token].span;
+            let end_span = if end_token > 0 && end_token <= self.tokens.len() {
+                &self.tokens[end_token - 1].span
+            } else {
+                start_span
+            };
+
+            Span::new(
+                start_span.start.clone().into(),
+                end_span.end.clone().into(),
+                self.file_id,
+            )
+        } else {
+            self.get_current_span()
+        }
     }
 
     pub fn parse(&mut self) -> Result<Config> {
         let mut recipes = Vec::new();
-        let start_pos = 0;
+        let start_token = self.current;
 
         while !self.is_at_end() {
             recipes.push(self.parse_recipe()?);
         }
 
-        let end_pos = self.source.len();
+        let end_token = self.current;
+        let span = self.span_from_token_range(start_token, end_token.max(1));
 
-        Ok(Config {
-            recipes,
-            span: self.span_range(start_pos, end_pos),
-        })
+        Ok(Config { recipes, span })
     }
 
     fn parse_recipe(&mut self) -> Result<SpannedNode<Recipe>> {
-        let start_pos = self.current;
+        let start_token = self.current;
         self.consume_token(Token::Recipe)?;
 
         let name = self.parse_string()?;
@@ -125,7 +138,7 @@ impl Parser {
         }
 
         self.consume_token(Token::RightBrace)?;
-        let end_pos = self.current;
+        let end_token = self.current;
 
         let recipe = Recipe {
             name,
@@ -134,28 +147,12 @@ impl Parser {
             body,
         };
 
-        let span = if start_pos < self.tokens.len() && end_pos <= self.tokens.len() {
-            let start_span = &self.tokens[start_pos].span;
-            let end_span = if end_pos > 0 && end_pos <= self.tokens.len() {
-                &self.tokens[end_pos - 1].span
-            } else {
-                start_span
-            };
-
-            Span::new(
-                Position::new(1, 1, start_span.start),
-                Position::new(1, 1, end_span.end),
-                self.file_id,
-            )
-        } else {
-            self.get_current_span()
-        };
-
+        let span = self.span_from_token_range(start_token, end_token);
         Ok(SpannedNode::new(recipe, span))
     }
 
     fn parse_statement(&mut self) -> Result<SpannedNode<Statement>> {
-        let span = self.get_current_span();
+        let start_token = self.current;
 
         let statement = match self.peek() {
             Token::Run => self.parse_run_statement()?,
@@ -166,6 +163,9 @@ impl Parser {
             Token::For => self.parse_for_statement()?,
             e => return Err(self.create_error("statement".to_string(), e.clone())),
         };
+
+        let end_token = self.current;
+        let span = self.span_from_token_range(start_token, end_token);
 
         Ok(SpannedNode::new(statement, span))
     }
@@ -213,7 +213,8 @@ impl Parser {
                     },
                 };
 
-                Some(vec![SpannedNode::new(nested_if, self.get_current_span())])
+                let nested_span = self.get_current_span();
+                Some(vec![SpannedNode::new(nested_if, nested_span)])
             } else {
                 self.consume_token(Token::LeftBrace)?;
                 Some(self.parse_statement_block()?)
@@ -237,6 +238,8 @@ impl Parser {
         let mut arms = Vec::new();
 
         while !self.check(&Token::RightBrace) && !self.is_at_end() {
+            let arm_start = self.current;
+
             let pattern = if self.check(&Token::String(String::new())) {
                 MatchPattern::String(self.parse_string()?)
             } else if self.match_token(&Token::Identifier("_".to_string())) {
@@ -254,8 +257,10 @@ impl Parser {
                 vec![self.parse_statement()?]
             };
 
+            let arm_end = self.current;
+            let arm_span = self.span_from_token_range(arm_start, arm_end);
             let arm = MatchArm { pattern, body };
-            arms.push(SpannedNode::new(arm, self.get_current_span()));
+            arms.push(SpannedNode::new(arm, arm_span));
 
             if !self.check(&Token::RightBrace) {
                 self.consume_token(Token::Comma)?;
@@ -298,16 +303,18 @@ impl Parser {
     }
 
     fn parse_expression(&mut self) -> Result<SpannedNode<Expression>> {
+        let start_token = self.current;
         let expr = self.parse_conditional()?;
-        let span = self.get_current_span();
+        let end_token = self.current;
+        let span = self.span_from_token_range(start_token, end_token);
         Ok(SpannedNode::new(expr, span))
     }
 
     fn parse_conditional(&mut self) -> Result<Expression> {
         if self.check(&Token::If) {
             self.advance(); // consume if
-            let condition_span = self.get_current_span();
             let condition = self.parse_logical_or()?;
+            let condition_span = self.get_current_span();
 
             self.consume_token(Token::LeftBrace)?;
             let then_expr = self.parse_expression()?;
@@ -611,7 +618,7 @@ impl Parser {
     }
 
     fn parse_parameter(&mut self) -> Result<SpannedNode<Parameter>> {
-        let span = self.get_current_span();
+        let start_token = self.current;
 
         self.consume_token(Token::Param)?;
 
@@ -625,6 +632,9 @@ impl Parser {
         } else {
             None
         };
+
+        let end_token = self.current;
+        let span = self.span_from_token_range(start_token, end_token);
 
         let parameter = Parameter {
             name,

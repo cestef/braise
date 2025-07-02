@@ -2,21 +2,36 @@ use std::ops::Range;
 
 use logos::{Lexer, Logos, Skip};
 
-/// Update the line count and the char index.
+pub use crate::{extras::LexerExtras, spanned_token::SpannedToken};
+
+pub mod extras;
+pub mod spanned_token;
+
+/// Update line tracking when encountering newlines
 fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
-    lex.extras.0 += if lex.slice().contains('\n') {
-        lex.slice().matches('\n').count()
-    } else {
-        0
-    };
-    lex.extras.1 = lex.span().end;
+    let slice = lex.slice();
+    let span = lex.span();
+
+    // Count newlines in the current token
+    let newline_count = slice.matches('\n').count();
+
+    if newline_count > 0 {
+        lex.extras.line += newline_count as u32;
+
+        // Find the position of the last newline to update line_start_offset
+        if let Some(last_newline_pos) = slice.rfind('\n') {
+            lex.extras.line_start_offset = span.start + last_newline_pos + 1;
+        }
+    }
+
     Skip
 }
 
 #[derive(Logos, Debug, PartialEq, Clone, logos_display::Display)]
-#[logos(skip(r"[ \t\n\f]+", callback = newline_callback))] // Skip whitespace
+#[logos(skip(r"[ \t\r]+"))] // Handle whitespace
+#[logos(skip(r"\n", callback = newline_callback))] // Handle newlines and update line tracking
 #[logos(error(Range<usize>, callback = |lex| lex.span()))]
-#[logos(extras = (usize, usize))] // Track line and column numbers
+#[logos(extras = LexerExtras)] // Use our custom extras
 pub enum Token {
     // Keywords
     #[token("recipe")]
@@ -111,14 +126,29 @@ pub enum Token {
     EOF,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct SpannedToken {
-    pub token: Token,
-    pub span: Range<usize>,
+/// Create a lexer with proper position tracking
+pub fn create_lexer(source: &str) -> logos::Lexer<Token> {
+    let mut lexer = Token::lexer(source);
+    lexer.extras = LexerExtras::new(source.to_string());
+    lexer
 }
 
-impl SpannedToken {
-    pub fn new(token: Token, span: Range<usize>) -> Self {
-        SpannedToken { token, span }
+/// Tokenize source code and return a vector of spanned tokens
+pub fn tokenize(source: &str) -> Result<Vec<SpannedToken>, Range<usize>> {
+    let mut lexer = create_lexer(source);
+    let mut tokens = Vec::new();
+
+    while let Some(result) = lexer.next() {
+        match result {
+            Ok(token) => {
+                let span = lexer.extras.span_from_range(lexer.span());
+                tokens.push(SpannedToken::new(token, span));
+            }
+            Err(r) => {
+                return Err(r);
+            }
+        }
     }
+
+    Ok(tokens)
 }
