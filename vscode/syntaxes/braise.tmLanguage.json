@@ -312,7 +312,7 @@
             "patterns": [
                 {
                     "name": "keyword.control.braise",
-                    "match": "\\b(recipe|param|if|else|match|for|in|run|exit|async)\\b"
+                    "match": "\\b(recipe|param|if|else|match|for|in|run|exit|async|print)\\b"
                 }
             ]
         },
@@ -398,11 +398,7 @@
             "patterns": [
                 {
                     "name": "support.function.builtin.braise",
-                    "match": "\\b(env|cpu|git)\\b"
-                },
-                {
-                    "name": "support.function.builtin.braise",
-                    "match": "\\b(count|is_clean|commit_hash|commit_hash_short)\\b"
+                    "match": "\\b(env|cpu|git|fs)\\b"
                 }
             ]
         },

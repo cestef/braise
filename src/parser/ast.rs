@@ -30,6 +30,7 @@ pub enum ParamType {
 #[derive(Debug, Clone)]
 pub enum Statement {
     Run(Expression),
+    Print(Expression),
     If {
         condition: Expression,
         then_block: Vec<Statement>,

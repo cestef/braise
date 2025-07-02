@@ -45,12 +45,10 @@ impl Runtime {
             .find(|r| r.name == name)
             .ok_or_else(|| RuntimeError::UndefinedRecipe(name.to_string()))?;
 
-        // First, execute dependencies
         for dep in &recipe.dependencies {
             self.execute_recipe(dep, HashMap::new())?;
         }
 
-        // Resolve parameters
         let mut context = self.resolve_parameters(recipe, user_params)?;
 
         if self.dry_run {
@@ -59,7 +57,6 @@ impl Runtime {
             println!("🔥 Running recipe: {}", name);
         }
 
-        // Execute recipe body
         for statement in &recipe.body {
             self.execute_statement(statement, &mut context)?;
         }
@@ -177,7 +174,7 @@ impl Runtime {
                         for stmt in &arm.body {
                             self.execute_statement(stmt, context)?;
                         }
-                        break; // Only execute first matching arm
+                        break;
                     }
                 }
             }
@@ -196,7 +193,7 @@ impl Runtime {
                         } else {
                             println!("  → Running {} iterations in parallel", items.len());
                         }
-                        // For now, just run sequentially - true async would need tokio
+                        // TODO: task spawning
                         for item in items {
                             let mut loop_context = context.clone();
                             loop_context.set(var.clone(), item);
@@ -219,9 +216,20 @@ impl Runtime {
                     )));
                 }
             }
-            Statement::Exit(code_expr) => {
-                let code_value = self.evaluate_expression(code_expr, context)?;
-                let exit_code = code_value.to_number()? as i32;
+            Statement::Print(expr) => {
+                let value = self.evaluate_expression(expr, context)?;
+                if self.dry_run {
+                    println!("  📣 {}", value.to_string());
+                } else {
+                    println!("{}", value.to_string());
+                }
+            }
+            Statement::Exit(expr) => {
+                let exit_code = {
+                    let value = self.evaluate_expression(expr, context)?;
+                    value.to_number()? as i32
+                };
+
                 if self.dry_run {
                     println!("  ⚡ exit {}", exit_code);
                 } else {
@@ -343,7 +351,7 @@ impl Runtime {
             (Value::Array(a), Value::Array(b)) => {
                 a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| self.values_equal(x, y))
             }
-            // Type coercion for mixed comparisons
+            // mixed
             (Value::String(s), Value::Number(n)) | (Value::Number(n), Value::String(s)) => {
                 s.parse::<f64>().map(|parsed| parsed == *n).unwrap_or(false)
             }
@@ -384,21 +392,11 @@ impl Runtime {
             });
         }
 
-        // Print command output
         let stdout = String::from_utf8_lossy(&output.stdout);
         if !stdout.trim().is_empty() {
             print!("{}", stdout);
         }
 
         Ok(())
-    }
-}
-
-// Add clone for ExecutionContext
-impl Clone for ExecutionContext {
-    fn clone(&self) -> Self {
-        Self {
-            variables: self.variables.clone(),
-        }
     }
 }

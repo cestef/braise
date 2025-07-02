@@ -1,4 +1,3 @@
-// parser/mod.rs - Updated implementation
 pub mod ast;
 
 use crate::lexer::{SpannedToken, Token};
@@ -24,7 +23,6 @@ impl Parser {
         }
     }
 
-    // Helper method to create errors with proper spans
     fn create_error(&self, expected: String, found: Token) -> ParseError {
         let (span, code) = if self.current < self.tokens.len() {
             let token_span = &self.tokens[self.current].span;
@@ -33,7 +31,6 @@ impl Parser {
                 self.source.as_ref().clone(),
             )
         } else {
-            // EOF case - point to the end of the file
             (
                 SourceSpan::new(self.source.len().into(), 0),
                 self.source.as_ref().clone(),
@@ -108,11 +105,27 @@ impl Parser {
     fn parse_statement(&mut self) -> Result<Statement> {
         match self.peek() {
             Token::Run => self.parse_run_statement(),
+            Token::Exit => self.parse_exit_statement(),
+            Token::Print => self.parse_print_statement(),
             Token::If => self.parse_if_statement(),
             Token::Match => self.parse_match_statement(),
             Token::For => self.parse_for_statement(),
             e => Err(self.create_error("statement".to_string(), e.clone())),
         }
+    }
+
+    fn parse_print_statement(&mut self) -> Result<Statement> {
+        self.consume_token(Token::Print)?;
+
+        let expr = self.parse_expression()?;
+
+        Ok(Statement::Print(expr))
+    }
+
+    fn parse_exit_statement(&mut self) -> Result<Statement> {
+        self.consume_token(Token::Exit)?;
+        let expr = self.parse_expression()?;
+        Ok(Statement::Exit(expr))
     }
 
     fn parse_run_statement(&mut self) -> Result<Statement> {
@@ -228,7 +241,31 @@ impl Parser {
     }
 
     fn parse_expression(&mut self) -> Result<Expression> {
-        self.parse_logical_or()
+        self.parse_conditional()
+    }
+
+    fn parse_conditional(&mut self) -> Result<Expression> {
+        if self.check(&Token::If) {
+            self.advance(); // consume if
+            let condition = self.parse_logical_or()?;
+
+            self.consume_token(Token::LeftBrace)?;
+            let then_expr = self.parse_expression()?;
+            self.consume_token(Token::RightBrace)?;
+
+            self.consume_token(Token::Else)?;
+            self.consume_token(Token::LeftBrace)?;
+            let else_expr = self.parse_expression()?;
+            self.consume_token(Token::RightBrace)?;
+
+            Ok(Expression::Conditional {
+                condition: Box::new(condition),
+                then_expr: Box::new(then_expr),
+                else_expr: Box::new(else_expr),
+            })
+        } else {
+            self.parse_logical_or()
+        }
     }
 
     fn parse_logical_or(&mut self) -> Result<Expression> {
@@ -249,6 +286,7 @@ impl Parser {
     fn parse_primary(&mut self) -> Result<Expression> {
         match self.peek().clone() {
             Token::String(s) => {
+                // TODO: handle interpolation at lexing?
                 self.advance();
                 // str interpolation
                 if s.contains("${") {
@@ -442,7 +480,6 @@ impl Parser {
                     expr_text.push(ch);
                 }
 
-                // Parse the expression text using a temporary parser
                 let expr = self.parse_interpolation_expression(&expr_text)?;
                 parts.push(InterpolationPart::Expression(expr));
             } else {
@@ -458,6 +495,7 @@ impl Parser {
     }
 
     fn parse_interpolation_expression(&self, expr_text: &str) -> Result<Expression> {
+        // TODO: interpolation lexer?
         let trimmed = expr_text.trim();
         // num
         if let Ok(num) = trimmed.parse::<f64>() {
@@ -558,7 +596,7 @@ impl Parser {
                     self.consume_token(Token::RightBracket)?;
                     Ok(ParamType::Enum(values))
                 } else {
-                    // Array type [element_type]
+                    // array [element_type]
                     let element_type = self.parse_param_type()?;
                     self.consume_token(Token::RightBracket)?;
                     Ok(ParamType::Array(Box::new(element_type)))

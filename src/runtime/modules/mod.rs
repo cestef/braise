@@ -157,7 +157,6 @@ use cpu::CpuModule;
 mod fs;
 use fs::FsModule;
 
-// Register all modules
 register_modules! {
     "git" => GitModule,
     "env" => EnvModule,

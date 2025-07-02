@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::value::Value;
 
+#[derive(Debug, Clone)]
 pub struct ExecutionContext {
     pub variables: HashMap<String, Value>,
 }

@@ -27,6 +27,8 @@ pub enum Token {
     Async,
     #[token("exit")]
     Exit,
+    #[token("print")]
+    Print,
 
     // Literals
     #[regex(r#""[^"]*""#, |lex| lex.slice().trim_matches('"').to_string())]
@@ -87,6 +89,12 @@ pub enum Token {
     Comma,
     #[token(":")]
     Colon,
+
+    // Comments
+    #[regex(r"//[^\n]*", logos::skip)]
+    LineComment,
+    #[regex(r"/\*[^*]*\*+(?:[^/*][^*/]*)*\*/", logos::skip)]
+    BlockComment,
 
     EOF,
 }

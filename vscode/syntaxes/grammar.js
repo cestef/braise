@@ -1,4 +1,3 @@
-// grammar.js - Fixed Tree-sitter grammar for Braise DSL
 module.exports = grammar({
 	name: "braise",
 
@@ -26,7 +25,8 @@ module.exports = grammar({
 				$.match_statement,
 				$.for_statement,
 				$.run_statement,
-				$.exit_statement
+				$.exit_statement,
+				$.print_statement
 			),
 
 		param_statement: ($) =>
@@ -79,7 +79,9 @@ module.exports = grammar({
 
 		run_statement: ($) => seq("run", field("command", $._expression)),
 
-		exit_statement: ($) => seq("exit", field("code", $._expression)),
+		exit_statement: ($) => seq("exit", optional(field("code", $._expression))),
+
+		print_statement: ($) => seq("print", optional(field("expression", $._expression))),
 
 		_expression: ($) =>
 			choice(
@@ -97,7 +99,6 @@ module.exports = grammar({
 				$.array
 			),
 
-		// Add conditional expression back but with higher precedence
 		conditional_expression: ($) =>
 			prec(
 				10,
@@ -143,14 +144,12 @@ module.exports = grammar({
 
 		parenthesized_expression: ($) => seq("(", $._expression, ")"),
 
-		// Simple string literal (no interpolation)
 		string_literal: ($) =>
 			choice(
 				seq('"', optional(alias(/[^"$]*/, $.string_content)), '"'),
 				seq("'", optional(alias(/[^']*/, $.string_content)), "'")
 			),
 
-		// Interpolated string (contains ${...})
 		interpolated_string: ($) =>
 			seq(
 				'"',
