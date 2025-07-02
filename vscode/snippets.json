@@ -1,0 +1,147 @@
+{
+    "Recipe": {
+        "prefix": "recipe",
+        "body": [
+            "recipe \"${1:name}\" {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Create a new recipe"
+    },
+    "Recipe with dependencies": {
+        "prefix": "recipe-deps",
+        "body": [
+            "recipe \"${1:name}\" -> [${2:\"dep1\", \"dep2\"}] {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Create a recipe with dependencies"
+    },
+    "Parameter": {
+        "prefix": "param",
+        "body": [
+            "param ${1:name}: ${2|bool,int,string|} = ${3:default_value}"
+        ],
+        "description": "Create a parameter"
+    },
+    "Parameter with array type": {
+        "prefix": "param-array",
+        "body": [
+            "param ${1:name}: [${2:string}] = ${3:[\"default\"]}"
+        ],
+        "description": "Create a parameter with array type"
+    },
+    "Parameter with union type": {
+        "prefix": "param-union",
+        "body": [
+            "param ${1:name}: [${2:\"option1\", \"option2\"}] = ${3:\"option1\"}"
+        ],
+        "description": "Create a parameter with union type"
+    },
+    "If statement": {
+        "prefix": "if",
+        "body": [
+            "if ${1:condition} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Create an if statement"
+    },
+    "If-else statement": {
+        "prefix": "ifelse",
+        "body": [
+            "if ${1:condition} {",
+            "\t${2:// then block}",
+            "} else {",
+            "\t${3:// else block}",
+            "}"
+        ],
+        "description": "Create an if-else statement"
+    },
+    "Match statement": {
+        "prefix": "match",
+        "body": [
+            "match ${1:expression} {",
+            "\t\"${2:pattern}\" => {",
+            "\t\t${3:// action}",
+            "\t},",
+            "\t_ => {",
+            "\t\t${4:// default}",
+            "\t}",
+            "}"
+        ],
+        "description": "Create a match statement"
+    },
+    "For loop": {
+        "prefix": "for",
+        "body": [
+            "for ${1:item} in ${2:collection} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Create a for loop"
+    },
+    "Async for loop": {
+        "prefix": "for-async",
+        "body": [
+            "for ${1:item} in ${2:collection} {",
+            "\t$0",
+            "} async"
+        ],
+        "description": "Create an async for loop"
+    },
+    "Run command": {
+        "prefix": "run",
+        "body": [
+            "run \"${1:command}\""
+        ],
+        "description": "Run a command"
+    },
+    "Run with interpolation": {
+        "prefix": "run-interp",
+        "body": [
+            "run \"${1:command} \\${${2:variable}}\""
+        ],
+        "description": "Run a command with string interpolation"
+    },
+    "Exit statement": {
+        "prefix": "exit",
+        "body": [
+            "exit ${1:1}"
+        ],
+        "description": "Exit with status code"
+    },
+    "Conditional expression": {
+        "prefix": "cond",
+        "body": [
+            "if ${1:condition} { ${2:true_value} } else { ${3:false_value} }"
+        ],
+        "description": "Conditional expression"
+    },
+    "Git check": {
+        "prefix": "git-clean",
+        "body": [
+            "if !git.is_clean() {",
+            "\trun \"echo 'Working directory must be clean'\"",
+            "\texit 1",
+            "}"
+        ],
+        "description": "Check if git working directory is clean"
+    },
+    "Environment check": {
+        "prefix": "env-check",
+        "body": [
+            "if env.${1:VARIABLE} {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Check environment variable"
+    },
+    "CPU count": {
+        "prefix": "cpu-count",
+        "body": [
+            "cpu.count()"
+        ],
+        "description": "Get CPU count"
+    }
+}

@@ -1,1 +1,6 @@
 /target
+node_modules/
+/vscode/out
+*.vsix
+.DS_Store
+vscode/syntaxes/src
