@@ -22,7 +22,7 @@ recipe "deploy" {
 }
 
 recipe "test" {
-    param threads: teststste = cpu.count()
+    param threads: int = cpu.count()
     
     if threads <= 1 {
         run "cargo test"

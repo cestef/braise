@@ -1,6 +1,8 @@
 [package]
 name = "braise-lexer"
-edition = "2024"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
 
 [dependencies]
 logos.workspace = true

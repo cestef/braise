@@ -1,6 +1,8 @@
 [package]
 name = "braise-parser"
-edition = "2024"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
 
 [dependencies]
 miette.workspace = true

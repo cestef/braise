@@ -1,6 +1,8 @@
 [package]
 name = "braise-runtime"
-edition = "2024"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
 
 [dependencies]
 num_cpus = "1.17.0"

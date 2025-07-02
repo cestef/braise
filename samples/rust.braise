@@ -19,6 +19,10 @@ recipe "ci" -> ["lint", "test", "build"] {
     run "echo 'All checks passed!'"
 }
 
+recipe "lint" {
+    run "cargo clippy -- -D warnings"
+}
+
 recipe "release" {
     if !git.is_clean() {
         run "echo 'Working directory must be clean'"

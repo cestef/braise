@@ -1,13 +1,17 @@
 [workspace]
 name = "braise"
-version = "0.1.0"
-edition = "2024"
+package.version = "0.1.0"
+package.edition = "2024"
+package.authors = ["cstef <hi@cstef.dev>"]
+resolver = "3"
+
 members = [
     "crates/braise-core",
     "crates/braise-parser",
     "crates/braise-lexer",
     "crates/braise-runtime",
     "crates/braise-cli",
+    "crates/braise-lsp",
     "crates/logos-display",
 ]
 

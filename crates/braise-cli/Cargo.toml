@@ -1,6 +1,8 @@
 [package]
 name = "braise-cli"
-edition = "2024"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
 
 [dependencies]
 clap = { version = "4.5.40", features = ["cargo"] }
