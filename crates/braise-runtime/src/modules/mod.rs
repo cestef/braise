@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::runtime::value::Value;
+use crate::Value;
 
-use super::error::*;
+use super::{Result, RuntimeError};
 
 pub trait BuiltinModule: Send + Sync {
     fn call_function(&self, function: &str, args: Vec<Value>) -> Result<Value>;
@@ -29,15 +29,15 @@ macro_rules! builtin_module {
             })?
         }
     ) => {
-        impl crate::runtime::modules::BuiltinModule for $module_name {
-            fn call_function(&self, function: &str, args: Vec<crate::runtime::Value>) -> crate::runtime::Result<crate::runtime::Value> {
+        impl crate::modules::BuiltinModule for $module_name {
+            fn call_function(&self, function: &str, args: Vec<crate::Value>) -> crate::Result<crate::Value> {
                 match function {
                     $(
                         $func_name => {
                             builtin_module!(@call_function self, $func_method, args $(, $($arg_type),+)?)
                         }
                     )*
-                    _ => Err(crate::runtime::RuntimeError::BuiltinError(format!(
+                    _ => Err(crate::RuntimeError::BuiltinError(format!(
                         "Unknown function '{}' in module '{}'",
                         function,
                         stringify!($module_name)
@@ -46,12 +46,12 @@ macro_rules! builtin_module {
             }
 
             $(
-                fn get_field(&self, field: &str) -> crate::runtime::Result<crate::runtime::Value> {
+                fn get_field(&self, field: &str) -> crate::Result<crate::Value> {
                     match field {
                         $(
                             $field_name => self.$field_method(),
                         )*
-                        _ => Err(crate::runtime::RuntimeError::BuiltinError(format!(
+                        _ => Err(crate::RuntimeError::BuiltinError(format!(
                             "Unknown field '{}' in module '{}'",
                             field,
                             stringify!($module_name)
@@ -65,7 +65,7 @@ macro_rules! builtin_module {
     (@call_function $self:expr, $func_method:ident, $args:ident) => {
         {
             if !$args.is_empty() {
-                return Err(crate::runtime::RuntimeError::BuiltinError(format!(
+                return Err(crate::RuntimeError::BuiltinError(format!(
                     "Function '{}' requires no arguments, got {}",
                     stringify!($func_method),
                     $args.len()
@@ -78,7 +78,7 @@ macro_rules! builtin_module {
     (@call_function $self:expr, $func_method:ident, $args:ident, $($arg_type:ty),+) => {
         {
             if $args.len() != 1 {
-                return Err(crate::runtime::RuntimeError::BuiltinError(format!(
+                return Err(crate::RuntimeError::BuiltinError(format!(
                     "Function '{}' requires exactly 1 argument, got {}",
                     stringify!($func_method),
                     $args.len()
@@ -86,7 +86,7 @@ macro_rules! builtin_module {
             }
             let arg = $args.into_iter().next().unwrap();
             if !arg.is::<$($arg_type),+>() {
-                return Err(crate::runtime::RuntimeError::BuiltinError(format!(
+                return Err(crate::RuntimeError::BuiltinError(format!(
                     "Function '{}' expected argument of type {}, got {}",
                     stringify!($func_method),
                     stringify!($($arg_type),+),

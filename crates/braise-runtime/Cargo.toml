@@ -1,0 +1,12 @@
+[package]
+name = "braise-runtime"
+edition = "2024"
+
+[dependencies]
+num_cpus = "1.17.0"
+rayon = "1.10.0"
+once_cell = "1.21.3"
+
+core = { path = "../braise-core", package = "braise-core" }
+parser = { path = "../braise-parser", package = "braise-parser" }
+lexer = { path = "../braise-lexer", package = "braise-lexer" }

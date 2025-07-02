@@ -1,4 +1,4 @@
-use crate::runtime::{Value, error::*};
+use crate::{Result, Value};
 use std::env;
 
 pub struct CpuModule;

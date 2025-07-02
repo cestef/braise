@@ -1,3 +1,6 @@
+pub mod parser;
+pub mod runtime;
+
 use miette::{Diagnostic, SourceSpan};
 use owo_colors::OwoColorize;
 

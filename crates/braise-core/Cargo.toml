@@ -1,0 +1,8 @@
+[package]
+name = "braise-core"
+edition = "2024"
+
+[dependencies]
+miette.workspace = true
+thiserror.workspace = true
+owo-colors.workspace = true

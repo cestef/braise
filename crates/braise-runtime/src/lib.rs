@@ -1,14 +1,9 @@
-use crate::parser::ast::{
-    BinaryOperator, Config, Expression, InterpolationPart, MatchPattern, ParamType, Parameter,
-    Recipe, Statement, UnaryOperator,
-};
+use core::ast::*;
+use core::error::runtime::*;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
-
-pub mod error;
-pub use error::*;
 
 mod value;
 use value::*;
@@ -44,14 +39,14 @@ impl Runtime {
             .config
             .recipes
             .iter()
-            .find(|r| r.name == name)
+            .find(|r| r.value.name == name)
             .ok_or_else(|| RuntimeError::UndefinedRecipe(name.to_string()))?;
 
-        for dep in &recipe.dependencies {
+        for dep in &recipe.value.dependencies {
             self.execute_recipe(dep, HashMap::new())?;
         }
 
-        let mut context = self.resolve_parameters(recipe, user_params)?;
+        let mut context = self.resolve_parameters(&recipe.value, user_params)?;
 
         if self.dry_run {
             println!("🔍 Dry run for recipe: {}", name);
@@ -59,8 +54,8 @@ impl Runtime {
             println!("🔥 Running recipe: {}", name);
         }
 
-        for statement in &recipe.body {
-            self.execute_statement(statement, &mut context)?;
+        for statement in &recipe.value.body {
+            self.execute_statement(&statement.value, &mut context)?;
         }
 
         Ok(())
@@ -74,19 +69,19 @@ impl Runtime {
         let mut context = ExecutionContext::new();
 
         for param in &recipe.parameters {
-            let value = if let Some(user_value) = user_params.get(&param.name) {
-                self.validate_and_convert_parameter(param, user_value)?
-            } else if let Some(default_expr) = &param.default {
-                self.evaluate_expression(default_expr, &context)?
+            let value = if let Some(user_value) = user_params.get(&param.value.name) {
+                self.validate_and_convert_parameter(&param.value, user_value)?
+            } else if let Some(default_expr) = &param.value.default {
+                self.evaluate_expression(&default_expr.value, &context)?
             } else {
                 return Err(RuntimeError::InvalidParameter {
-                    name: param.name.clone(),
-                    expected: format!("{:?}", param.param_type),
+                    name: param.value.name.clone(),
+                    expected: format!("{:?}", param.value.param_type),
                     got: "no value provided and no default".to_string(),
                 });
             };
 
-            context.set(param.name.clone(), value);
+            context.set(param.value.name.clone(), value);
         }
 
         Ok(context)
@@ -139,7 +134,7 @@ impl Runtime {
     ) -> Result<()> {
         match statement {
             Statement::Run(expr) => {
-                let command_str = self.evaluate_expression(expr, context)?.to_string();
+                let command_str = self.evaluate_expression(&expr.value, context)?.to_string();
                 if self.dry_run {
                     self.show_command(&command_str);
                 } else {
@@ -151,30 +146,30 @@ impl Runtime {
                 then_block,
                 else_block,
             } => {
-                let condition_value = self.evaluate_expression(condition, context)?;
+                let condition_value = self.evaluate_expression(&condition.value, context)?;
                 if condition_value.to_bool() {
                     for stmt in then_block {
-                        self.execute_statement(stmt, context)?;
+                        self.execute_statement(&stmt.value, context)?;
                     }
                 } else if let Some(else_stmts) = else_block {
                     for stmt in else_stmts {
-                        self.execute_statement(stmt, context)?;
+                        self.execute_statement(&stmt.value, context)?;
                     }
                 }
             }
             Statement::Match { expr, arms } => {
-                let match_value = self.evaluate_expression(expr, context)?;
+                let match_value = self.evaluate_expression(&expr.value, context)?;
                 let match_str = match_value.to_string();
 
                 for arm in arms {
-                    let matches = match &arm.pattern {
+                    let matches = match &arm.value.pattern {
                         MatchPattern::String(pattern) => pattern == &match_str,
                         MatchPattern::Wildcard => true,
                     };
 
                     if matches {
-                        for stmt in &arm.body {
-                            self.execute_statement(stmt, context)?;
+                        for stmt in &arm.value.body {
+                            self.execute_statement(&stmt.value, context)?;
                         }
                         break;
                     }
@@ -186,7 +181,7 @@ impl Runtime {
                 body,
                 is_async,
             } => {
-                let iterable_value = self.evaluate_expression(iterable, context)?;
+                let iterable_value = self.evaluate_expression(&iterable.value, context)?;
 
                 if let Value::Array(items) = iterable_value {
                     if *is_async {
@@ -216,7 +211,7 @@ impl Runtime {
 
                             for stmt in body {
                                 if let Err(e) =
-                                    self_clone.execute_statement(stmt, &mut loop_context)
+                                    self_clone.execute_statement(&stmt.value, &mut loop_context)
                                 {
                                     let mut errors_guard = errors_clone.lock().unwrap();
                                     errors_guard.push(e);
@@ -233,7 +228,7 @@ impl Runtime {
                         for item in items {
                             context.set(var.clone(), item);
                             for stmt in body {
-                                self.execute_statement(stmt, context)?;
+                                self.execute_statement(&stmt.value, context)?;
                             }
                         }
                     }
@@ -245,7 +240,7 @@ impl Runtime {
                 }
             }
             Statement::Print(expr) => {
-                let value = self.evaluate_expression(expr, context)?;
+                let value = self.evaluate_expression(&expr.value, context)?;
                 if self.dry_run {
                     println!("  📣 {}", value.to_string());
                 } else {
@@ -254,7 +249,7 @@ impl Runtime {
             }
             Statement::Exit(expr) => {
                 let exit_code = {
-                    let value = self.evaluate_expression(expr, context)?;
+                    let value = self.evaluate_expression(&expr.value, context)?;
                     value.to_number()? as i32
                 };
 
@@ -284,7 +279,7 @@ impl Runtime {
             } => {
                 let arg_values: Result<Vec<Value>> = args
                     .iter()
-                    .map(|arg| self.evaluate_expression(arg, context))
+                    .map(|arg| self.evaluate_expression(&arg.value, context))
                     .collect();
                 let arg_values = arg_values?;
 
@@ -297,7 +292,7 @@ impl Runtime {
                     match part {
                         InterpolationPart::String(s) => result.push_str(s),
                         InterpolationPart::Expression(expr) => {
-                            let value = self.evaluate_expression(expr, context)?;
+                            let value = self.evaluate_expression(&expr.value, context)?;
                             result.push_str(&value.to_string());
                         }
                     }
@@ -307,17 +302,17 @@ impl Runtime {
             Expression::Array(elements) => {
                 let values: Result<Vec<Value>> = elements
                     .iter()
-                    .map(|elem| self.evaluate_expression(elem, context))
+                    .map(|elem| self.evaluate_expression(&elem.value, context))
                     .collect();
                 Ok(Value::Array(values?))
             }
             Expression::BinaryOp { left, op, right } => {
-                let left_val = self.evaluate_expression(left, context)?;
-                let right_val = self.evaluate_expression(right, context)?;
+                let left_val = self.evaluate_expression(&left.value, context)?;
+                let right_val = self.evaluate_expression(&right.value, context)?;
                 self.evaluate_binary_op(&left_val, op, &right_val)
             }
             Expression::UnaryOp { op, expr } => {
-                let value = self.evaluate_expression(expr, context)?;
+                let value = self.evaluate_expression(&expr.value, context)?;
                 match op {
                     UnaryOperator::Not => Ok(Value::Bool(!value.to_bool())),
                 }
@@ -327,11 +322,11 @@ impl Runtime {
                 then_expr,
                 else_expr,
             } => {
-                let condition_value = self.evaluate_expression(condition, context)?;
+                let condition_value = self.evaluate_expression(&condition.value, context)?;
                 if condition_value.to_bool() {
-                    self.evaluate_expression(then_expr, context)
+                    self.evaluate_expression(&then_expr.value, context)
                 } else {
-                    self.evaluate_expression(else_expr, context)
+                    self.evaluate_expression(&else_expr.value, context)
                 }
             }
         }

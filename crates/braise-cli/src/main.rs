@@ -1,19 +1,21 @@
-use braise::{
-    BraiseError, cli,
+use clap::{Command, arg};
+use core::{
+    BraiseError,
     constants::DEFAULT_FILES,
-    lexer::{SpannedToken, Token},
-    parser::Parser,
-    runtime::Runtime,
     utils::{extract_args, find_first_existing_file},
 };
+use lexer::{SpannedToken, Token};
+use parser::Parser;
+use runtime::Runtime;
+
 use logos::Logos;
 
 fn main() -> miette::Result<()> {
     Ok(run()?)
 }
 
-fn run() -> braise::Result<()> {
-    let matches = cli::create().get_matches();
+fn run() -> core::Result<()> {
+    let matches = create().get_matches();
     let (sub, sub_matches) = matches.subcommand().ok_or(BraiseError::NoTask)?;
     let file = if let Some(file) = matches.get_one::<String>("file") {
         file
@@ -58,4 +60,14 @@ fn run() -> braise::Result<()> {
 
     runtime.execute_recipe(sub, params)?;
     Ok(())
+}
+
+pub fn create() -> Command {
+    Command::new(env!("CARGO_PKG_NAME"))
+        .allow_external_subcommands(true)
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(clap::crate_authors!())
+        .about(env!("CARGO_PKG_DESCRIPTION"))
+        .arg(arg!(-f --file <FILE> "Path to the recipe file"))
+        .arg(arg!(-d --dry "Dry run mode, does not execute the recipe"))
 }

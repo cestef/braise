@@ -1,10 +1,22 @@
 use std::ops::Range;
 
-use logos::Logos;
+use logos::{Lexer, Logos, Skip};
+
+/// Update the line count and the char index.
+fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
+    lex.extras.0 += if lex.slice().contains('\n') {
+        lex.slice().matches('\n').count()
+    } else {
+        0
+    };
+    lex.extras.1 = lex.span().end;
+    Skip
+}
 
 #[derive(Logos, Debug, PartialEq, Clone, logos_display::Display)]
-#[logos(skip r"[ \t\n\f]+")] // Skip whitespace
+#[logos(skip(r"[ \t\n\f]+", callback = newline_callback))] // Skip whitespace
 #[logos(error(Range<usize>, callback = |lex| lex.span()))]
+#[logos(extras = (usize, usize))] // Track line and column numbers
 pub enum Token {
     // Keywords
     #[token("recipe")]

@@ -1,0 +1,10 @@
+[package]
+name = "braise-parser"
+edition = "2024"
+
+[dependencies]
+miette.workspace = true
+thiserror.workspace = true
+
+lexer = { path = "../braise-lexer", package = "braise-lexer" }
+core = { path = "../braise-core", package = "braise-core" }

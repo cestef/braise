@@ -8,7 +8,7 @@ pub enum ParseError {
     #[diagnostic(code(braise::parser::unexpected_token))]
     UnexpectedToken {
         expected: String,
-        found: crate::lexer::Token,
+        found: String,
         #[source_code]
         code: String,
         #[label("right here")]

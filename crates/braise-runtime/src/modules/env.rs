@@ -1,4 +1,4 @@
-use crate::runtime::{Value, error::*};
+use crate::{Result, RuntimeError, Value};
 use std::env;
 
 pub struct EnvModule;

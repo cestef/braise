@@ -1,17 +1,16 @@
-pub mod ast;
-
-use crate::lexer::{SpannedToken, Token};
-use ast::*;
+use ::lexer::{SpannedToken, Token};
+use core::{
+    error::parser::{ParseError, Result},
+    *,
+};
 use miette::SourceSpan;
 use std::rc::Rc;
-
-pub mod error;
-pub use error::*;
 
 pub struct Parser {
     tokens: Vec<SpannedToken>,
     source: Rc<String>,
     pub current: usize,
+    file_id: FileId,
 }
 
 impl Parser {
@@ -20,6 +19,7 @@ impl Parser {
             tokens,
             current: 0,
             source: Rc::new(source),
+            file_id: FileId(0), // TODO: proper file ID management
         }
     }
 
@@ -39,23 +39,55 @@ impl Parser {
 
         ParseError::UnexpectedToken {
             expected,
-            found,
+            found: found.to_string(),
             code,
             span,
         }
     }
 
+    fn get_current_span(&self) -> Span {
+        if self.current < self.tokens.len() {
+            let token_span = &self.tokens[self.current].span;
+            Span::new(
+                Position::new(1, 1, token_span.start), // TODO: proper line/col tracking
+                Position::new(1, 1, token_span.end),
+                self.file_id,
+            )
+        } else {
+            Span::new(
+                Position::new(1, 1, self.source.len()),
+                Position::new(1, 1, self.source.len()),
+                self.file_id,
+            )
+        }
+    }
+
+    fn span_range(&self, start_pos: usize, end_pos: usize) -> Span {
+        Span::new(
+            Position::new(1, 1, start_pos), // TODO: proper line/col tracking
+            Position::new(1, 1, end_pos),
+            self.file_id,
+        )
+    }
+
     pub fn parse(&mut self) -> Result<Config> {
         let mut recipes = Vec::new();
+        let start_pos = 0;
 
         while !self.is_at_end() {
             recipes.push(self.parse_recipe()?);
         }
 
-        Ok(Config { recipes })
+        let end_pos = self.source.len();
+
+        Ok(Config {
+            recipes,
+            span: self.span_range(start_pos, end_pos),
+        })
     }
 
-    fn parse_recipe(&mut self) -> Result<Recipe> {
+    fn parse_recipe(&mut self) -> Result<SpannedNode<Recipe>> {
+        let start_pos = self.current;
         self.consume_token(Token::Recipe)?;
 
         let name = self.parse_string()?;
@@ -93,32 +125,54 @@ impl Parser {
         }
 
         self.consume_token(Token::RightBrace)?;
+        let end_pos = self.current;
 
-        Ok(Recipe {
+        let recipe = Recipe {
             name,
             dependencies,
             parameters,
             body,
-        })
+        };
+
+        let span = if start_pos < self.tokens.len() && end_pos <= self.tokens.len() {
+            let start_span = &self.tokens[start_pos].span;
+            let end_span = if end_pos > 0 && end_pos <= self.tokens.len() {
+                &self.tokens[end_pos - 1].span
+            } else {
+                start_span
+            };
+
+            Span::new(
+                Position::new(1, 1, start_span.start),
+                Position::new(1, 1, end_span.end),
+                self.file_id,
+            )
+        } else {
+            self.get_current_span()
+        };
+
+        Ok(SpannedNode::new(recipe, span))
     }
 
-    fn parse_statement(&mut self) -> Result<Statement> {
-        match self.peek() {
-            Token::Run => self.parse_run_statement(),
-            Token::Exit => self.parse_exit_statement(),
-            Token::Print => self.parse_print_statement(),
-            Token::If => self.parse_if_statement(),
-            Token::Match => self.parse_match_statement(),
-            Token::For => self.parse_for_statement(),
-            e => Err(self.create_error("statement".to_string(), e.clone())),
-        }
+    fn parse_statement(&mut self) -> Result<SpannedNode<Statement>> {
+        let span = self.get_current_span();
+
+        let statement = match self.peek() {
+            Token::Run => self.parse_run_statement()?,
+            Token::Exit => self.parse_exit_statement()?,
+            Token::Print => self.parse_print_statement()?,
+            Token::If => self.parse_if_statement()?,
+            Token::Match => self.parse_match_statement()?,
+            Token::For => self.parse_for_statement()?,
+            e => return Err(self.create_error("statement".to_string(), e.clone())),
+        };
+
+        Ok(SpannedNode::new(statement, span))
     }
 
     fn parse_print_statement(&mut self) -> Result<Statement> {
         self.consume_token(Token::Print)?;
-
         let expr = self.parse_expression()?;
-
         Ok(Statement::Print(expr))
     }
 
@@ -148,7 +202,7 @@ impl Parser {
                 self.consume_token(Token::LeftBrace)?;
                 let else_if_then = self.parse_statement_block()?;
 
-                Some(vec![Statement::If {
+                let nested_if = Statement::If {
                     condition: else_if_condition,
                     then_block: else_if_then,
                     else_block: if self.match_token(&Token::Else) {
@@ -157,7 +211,9 @@ impl Parser {
                     } else {
                         None
                     },
-                }])
+                };
+
+                Some(vec![SpannedNode::new(nested_if, self.get_current_span())])
             } else {
                 self.consume_token(Token::LeftBrace)?;
                 Some(self.parse_statement_block()?)
@@ -198,7 +254,8 @@ impl Parser {
                 vec![self.parse_statement()?]
             };
 
-            arms.push(MatchArm { pattern, body });
+            let arm = MatchArm { pattern, body };
+            arms.push(SpannedNode::new(arm, self.get_current_span()));
 
             if !self.check(&Token::RightBrace) {
                 self.consume_token(Token::Comma)?;
@@ -229,7 +286,7 @@ impl Parser {
         })
     }
 
-    fn parse_statement_block(&mut self) -> Result<Vec<Statement>> {
+    fn parse_statement_block(&mut self) -> Result<Vec<SpannedNode<Statement>>> {
         let mut statements = Vec::new();
 
         while !self.check(&Token::RightBrace) && !self.is_at_end() {
@@ -240,13 +297,16 @@ impl Parser {
         Ok(statements)
     }
 
-    fn parse_expression(&mut self) -> Result<Expression> {
-        self.parse_conditional()
+    fn parse_expression(&mut self) -> Result<SpannedNode<Expression>> {
+        let expr = self.parse_conditional()?;
+        let span = self.get_current_span();
+        Ok(SpannedNode::new(expr, span))
     }
 
     fn parse_conditional(&mut self) -> Result<Expression> {
         if self.check(&Token::If) {
             self.advance(); // consume if
+            let condition_span = self.get_current_span();
             let condition = self.parse_logical_or()?;
 
             self.consume_token(Token::LeftBrace)?;
@@ -259,7 +319,7 @@ impl Parser {
             self.consume_token(Token::RightBrace)?;
 
             Ok(Expression::Conditional {
-                condition: Box::new(condition),
+                condition: Box::new(SpannedNode::new(condition, condition_span)),
                 then_expr: Box::new(then_expr),
                 else_expr: Box::new(else_expr),
             })
@@ -273,10 +333,11 @@ impl Parser {
 
         while self.match_token(&Token::Or) {
             let right = self.parse_logical_and()?;
+            let span = self.get_current_span();
             expr = Expression::BinaryOp {
-                left: Box::new(expr),
+                left: Box::new(SpannedNode::new(expr, span.clone())),
                 op: BinaryOperator::Or,
-                right: Box::new(right),
+                right: Box::new(SpannedNode::new(right, span)),
             };
         }
 
@@ -286,7 +347,6 @@ impl Parser {
     fn parse_primary(&mut self) -> Result<Expression> {
         match self.peek().clone() {
             Token::String(s) => {
-                // TODO: handle interpolation at lexing?
                 self.advance();
                 // str interpolation
                 if s.contains("${") {
@@ -365,7 +425,7 @@ impl Parser {
                 self.advance();
                 let expr = self.parse_expression()?;
                 self.consume_token(Token::RightParen)?;
-                Ok(expr)
+                Ok(expr.value) // Unwrap the SpannedNode to get the Expression
             }
 
             _ => Err(self.create_error("expression".to_string(), self.peek().clone())),
@@ -377,10 +437,11 @@ impl Parser {
 
         while self.match_token(&Token::And) {
             let right = self.parse_equality()?;
+            let span = self.get_current_span();
             expr = Expression::BinaryOp {
-                left: Box::new(expr),
+                left: Box::new(SpannedNode::new(expr, span.clone())),
                 op: BinaryOperator::And,
-                right: Box::new(right),
+                right: Box::new(SpannedNode::new(right, span)),
             };
         }
 
@@ -404,10 +465,11 @@ impl Parser {
             };
 
             let right = self.parse_comparison()?;
+            let span = self.get_current_span();
             expr = Expression::BinaryOp {
-                left: Box::new(expr),
+                left: Box::new(SpannedNode::new(expr, span.clone())),
                 op,
-                right: Box::new(right),
+                right: Box::new(SpannedNode::new(right, span)),
             };
         }
 
@@ -441,10 +503,11 @@ impl Parser {
             };
 
             let right = self.parse_primary()?;
+            let span = self.get_current_span();
             expr = Expression::BinaryOp {
-                left: Box::new(expr),
+                left: Box::new(SpannedNode::new(expr, span.clone())),
                 op,
-                right: Box::new(right),
+                right: Box::new(SpannedNode::new(right, span)),
             };
         }
 
@@ -481,7 +544,8 @@ impl Parser {
                 }
 
                 let expr = self.parse_interpolation_expression(&expr_text)?;
-                parts.push(InterpolationPart::Expression(expr));
+                let span = self.get_current_span();
+                parts.push(InterpolationPart::Expression(SpannedNode::new(expr, span)));
             } else {
                 current.push(ch);
             }
@@ -495,7 +559,6 @@ impl Parser {
     }
 
     fn parse_interpolation_expression(&self, expr_text: &str) -> Result<Expression> {
-        // TODO: interpolation lexer?
         let trimmed = expr_text.trim();
         // num
         if let Ok(num) = trimmed.parse::<f64>() {
@@ -517,14 +580,15 @@ impl Parser {
             if let Some(paren_idx) = rest.find('(') {
                 let function = rest[..paren_idx].trim().to_string();
 
-                // TODO: better argument handling
                 if rest.ends_with(')') {
                     let args_str = &rest[paren_idx + 1..rest.len() - 1];
                     let mut args = Vec::new();
 
                     if !args_str.is_empty() {
                         for arg in args_str.split(',') {
-                            args.push(self.parse_interpolation_expression(arg.trim())?);
+                            let expr = self.parse_interpolation_expression(arg.trim())?;
+                            let span = self.get_current_span();
+                            args.push(SpannedNode::new(expr, span));
                         }
                     }
 
@@ -546,7 +610,9 @@ impl Parser {
         Ok(Expression::Variable(trimmed.to_string()))
     }
 
-    fn parse_parameter(&mut self) -> Result<Parameter> {
+    fn parse_parameter(&mut self) -> Result<SpannedNode<Parameter>> {
+        let span = self.get_current_span();
+
         self.consume_token(Token::Param)?;
 
         let name = self.parse_identifier()?;
@@ -560,11 +626,13 @@ impl Parser {
             None
         };
 
-        Ok(Parameter {
+        let parameter = Parameter {
             name,
             param_type,
             default,
-        })
+        };
+
+        Ok(SpannedNode::new(parameter, span))
     }
 
     fn parse_param_type(&mut self) -> Result<ParamType> {

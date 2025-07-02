@@ -1,4 +1,4 @@
-use super::error::*;
+use super::{Result, RuntimeError};
 
 #[derive(Debug, Clone)]
 pub enum Value {
