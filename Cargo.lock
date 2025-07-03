@@ -225,6 +225,7 @@ dependencies = [
  "braise-core",
  "braise-lexer",
  "braise-parser",
+ "miette",
  "num_cpus",
  "once_cell",
  "owo-colors",

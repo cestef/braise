@@ -2,8 +2,7 @@ use core::ast::*;
 use core::error::runtime::*;
 use owo_colors::OwoColorize;
 use rayon::prelude::*;
-use std::collections::HashMap;
-use std::process::Command;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 mod value;
@@ -15,9 +14,13 @@ use context::*;
 mod modules;
 use modules::*;
 
+mod executor;
+pub use executor::*;
+
 pub struct Runtime {
     config: Config,
     builtins: BuiltinModules,
+    pub executor: Box<dyn Executor>,
     dry_run: bool,
 }
 
@@ -26,16 +29,39 @@ impl Runtime {
         Self {
             config,
             builtins: BuiltinModules::new(),
+            executor: Box::new(executor::DefaultExecutor::new(false)),
             dry_run: false,
         }
     }
 
-    pub fn with_dry_run(mut self) -> Self {
-        self.dry_run = true;
+    pub fn with_executor<E: Executor + 'static>(mut self, executor: E) -> Self {
+        self.executor = Box::new(executor);
         self
     }
 
+    pub fn with_dry_run(mut self) -> Self {
+        self.executor = Box::new(executor::DefaultExecutor::new(true));
+        self.dry_run = true;
+        self
+    }
     pub fn execute_recipe(&self, name: &str, user_params: HashMap<String, Value>) -> Result<()> {
+        let mut stack = HashSet::new();
+        self._execute_recipe(name, user_params, &mut stack)
+    }
+
+    fn _execute_recipe(
+        &self,
+        name: &str,
+        user_params: HashMap<String, Value>,
+        stack: &mut HashSet<String>,
+    ) -> Result<()> {
+        if !stack.insert(name.to_string()) {
+            return Err(RuntimeError::CircularDependency {
+                recipe: name.to_string(),
+                stack: stack.iter().cloned().collect(),
+            });
+        }
+
         let recipe = self
             .config
             .recipes
@@ -44,7 +70,7 @@ impl Runtime {
             .ok_or_else(|| RuntimeError::UndefinedRecipe(name.to_string()))?;
 
         for dep in &recipe.value.dependencies {
-            self.execute_recipe(dep, HashMap::new())?; // TODO: maybe pass args to deps ?
+            self._execute_recipe(dep, HashMap::new(), stack)?; // TODO: maybe pass args to deps ?
         }
 
         let mut context = self.resolve_parameters(&recipe.value, user_params)?;
@@ -453,37 +479,6 @@ impl Runtime {
     fn run_command(&self, command: &str) -> Result<()> {
         println!("  → {}", command);
 
-        let mut cmd = if cfg!(target_os = "windows") {
-            let mut cmd = Command::new("cmd");
-            cmd.args(["/C", command]);
-            cmd
-        } else {
-            let mut cmd = Command::new("sh");
-            cmd.args(["-c", command]);
-            cmd
-        };
-
-        let output = cmd
-            .output()
-            .map_err(|e| RuntimeError::Other(format!("Failed to execute command: {}", e)))?;
-
-        if !output.status.success() {
-            let exit_code = output.status.code().unwrap_or(-1);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            if !stderr.is_empty() {
-                eprintln!("Command failed: {}", stderr);
-            }
-            return Err(RuntimeError::CommandFailed {
-                command: command.to_string(),
-                exit_code,
-            });
-        }
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if !stdout.trim().is_empty() {
-            print!("{}", stdout);
-        }
-
-        Ok(())
+        self.executor.run(command)
     }
 }

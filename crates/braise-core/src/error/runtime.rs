@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use miette::Diagnostic;
 use owo_colors::OwoColorize;
 
@@ -31,6 +33,12 @@ pub enum RuntimeError {
     #[error("Error executing command: {0}")]
     #[diagnostic(code(braise::runtime::other))]
     Other(String),
+    #[error("Circular dependency detected in recipe: {recipe} (stack: {stack:?})")]
+    #[diagnostic(code(braise::runtime::circular_dependency))]
+    CircularDependency {
+        recipe: String,
+        stack: HashSet<String>,
+    },
 }
 
 pub type Result<T> = std::result::Result<T, RuntimeError>;
