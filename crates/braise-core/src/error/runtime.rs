@@ -1,26 +1,35 @@
 use miette::Diagnostic;
+use owo_colors::OwoColorize;
 
 #[derive(Debug, thiserror::Error, Diagnostic, Clone)]
 pub enum RuntimeError {
     #[error("Undefined variable: {0}")]
+    #[diagnostic(code(braise::runtime::undefined_variable))]
     UndefinedVariable(String),
     #[error("Undefined recipe: {0}")]
+    #[diagnostic(code(braise::runtime::undefined_recipe))]
     UndefinedRecipe(String),
     #[error("Type error: {0}")]
+    #[diagnostic(code(braise::runtime::type_error))]
     TypeError(String),
-    #[error("Command failed: {command} (exit code: {exit_code})")]
+    #[error("Command failed: {command} (exit code: {exit_code})", command = .command.bold().green(), exit_code = .exit_code)]
+    #[diagnostic(code(braise::runtime::command_failed))]
     CommandFailed { command: String, exit_code: i32 },
-    #[error("Invalid parameter: {name} (expected: {expected}, got: {got})")]
+    #[error("Invalid parameter: {name} (expected: {}, got: {})", expected.green(), got.red(), name = .name.bold())]
+    #[diagnostic(code(braise::runtime::invalid_parameter))]
     InvalidParameter {
         name: String,
         expected: String,
         got: String,
     },
     #[error("Builtin error: {0}")]
+    #[diagnostic(code(braise::runtime::builtin_error))]
     BuiltinError(String),
     #[error("Exit called with code: {0}")]
+    #[diagnostic(code(braise::runtime::exit))]
     Exit(i32),
     #[error("Error executing command: {0}")]
+    #[diagnostic(code(braise::runtime::other))]
     Other(String),
 }
 

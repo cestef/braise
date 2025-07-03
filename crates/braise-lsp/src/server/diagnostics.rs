@@ -302,6 +302,54 @@ impl DiagnosticsProvider {
                     }
                 }
             }
+            Statement::Call { recipe, args } => {
+                if let Some(ref ast) = doc.ast {
+                    if let Some(recipe_ref) = TextDocumentProvider::find_recipe_at_position(
+                        ast,
+                        Position {
+                            line: recipe.span.start.line as u32,
+                            character: recipe.span.start.column as u32,
+                        },
+                    ) {
+                        for (arg_name, arg_expr) in args {
+                            if !Self::is_variable_defined(arg_name, &recipe_ref.value) {
+                                diagnostics.push(Diagnostic {
+                                    range: self.span_to_range(&arg_expr.span, doc),
+                                    severity: Some(DiagnosticSeverity::ERROR),
+                                    code: Some(NumberOrString::String(
+                                        "undefined_variable".to_string(),
+                                    )),
+                                    message: format!("Variable '{}' is not defined", arg_name),
+                                    source: Some("braise".to_string()),
+                                    ..Default::default()
+                                });
+                            } else if let Some(param_type) =
+                                Self::get_variable_type(arg_name, &recipe_ref.value)
+                            {
+                                if !self.is_expression_compatible_with_type(
+                                    doc,
+                                    &arg_expr,
+                                    &param_type,
+                                ) {
+                                    diagnostics.push(Diagnostic {
+                                        range: self.span_to_range(&arg_expr.span, doc),
+                                        severity: Some(DiagnosticSeverity::ERROR),
+                                        code: Some(NumberOrString::String(
+                                            "type_mismatch".to_string(),
+                                        )),
+                                        message: format!(
+                                            "Argument '{}' type doesn't match parameter type '{}'",
+                                            arg_name, param_type
+                                        ),
+                                        source: Some("braise".to_string()),
+                                        ..Default::default()
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -461,6 +509,7 @@ impl DiagnosticsProvider {
                 }
                 false
             }
+            (Expression::RecipeRef { .. }, ParamType::Recipe) => true,
             e => {
                 dbg!(e);
                 false

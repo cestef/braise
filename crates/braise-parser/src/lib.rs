@@ -4,7 +4,7 @@ use core::{
     *,
 };
 use miette::SourceSpan;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 pub struct Parser {
     tokens: Vec<SpannedToken>,
@@ -163,6 +163,7 @@ impl Parser {
             Token::For => self.parse_for_statement()?,
             Token::Let => self.parse_let_statement()?,
             Token::Identifier(name) => self.parse_assign_statement(name.clone())?,
+            Token::Call => self.parse_call_statement()?,
             e => return Err(self.create_error("statement".to_string(), e.clone())),
         };
 
@@ -170,6 +171,30 @@ impl Parser {
         let span = self.span_from_token_range(start_token, end_token);
 
         Ok(SpannedNode::new(statement, span))
+    }
+
+    fn parse_call_statement(&mut self) -> Result<Statement> {
+        self.consume_token(Token::Call)?;
+        let recipe = self.parse_expression()?;
+
+        let mut args = HashMap::new();
+        if self.match_token(&Token::LeftParen) {
+            if !self.check(&Token::RightParen) {
+                loop {
+                    let arg_name = self.parse_identifier()?;
+                    self.consume_token(Token::Colon)?;
+                    let arg_value = self.parse_expression()?;
+                    args.insert(arg_name, arg_value);
+
+                    if !self.match_token(&Token::Comma) {
+                        break;
+                    }
+                }
+            }
+            self.consume_token(Token::RightParen)?;
+        }
+
+        Ok(Statement::Call { recipe, args })
     }
 
     fn parse_assign_statement(&mut self, name: String) -> Result<Statement> {
@@ -465,8 +490,31 @@ impl Parser {
                 self.consume_token(Token::RightParen)?;
                 Ok(expr.value) // Unwrap the SpannedNode to get the Expression
             }
+            Token::At => {
+                self.advance();
+                let recipe_name = self.parse_identifier()?;
+                let mut args = HashMap::new();
+                if self.match_token(&Token::LeftParen) {
+                    if !self.check(&Token::RightParen) {
+                        loop {
+                            let arg_name = self.parse_identifier()?;
+                            self.consume_token(Token::Colon)?;
+                            let arg_value = self.parse_expression()?;
+                            args.insert(arg_name, arg_value);
+                            if !self.match_token(&Token::Comma) {
+                                break;
+                            }
+                        }
+                    }
+                    self.consume_token(Token::RightParen)?;
+                }
 
-            _ => Err(self.create_error("expression".to_string(), self.peek().clone())),
+                Ok(Expression::RecipeRef {
+                    recipe: recipe_name,
+                    args,
+                })
+            }
+            e => Err(self.create_error("expression".to_string(), e)),
         }
     }
 
@@ -697,7 +745,12 @@ impl Parser {
                 }
             }
 
-            _ => Err(self.create_error("parameter type".to_string(), self.peek().clone())),
+            Token::Recipe => {
+                self.advance();
+                Ok(ParamType::Recipe)
+            }
+
+            e => Err(self.create_error("parameter type".to_string(), e.clone())),
         }
     }
 

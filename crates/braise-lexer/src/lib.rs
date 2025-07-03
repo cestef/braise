@@ -58,6 +58,8 @@ pub enum Token {
     Print,
     #[token("let")]
     Let,
+    #[token("call")]
+    Call,
 
     // Type keywords - These should be recognized as keywords, not identifiers
     #[token("string")]
@@ -84,7 +86,6 @@ pub enum Token {
     #[regex(r"true|false", |lex| lex.slice().parse::<bool>().unwrap())]
     #[alias("bool")]
     Bool(bool),
-
     // Logical operators
     #[token("&&")]
     And,
@@ -116,6 +117,10 @@ pub enum Token {
     Dot,
     #[token("!")]
     Bang,
+
+    // Custom operators
+    #[token("@")]
+    At,
 
     // Delimiters
     #[token("{")]

@@ -1,11 +1,15 @@
 recipe "test" {
-    param watch: bool = false
+    call @recipe2(message: "hi")
+}
 
-    let cmd: string = if watch {
-        "nx test --watch"
-    } else {
-        "nx test"
-    }
+recipe "recipe1" {
+    param message: string
 
-    run cmd
+    run "echo recipe1 ${message}"
+}
+
+recipe "recipe2" {
+    param message: string
+
+    run "echo recipe2 ${message}"
 }

@@ -27,18 +27,19 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration("braise")) {
-				handleConfigurationChange();
+				handleConfigurationChange(context);
 			}
 		}),
 	);
 }
 
-function handleConfigurationChange() {
+function handleConfigurationChange(ctx: vscode.ExtensionContext) {
 	configManager.refresh();
 
 	const lspEnabled = configManager.isLSPEnabled();
 	if (lspEnabled && !languageClient) {
-		// TODO: start
+		languageClient = new BraiseLanguageClient(ctx);
+		languageClient.start();
 	} else if (!lspEnabled && languageClient) {
 		languageClient.stop();
 		languageClient = undefined as unknown as BraiseLanguageClient;

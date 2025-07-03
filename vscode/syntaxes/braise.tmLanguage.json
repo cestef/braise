@@ -113,6 +113,9 @@
                     "include": "#for-statement"
                 },
                 {
+                    "include": "#call-statement"
+                },
+                {
                     "include": "#run-statement"
                 },
                 {
@@ -405,6 +408,100 @@
                 }
             ]
         },
+        "call-statement": {
+            "patterns": [
+                {
+                    "name": "meta.call.braise",
+                    "begin": "\\b(call)\\b",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.call.braise"
+                        }
+                    },
+                    "end": "(?=\\n\\s*(?:[a-zA-Z]|\\})|\\}|$)",
+                    "patterns": [
+                        {
+                            "include": "#call-target"
+                        },
+                        {
+                            "include": "#call-arguments"
+                        }
+                    ]
+                }
+            ]
+        },
+        "call-target": {
+            "patterns": [
+                {
+                    "name": "meta.call.target.recipe-reference.braise",
+                    "match": "(@)([a-zA-Z_][a-zA-Z0-9_]*)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.operator.recipe-reference.braise"
+                        },
+                        "2": {
+                            "name": "entity.name.function.recipe.braise"
+                        }
+                    }
+                },
+                {
+                    "name": "meta.call.target.variable.braise",
+                    "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*\\(|\\s*$)",
+                    "captures": {
+                        "1": {
+                            "name": "variable.other.recipe.braise"
+                        }
+                    }
+                }
+            ]
+        },
+        "call-arguments": {
+            "patterns": [
+                {
+                    "name": "meta.call.arguments.braise",
+                    "begin": "\\(",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.parameters.begin.braise"
+                        }
+                    },
+                    "end": "\\)",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.parameters.end.braise"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "include": "#call-named-parameters"
+                        }
+                    ]
+                }
+            ]
+        },
+        "call-named-parameters": {
+            "patterns": [
+                {
+                    "name": "meta.parameter.named.call.braise",
+                    "match": "([a-zA-Z_][a-zA-Z0-9_]*)\\s*(:)",
+                    "captures": {
+                        "1": {
+                            "name": "variable.parameter.name.braise"
+                        },
+                        "2": {
+                            "name": "punctuation.separator.parameter.braise"
+                        }
+                    }
+                },
+                {
+                    "include": "#expressions"
+                },
+                {
+                    "name": "punctuation.separator.parameter.braise",
+                    "match": ","
+                }
+            ]
+        },
         "run-statement": {
             "patterns": [
                 {
@@ -415,7 +512,7 @@
                             "name": "keyword.control.braise"
                         }
                     },
-                    "end": "$",
+                    "end": "(?=\\n\\s*(?:[a-zA-Z]|\\})|\\}|$)",
                     "patterns": [
                         {
                             "include": "#strings"
@@ -437,7 +534,7 @@
                             "name": "keyword.control.braise"
                         }
                     },
-                    "end": "$",
+                    "end": "(?=\\n\\s*(?:[a-zA-Z]|\\})|\\}|$)",
                     "patterns": [
                         {
                             "include": "#expressions"
@@ -456,7 +553,7 @@
                             "name": "keyword.control.braise"
                         }
                     },
-                    "end": "$",
+                    "end": "(?=\\n\\s*(?:[a-zA-Z]|\\})|\\}|$)",
                     "patterns": [
                         {
                             "include": "#expressions"
@@ -482,6 +579,9 @@
         "expressions": {
             "patterns": [
                 {
+                    "include": "#recipe-reference"
+                },
+                {
                     "include": "#strings"
                 },
                 {
@@ -505,7 +605,7 @@
             "patterns": [
                 {
                     "name": "keyword.control.braise",
-                    "match": "\\b(recipe|param|let|if|else|match|for|in|run|exit|async|print)\\b"
+                    "match": "\\b(recipe|param|let|if|else|match|for|in|call|run|exit|async|print)\\b"
                 }
             ]
         },
@@ -555,7 +655,7 @@
             "patterns": [
                 {
                     "name": "constant.numeric.braise",
-                    "match": "\\b\\d+\\b"
+                    "match": "\\b\\d+(\\.\\d+)?\\b"
                 }
             ]
         },
@@ -583,7 +683,7 @@
                 },
                 {
                     "name": "keyword.operator.braise",
-                    "match": "->|=>"
+                    "match": "->|=>|@"
                 }
             ]
         },
@@ -600,6 +700,71 @@
                 {
                     "name": "variable.other.braise",
                     "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+                }
+            ]
+        },
+        "recipe-reference": {
+            "patterns": [
+                {
+                    "name": "meta.recipe.reference.braise",
+                    "begin": "(@)([a-zA-Z_][a-zA-Z0-9_]*)\\s*(\\()",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.operator.recipe-reference.braise"
+                        },
+                        "2": {
+                            "name": "entity.name.function.recipe.braise"
+                        },
+                        "3": {
+                            "name": "punctuation.definition.parameters.begin.braise"
+                        }
+                    },
+                    "end": "\\)",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.parameters.end.braise"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "include": "#recipe-parameters"
+                        }
+                    ]
+                },
+                {
+                    "name": "meta.recipe.reference.simple.braise",
+                    "match": "(@)([a-zA-Z_][a-zA-Z0-9_]*)",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.operator.recipe-reference.braise"
+                        },
+                        "2": {
+                            "name": "entity.name.function.recipe.braise"
+                        }
+                    }
+                }
+            ]
+        },
+        "recipe-parameters": {
+            "patterns": [
+                {
+                    "name": "meta.parameter.named.braise",
+                    "match": "([a-zA-Z_][a-zA-Z0-9_]*)\\s*(:)",
+                    "captures": {
+                        "1": {
+                            "name": "variable.parameter.braise"
+                        },
+                        "2": {
+                            "name": "punctuation.separator.parameter.braise"
+                        }
+                    }
+                },
+                {
+                    "include": "#expressions"
+                },
+                {
+                    "name": "punctuation.separator.parameter.braise",
+                    "match": ","
                 }
             ]
         }

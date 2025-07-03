@@ -1,12 +1,13 @@
 use core::ast::*;
 use core::error::runtime::*;
+use owo_colors::OwoColorize;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
 mod value;
-use value::*;
+pub use value::*;
 
 mod context;
 use context::*;
@@ -34,7 +35,7 @@ impl Runtime {
         self
     }
 
-    pub fn execute_recipe(&self, name: &str, user_params: HashMap<String, String>) -> Result<()> {
+    pub fn execute_recipe(&self, name: &str, user_params: HashMap<String, Value>) -> Result<()> {
         let recipe = self
             .config
             .recipes
@@ -43,7 +44,7 @@ impl Runtime {
             .ok_or_else(|| RuntimeError::UndefinedRecipe(name.to_string()))?;
 
         for dep in &recipe.value.dependencies {
-            self.execute_recipe(dep, HashMap::new())?;
+            self.execute_recipe(dep, HashMap::new())?; // TODO: maybe pass args to deps ?
         }
 
         let mut context = self.resolve_parameters(&recipe.value, user_params)?;
@@ -61,90 +62,17 @@ impl Runtime {
         Ok(())
     }
 
-    fn validate_and_convert_parameter(&self, param: &Parameter, user_value: &str) -> Result<Value> {
-        if let Err(validation_error) = param.param_type.validate_string_value(user_value) {
-            return Err(RuntimeError::InvalidParameter {
-                name: param.name.clone(),
-                expected: param.param_type.to_string(),
-                got: format!("{} ({})", user_value, validation_error),
-            });
-        }
-
-        match &param.param_type {
-            ParamType::String => Ok(Value::String(user_value.to_string())),
-
-            ParamType::Number => user_value.parse::<f64>().map(Value::Number).map_err(|_| {
-                RuntimeError::InvalidParameter {
-                    name: param.name.clone(),
-                    expected: "number".to_string(),
-                    got: user_value.to_string(),
-                }
-            }),
-
-            ParamType::Bool => {
-                let bool_value = match user_value.to_lowercase().as_str() {
-                    "true" | "1" | "yes" => true,
-                    "false" | "0" | "no" => false,
-                    _ => {
-                        return Err(RuntimeError::InvalidParameter {
-                            name: param.name.clone(),
-                            expected: "boolean (true/false)".to_string(),
-                            got: user_value.to_string(),
-                        });
-                    }
-                };
-                Ok(Value::Bool(bool_value))
-            }
-
-            ParamType::Enum(variants) => {
-                if variants.contains(&user_value.to_string()) {
-                    Ok(Value::String(user_value.to_string()))
-                } else {
-                    Err(RuntimeError::InvalidParameter {
-                        name: param.name.clone(),
-                        expected: format!("one of: {}", variants.join(", ")),
-                        got: user_value.to_string(),
-                    })
-                }
-            }
-
-            ParamType::Array(element_type) => {
-                let items: Result<Vec<Value>> = user_value
-                    .split(',')
-                    .map(|s| {
-                        let trimmed = s.trim();
-                        let temp_param = Parameter {
-                            name: format!("{}_element", param.name),
-                            param_type: (**element_type).clone(),
-                            default: None,
-                        };
-                        self.validate_and_convert_parameter(&temp_param, trimmed)
-                    })
-                    .collect();
-
-                match items {
-                    Ok(values) => Ok(Value::Array(values)),
-                    Err(e) => Err(RuntimeError::InvalidParameter {
-                        name: param.name.clone(),
-                        expected: format!("array of {}", element_type),
-                        got: format!("{} (error in array element: {})", user_value, e),
-                    }),
-                }
-            }
-        }
-    }
-
     fn resolve_parameters(
         &self,
         recipe: &Recipe,
-        user_params: HashMap<String, String>,
+        user_params: HashMap<String, Value>,
     ) -> Result<ExecutionContext> {
         let mut context = ExecutionContext::new();
         let mut provided_params = user_params.clone();
 
         for param in &recipe.parameters {
             let value = if let Some(user_value) = provided_params.remove(&param.value.name) {
-                self.validate_and_convert_parameter(&param.value, &user_value)?
+                user_value
             } else if let Some(default_expr) = &param.value.default {
                 self.evaluate_expression(&default_expr.value, &context)?
             } else {
@@ -155,7 +83,7 @@ impl Runtime {
                 });
             };
 
-            self.validate_value_type(&value, &param.value.param_type, &param.value.name)?;
+            let value = self.try_match_type(&value, &param.value.param_type, &param.value.name)?;
 
             context.set(param.value.name.clone(), value);
         }
@@ -163,12 +91,16 @@ impl Runtime {
         if !provided_params.is_empty() {
             let unused: Vec<String> = provided_params.keys().cloned().collect();
             return Err(RuntimeError::Other(format!(
-                "Unknown parameters: {}. Available parameters: {}",
-                unused.join(", "),
+                "\n  Unknown parameters: {}.\n  Available parameters: {}",
+                unused
+                    .iter()
+                    .map(|p| p.bold().red().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
                 recipe
                     .parameters
                     .iter()
-                    .map(|p| format!("{}: {}", p.value.name, p.value.param_type))
+                    .map(|p| format!("{}: {}", p.value.name.bold(), p.value.param_type.dimmed()))
                     .collect::<Vec<_>>()
                     .join(", ")
             )));
@@ -177,35 +109,23 @@ impl Runtime {
         Ok(context)
     }
 
-    fn validate_value_type(
+    fn try_match_type(
         &self,
         value: &Value,
         expected_type: &ParamType,
         param_name: &str,
-    ) -> Result<()> {
-        let matches = match (value, expected_type) {
-            (Value::String(_), ParamType::String) => true,
-            (Value::Number(_), ParamType::Number) => true,
-            (Value::Bool(_), ParamType::Bool) => true,
-            (Value::Array(arr), ParamType::Array(element_type)) => arr.iter().all(|elem| {
-                self.validate_value_type(elem, element_type, param_name)
-                    .is_ok()
-            }),
-            (Value::String(s), ParamType::Enum(variants)) => variants.contains(s),
-            _ => false,
-        };
-
-        if !matches {
-            return Err(RuntimeError::TypeError(format!(
-                "Parameter '{}' expected type {}, but got {} value: {}",
+    ) -> Result<Value> {
+        let converted_value = value.convert_to_type(expected_type).map_err(|_| {
+            RuntimeError::TypeError(format!(
+                "Variable '{}' expected type {}, but got {} value: {}",
                 param_name,
                 expected_type,
                 value.type_name(),
                 value.to_string()
-            )));
-        }
+            ))
+        })?;
 
-        Ok(())
+        Ok(converted_value)
     }
 
     fn execute_statement(
@@ -215,7 +135,8 @@ impl Runtime {
     ) -> Result<()> {
         match statement {
             Statement::Run(expr) => {
-                let command_str = self.evaluate_expression(&expr.value, context)?.to_string();
+                let value = self.evaluate_expression(&expr.value, context)?;
+                let command_str = value.to_string();
                 if self.dry_run {
                     self.show_command(&command_str);
                 } else {
@@ -351,17 +272,47 @@ impl Runtime {
                     Value::default_for_type(param_type)
                 };
 
-                self.validate_value_type(&value, param_type, name)?;
+                let value = self.try_match_type(&value, param_type, name)?;
 
                 context.set(name.clone(), value);
             }
             Statement::Assign { name, value } => {
                 let value = self.evaluate_expression(&value.value, context)?;
-                self.validate_value_type(&value, &ParamType::String, name)?;
+                // TODO: validate type against existing variable type
                 if !context.contains(name) {
                     return Err(RuntimeError::UndefinedVariable(name.clone()));
                 }
                 context.set(name.clone(), value);
+            }
+            Statement::Call { recipe, args } => {
+                let recipe_value = self.evaluate_expression(&recipe.value, context)?;
+                let mut resolved_args = HashMap::new();
+
+                let recipe_name = match &recipe_value {
+                    Value::Recipe(name, predefined_args) => {
+                        if !predefined_args.is_empty() {
+                            resolved_args = predefined_args.clone();
+                        }
+                        name.clone()
+                    }
+                    _ => recipe_value.to_string(),
+                };
+
+                if resolved_args.is_empty() {
+                    for (arg_name, arg_expr) in args {
+                        let value = self.evaluate_expression(&arg_expr.value, context)?;
+                        resolved_args.insert(arg_name.clone(), value);
+                    }
+                }
+
+                if self.dry_run {
+                    println!(
+                        "  ⚡ Call recipe: {} with args: {:?}",
+                        recipe_name, resolved_args
+                    );
+                } else {
+                    self.execute_recipe(&recipe_name, resolved_args)?;
+                }
             }
         }
         Ok(())
@@ -432,6 +383,15 @@ impl Runtime {
                 } else {
                     self.evaluate_expression(&else_expr.value, context)
                 }
+            }
+            Expression::RecipeRef { recipe, args } => {
+                let mut arg_values = HashMap::new();
+                for (k, arg) in args {
+                    let value = self.evaluate_expression(&arg.value, context)?;
+                    arg_values.insert(k.clone(), value);
+                }
+
+                Ok(Value::Recipe(recipe.clone(), arg_values))
             }
         }
     }

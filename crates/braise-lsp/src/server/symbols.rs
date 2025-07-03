@@ -207,6 +207,23 @@ impl SymbolProvider {
                     Some(format!("Value: {}", value_preview)),
                 )
             }
+            Statement::Call { recipe, args } => {
+                let args_preview: Vec<String> = args
+                    .iter()
+                    .map(|(k, arg)| format!("{k}: {}", self.get_expression_preview(&arg.value)))
+                    .collect();
+                let args_str = if args_preview.is_empty() {
+                    String::new()
+                } else {
+                    format!("({})", args_preview.join(", "))
+                };
+                let recipe_preview = self.get_expression_preview(&recipe.value);
+                (
+                    format!("call {}{}", recipe_preview, args_str),
+                    SymbolKind::FUNCTION,
+                    Some(format!("Recipe: {}", recipe_preview)),
+                )
+            }
         };
 
         Some(DocumentSymbol {
@@ -289,6 +306,17 @@ impl SymbolProvider {
             }
             Expression::Conditional { condition, .. } => {
                 format!("if {}", self.get_expression_preview(&condition.value))
+            }
+            Expression::RecipeRef { recipe, args } => {
+                let args_preview: Vec<String> = args
+                    .iter()
+                    .map(|(k, arg)| format!("{k}: {}", self.get_expression_preview(&arg.value)))
+                    .collect();
+                if args_preview.is_empty() {
+                    recipe.clone()
+                } else {
+                    format!("@{}({})", recipe, args_preview.join(", "))
+                }
             }
         }
     }

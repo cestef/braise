@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{Span, Spanned};
 
 pub type SpannedNode<T> = Spanned<T>;
@@ -30,6 +32,7 @@ pub enum ParamType {
     Bool,
     Array(Box<ParamType>),
     Enum(Vec<String>),
+    Recipe,
     // TODO: more types ?
 }
 
@@ -42,7 +45,6 @@ impl ParamType {
             (ParamType::Bool, ParamType::Bool) => true,
             (ParamType::Array(a), ParamType::Array(b)) => a.is_compatible_with(b),
             (ParamType::Enum(a), ParamType::Enum(b)) => a == b,
-            // Number can be used as string in some contexts
             (ParamType::Number, ParamType::String) => true,
             (ParamType::Bool, ParamType::String) => true,
             _ => false,
@@ -63,39 +65,10 @@ impl ParamType {
                     Expression::String(String::new())
                 }
             }
-        }
-    }
-
-    /// Validate a string value against this type
-    pub fn validate_string_value(&self, value: &str) -> Result<(), String> {
-        match self {
-            ParamType::String => Ok(()),
-            ParamType::Number => value
-                .parse::<f64>()
-                .map(|_| ())
-                .map_err(|_| format!("'{}' is not a valid number", value)),
-            ParamType::Bool => match value.to_lowercase().as_str() {
-                "true" | "false" | "1" | "0" | "yes" | "no" => Ok(()),
-                _ => Err(format!(
-                    "'{}' is not a valid boolean. Use: true, false, 1, 0, yes, or no",
-                    value
-                )),
+            ParamType::Recipe => Expression::RecipeRef {
+                recipe: String::new(),
+                args: HashMap::new(),
             },
-            ParamType::Array(_) => {
-                // Could validate array elements here
-                Ok(())
-            }
-            ParamType::Enum(variants) => {
-                if variants.contains(&value.to_string()) {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "'{}' is not a valid option. Choose from: {}",
-                        value,
-                        variants.join(", ")
-                    ))
-                }
-            }
         }
     }
 }
@@ -108,6 +81,7 @@ impl std::fmt::Display for ParamType {
             ParamType::Bool => write!(f, "bool"),
             ParamType::Array(element_type) => write!(f, "array[{}]", element_type),
             ParamType::Enum(variants) => write!(f, "enum[{}]", variants.join(", ")),
+            ParamType::Recipe => write!(f, "recipe"),
         }
     }
 }
@@ -140,6 +114,10 @@ pub enum Statement {
     Assign {
         name: String,
         value: SpannedNode<Expression>,
+    },
+    Call {
+        recipe: SpannedNode<Expression>,
+        args: HashMap<String, SpannedNode<Expression>>,
     },
 }
 
@@ -185,6 +163,10 @@ pub enum Expression {
         condition: Box<SpannedNode<Expression>>,
         then_expr: Box<SpannedNode<Expression>>,
         else_expr: Box<SpannedNode<Expression>>,
+    },
+    RecipeRef {
+        recipe: String,
+        args: HashMap<String, SpannedNode<Expression>>,
     },
 }
 
