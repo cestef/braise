@@ -5,12 +5,14 @@ use super::value::Value;
 #[derive(Debug, Clone)]
 pub struct ExecutionContext {
     pub variables: HashMap<String, Value>,
+    pub shell: Option<String>,
 }
 
 impl ExecutionContext {
     pub fn new() -> Self {
         Self {
             variables: HashMap::new(),
+            shell: None,
         }
     }
 
@@ -24,5 +26,9 @@ impl ExecutionContext {
 
     pub fn contains(&self, name: &str) -> bool {
         self.variables.contains_key(name)
+    }
+
+    pub fn set_shell(&mut self, shell: String) {
+        self.shell = Some(shell);
     }
 }

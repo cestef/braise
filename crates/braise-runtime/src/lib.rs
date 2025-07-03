@@ -166,7 +166,7 @@ impl Runtime {
                 if self.dry_run {
                     self.show_command(&command_str);
                 } else {
-                    self.run_command(&command_str)?;
+                    self.run_command(&command_str, context.shell.as_ref())?;
                 }
             }
             Statement::If {
@@ -340,6 +340,9 @@ impl Runtime {
                     self.execute_recipe(&recipe_name, resolved_args)?;
                 }
             }
+            Statement::Shell { name } => {
+                context.set_shell(name.clone());
+            }
         }
         Ok(())
     }
@@ -476,9 +479,9 @@ impl Runtime {
         println!("  ⚡ {}", command);
     }
 
-    fn run_command(&self, command: &str) -> Result<()> {
+    fn run_command(&self, command: &str, shell: Option<&String>) -> Result<()> {
         println!("  → {}", command);
 
-        self.executor.run(command)
+        self.executor.run(command, shell)
     }
 }

@@ -60,6 +60,8 @@ pub enum Token {
     Let,
     #[token("call")]
     Call,
+    #[token("shell")]
+    Shell,
 
     // Type keywords - These should be recognized as keywords, not identifiers
     #[token("string")]

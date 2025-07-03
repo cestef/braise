@@ -224,6 +224,11 @@ impl SymbolProvider {
                     Some(format!("Recipe: {}", recipe_preview)),
                 )
             }
+            Statement::Shell { name } => (
+                format!("shell #{}", index + 1),
+                SymbolKind::METHOD,
+                Some(format!("Set Shell: {}", name)),
+            ),
         };
 
         Some(DocumentSymbol {

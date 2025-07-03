@@ -119,6 +119,9 @@ pub enum Statement {
         recipe: SpannedNode<Expression>,
         args: HashMap<String, SpannedNode<Expression>>,
     },
+    Shell {
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone)]

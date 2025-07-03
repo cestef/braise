@@ -374,6 +374,7 @@ impl TextDocumentProvider {
             "match" => Some("**match** statement\n\nPattern matching.\n\n**Syntax:**\n```braise\nmatch expr {\n    \"pattern1\" => { /* statements */ },\n    \"pattern2\" => { /* statements */ },\n    _ => { /* default */ }\n}\n```".to_string()),
             "for" => Some("**for** statement\n\nLoop over an array.\n\n**Syntax:**\n```braise\nfor item in items {\n    // statements\n}\n\n// Parallel execution\nfor item in items {\n    // statements\n} async\n```".to_string()),
             "let" => Some("**let** keyword\n\nDefines a variable.\n\n**Syntax:**\n```braise\nlet name: type = value\n```\n\n**Types:** `string`, `number`, `bool`, `[type]` (array), `[\"opt1\", \"opt2\"]` (enum)".to_string()),
+            "shell" => Some("**shell** keyword\n\nSets the shell to use for commands.\n\n**Syntax:**\n```braise\nshell \"bash\"\n```".to_string()),
             _ => None,
         }
     }

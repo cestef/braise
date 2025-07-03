@@ -90,6 +90,11 @@ impl Parser {
         let start_token = self.current;
 
         while !self.is_at_end() {
+            if self.match_token(&Token::Shell) {
+                let _shell = self.parse_string()?;
+                // TODO: handle global shell command
+                continue;
+            }
             recipes.push(self.parse_recipe()?);
         }
 
@@ -164,6 +169,7 @@ impl Parser {
             Token::Let => self.parse_let_statement()?,
             Token::Identifier(name) => self.parse_assign_statement(name.clone())?,
             Token::Call => self.parse_call_statement()?,
+            Token::Shell => self.parse_shell_statement()?,
             e => return Err(self.create_error("statement".to_string(), e.clone())),
         };
 
@@ -171,6 +177,12 @@ impl Parser {
         let span = self.span_from_token_range(start_token, end_token);
 
         Ok(SpannedNode::new(statement, span))
+    }
+
+    fn parse_shell_statement(&mut self) -> Result<Statement> {
+        self.consume_token(Token::Shell)?;
+        let name = self.parse_string()?;
+        Ok(Statement::Shell { name })
     }
 
     fn parse_call_statement(&mut self) -> Result<Statement> {

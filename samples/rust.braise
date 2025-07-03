@@ -1,3 +1,5 @@
+shell "bash"
+
 recipe "test" {
     param coverage: bool = false
 
@@ -6,6 +8,14 @@ recipe "test" {
     } else {
         run "cargo nextest r"
     }
+}
+
+
+recipe "shell" {
+    shell "bash -c"
+    run "echo $0"
+    shell "zsh -c"
+    run "echo $0"
 }
 
 recipe "build" {

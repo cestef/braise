@@ -350,6 +350,7 @@ impl DiagnosticsProvider {
                     }
                 }
             }
+            Statement::Shell { .. } => {}
         }
     }
 
