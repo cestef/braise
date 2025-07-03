@@ -80,6 +80,44 @@ impl TextDocumentProvider {
                             range: Some(self.get_word_range(line, char_pos, position.line)),
                         });
                     }
+
+                    // Check if it's a recipe call
+                    for recipe in &ast.recipes {
+                        if recipe.value.name == word {
+                            let content = format!(
+                                "**Recipe**: `{}`\n\n**Parameters**:\n{}",
+                                recipe.value.name,
+                                recipe
+                                    .value
+                                    .parameters
+                                    .iter()
+                                    .map(|param| {
+                                        format!(
+                                            "- `{}`: `{}`{}",
+                                            param.value.name,
+                                            param.value.param_type,
+                                            if let Some(ref default) = param.value.default {
+                                                format!(
+                                                    " (default: `{}`)",
+                                                    self.expression_to_string(&default.value)
+                                                )
+                                            } else {
+                                                String::new()
+                                            }
+                                        )
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join("\n")
+                            );
+                            return Some(Hover {
+                                contents: HoverContents::Markup(MarkupContent {
+                                    kind: MarkupKind::Markdown,
+                                    value: content,
+                                }),
+                                range: Some(self.get_word_range(line, char_pos, position.line)),
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -116,7 +154,6 @@ impl TextDocumentProvider {
     pub async fn provide_code_actions(&self, doc: &Document, range: Range) -> CodeActionResponse {
         let mut actions = Vec::new();
 
-        // Add action to add parameter
         if let Some(action) = self.create_add_parameter_action(doc, range) {
             actions.push(action);
         }
@@ -249,6 +286,33 @@ impl TextDocumentProvider {
         }
 
         let chars: Vec<char> = line.chars().collect();
+        // Check if we're inside a string
+        let mut in_string = false;
+        let mut in_interpolation = false;
+        let mut escape_next = false;
+
+        for i in 0..char_pos {
+            if escape_next {
+                escape_next = false;
+                continue;
+            }
+
+            if chars[i] == '\\' && in_string {
+                escape_next = true;
+            } else if chars[i] == '"' && !in_interpolation {
+                in_string = !in_string;
+            } else if in_string && chars[i] == '$' && i + 1 < chars.len() && chars[i + 1] == '{' {
+                in_interpolation = true;
+            } else if in_interpolation && chars[i] == '}' {
+                in_interpolation = false;
+            }
+        }
+
+        // If inside a string but not in interpolation, don't provide hover
+        if in_string && !in_interpolation {
+            return None;
+        }
+
         let mut start = char_pos;
         let mut end = char_pos;
 
