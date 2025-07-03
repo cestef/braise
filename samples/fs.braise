@@ -1,0 +1,11 @@
+recipe "test" {
+    param watch: bool = false
+
+    let cmd: string = if watch {
+        "nx test --watch"
+    } else {
+        "nx test"
+    }
+
+    run cmd
+}

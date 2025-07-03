@@ -1,3 +1,5 @@
+use crate::server::diagnostics::DiagnosticsProvider;
+
 use super::Document;
 use braise_core::ast::*;
 use lexer::Token;
@@ -34,9 +36,9 @@ impl TextDocumentProvider {
                 });
             }
 
-            // Check if it's a parameter in the current recipe
             if let Some(ref ast) = doc.ast {
-                if let Some(current_recipe) = self.find_recipe_at_position(ast, position) {
+                if let Some(current_recipe) = Self::find_recipe_at_position(ast, position) {
+                    // Check if it's a parameter in the current recipe
                     for param in &current_recipe.value.parameters {
                         if param.value.name == word {
                             let content = format!(
@@ -62,6 +64,22 @@ impl TextDocumentProvider {
                             });
                         }
                     }
+
+                    // Check if it's a variable in the current recipe
+                    if let Some(param_type) =
+                        DiagnosticsProvider::get_variable_type(&word, &current_recipe.value)
+                    {
+                        let content =
+                            format!("**Variable**: `{}`\n\n**Type**: `{}`", word, param_type);
+
+                        return Some(Hover {
+                            contents: HoverContents::Markup(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: content,
+                            }),
+                            range: Some(self.get_word_range(line, char_pos, position.line)),
+                        });
+                    }
                 }
             }
         }
@@ -79,7 +97,7 @@ impl TextDocumentProvider {
 
             // Look for parameter definitions in the current recipe only
             if let Some(ref ast) = doc.ast {
-                if let Some(current_recipe) = self.find_recipe_at_position(ast, position) {
+                if let Some(current_recipe) = Self::find_recipe_at_position(ast, position) {
                     for param in &current_recipe.value.parameters {
                         if param.value.name == word {
                             return Some(Location {
@@ -97,11 +115,6 @@ impl TextDocumentProvider {
 
     pub async fn provide_code_actions(&self, doc: &Document, range: Range) -> CodeActionResponse {
         let mut actions = Vec::new();
-
-        // Add action to create missing recipe
-        if let Some(action) = self.create_missing_recipe_action(doc, range) {
-            actions.push(action);
-        }
 
         // Add action to add parameter
         if let Some(action) = self.create_add_parameter_action(doc, range) {
@@ -296,6 +309,7 @@ impl TextDocumentProvider {
             "if" => Some("**if** statement\n\nConditional execution.\n\n**Syntax:**\n```braise\nif condition {\n    // statements\n} else {\n    // statements\n}\n```".to_string()),
             "match" => Some("**match** statement\n\nPattern matching.\n\n**Syntax:**\n```braise\nmatch expr {\n    \"pattern1\" => { /* statements */ },\n    \"pattern2\" => { /* statements */ },\n    _ => { /* default */ }\n}\n```".to_string()),
             "for" => Some("**for** statement\n\nLoop over an array.\n\n**Syntax:**\n```braise\nfor item in items {\n    // statements\n}\n\n// Parallel execution\nfor item in items {\n    // statements\n} async\n```".to_string()),
+            "let" => Some("**let** keyword\n\nDefines a variable.\n\n**Syntax:**\n```braise\nlet name: type = value\n```\n\n**Types:** `string`, `number`, `bool`, `[type]` (array), `[\"opt1\", \"opt2\"]` (enum)".to_string()),
             _ => None,
         }
     }
@@ -342,47 +356,6 @@ impl TextDocumentProvider {
                 character: span.end.column.saturating_sub(1),
             },
         }
-    }
-
-    fn create_missing_recipe_action(
-        &self,
-        doc: &Document,
-        range: Range,
-    ) -> Option<CodeActionOrCommand> {
-        // This would analyze the diagnostics to suggest creating missing recipes
-        // For now, just return a simple example
-        Some(CodeActionOrCommand::CodeAction(CodeAction {
-            title: "Create missing recipe".to_string(),
-            kind: Some(CodeActionKind::QUICKFIX),
-            diagnostics: None,
-            edit: Some(WorkspaceEdit {
-                changes: None,
-                document_changes: Some(DocumentChanges::Edits(vec![TextDocumentEdit {
-                    text_document: OptionalVersionedTextDocumentIdentifier {
-                        uri: doc.uri.clone(),
-                        version: Some(doc.version),
-                    },
-                    edits: vec![OneOf::Left(TextEdit {
-                        range: Range {
-                            start: Position {
-                                line: range.end.line + 1,
-                                character: 0,
-                            },
-                            end: Position {
-                                line: range.end.line + 1,
-                                character: 0,
-                            },
-                        },
-                        new_text: "\nrecipe \"new-recipe\" {\n    \n}\n".to_string(),
-                    })],
-                }])),
-                change_annotations: None,
-            }),
-            command: None,
-            is_preferred: Some(false),
-            disabled: None,
-            data: None,
-        }))
     }
 
     fn create_add_parameter_action(
@@ -468,7 +441,8 @@ impl TextDocumentProvider {
             | Token::In
             | Token::Async
             | Token::Exit
-            | Token::Print => 0, // KEYWORD
+            | Token::Print
+            | Token::Let => 0, // KEYWORD
             Token::String(_) => 1, // STRING
             Token::Number(_) => 2, // NUMBER
             Token::Identifier(_) => {
@@ -488,8 +462,7 @@ impl TextDocumentProvider {
     }
 
     /// Find which recipe contains the given position
-    fn find_recipe_at_position<'a>(
-        &self,
+    pub fn find_recipe_at_position<'a>(
         ast: &'a Config,
         position: Position,
     ) -> Option<&'a SpannedNode<Recipe>> {
@@ -504,7 +477,7 @@ impl TextDocumentProvider {
             };
 
             // Check if position is within this recipe's span
-            if self.is_position_in_range(position, recipe_start, recipe_end) {
+            if Self::is_position_in_range(position, recipe_start, recipe_end) {
                 return Some(recipe);
             }
         }
@@ -512,7 +485,7 @@ impl TextDocumentProvider {
     }
 
     /// Check if a position is within a range (inclusive)
-    fn is_position_in_range(&self, pos: Position, start: Position, end: Position) -> bool {
+    pub fn is_position_in_range(pos: Position, start: Position, end: Position) -> bool {
         if pos.line < start.line || pos.line > end.line {
             return false;
         }

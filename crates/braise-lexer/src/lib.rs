@@ -56,6 +56,8 @@ pub enum Token {
     Exit,
     #[token("print")]
     Print,
+    #[token("let")]
+    Let,
 
     // Type keywords - These should be recognized as keywords, not identifiers
     #[token("string")]
@@ -145,7 +147,7 @@ pub enum Token {
 }
 
 /// Create a lexer with proper position tracking
-pub fn create_lexer(source: &str) -> logos::Lexer<Token> {
+pub fn create_lexer<'a>(source: &'a str) -> logos::Lexer<'a, Token> {
     let mut lexer = Token::lexer(source);
     lexer.extras = LexerExtras::new(source.to_string());
     lexer

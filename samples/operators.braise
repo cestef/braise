@@ -9,8 +9,8 @@ recipe "build" {
 }
 
 recipe "deploy" {
-    param env: ["dev", "staging", "prod"] = "dev" 
-    
+    param env: ["dev", "staging", "prod"] = "dev"
+
     if !git.is_clean() {
         run "echo 'Working directory must be clean for deployment'"
     } else if env == "staging" || env == "prod" {
@@ -23,7 +23,7 @@ recipe "deploy" {
 
 recipe "test" {
     param threads: int = cpu.count()
-    
+
     if threads <= 1 {
         run "cargo test"
     } else {

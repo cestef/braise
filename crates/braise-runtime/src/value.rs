@@ -1,3 +1,5 @@
+use core::ParamType;
+
 use super::{Result, RuntimeError};
 
 #[derive(Debug, Clone)]
@@ -64,6 +66,16 @@ impl Value {
             Value::Number(_) => "number",
             Value::Bool(_) => "boolean",
             Value::Array(_) => "array",
+        }
+    }
+
+    pub fn default_for_type(param_type: &ParamType) -> Self {
+        match param_type {
+            ParamType::String => Value::String(String::new()),
+            ParamType::Number => Value::Number(0.0),
+            ParamType::Bool => Value::Bool(false),
+            ParamType::Array(_) => Value::Array(Vec::new()),
+            ParamType::Enum(_) => Value::String(String::new()), // Default for enum is empty string
         }
     }
 }

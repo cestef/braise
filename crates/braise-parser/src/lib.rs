@@ -161,6 +161,8 @@ impl Parser {
             Token::If => self.parse_if_statement()?,
             Token::Match => self.parse_match_statement()?,
             Token::For => self.parse_for_statement()?,
+            Token::Let => self.parse_let_statement()?,
+            Token::Identifier(name) => self.parse_assign_statement(name.clone())?,
             e => return Err(self.create_error("statement".to_string(), e.clone())),
         };
 
@@ -168,6 +170,35 @@ impl Parser {
         let span = self.span_from_token_range(start_token, end_token);
 
         Ok(SpannedNode::new(statement, span))
+    }
+
+    fn parse_assign_statement(&mut self, name: String) -> Result<Statement> {
+        self.advance(); // consume identifier
+
+        if self.match_token(&Token::Equals) {
+            let value = self.parse_expression()?;
+            Ok(Statement::Assign { name, value })
+        } else {
+            Err(self.create_error("assignment".to_string(), self.peek().clone()))
+        }
+    }
+
+    fn parse_let_statement(&mut self) -> Result<Statement> {
+        self.consume_token(Token::Let)?;
+        let name = self.parse_identifier()?;
+        self.consume_token(Token::Colon)?;
+        let param_type = self.parse_param_type()?;
+        let mut value = None;
+
+        if self.match_token(&Token::Equals) {
+            value = Some(self.parse_expression()?);
+        }
+
+        Ok(Statement::Let {
+            name,
+            value,
+            param_type,
+        })
     }
 
     fn parse_print_statement(&mut self) -> Result<Statement> {
@@ -566,6 +597,7 @@ impl Parser {
     }
 
     fn parse_interpolation_expression(&self, expr_text: &str) -> Result<Expression> {
+        // TODO: This should be handled via a separate lexer ?
         let trimmed = expr_text.trim();
         // num
         if let Ok(num) = trimmed.parse::<f64>() {

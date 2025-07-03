@@ -132,6 +132,15 @@ pub enum Statement {
         is_async: bool,
     },
     Exit(SpannedNode<Expression>),
+    Let {
+        name: String,
+        value: Option<SpannedNode<Expression>>,
+        param_type: ParamType,
+    },
+    Assign {
+        name: String,
+        value: SpannedNode<Expression>,
+    },
 }
 
 #[derive(Debug, Clone)]

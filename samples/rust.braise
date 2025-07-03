@@ -1,6 +1,6 @@
 recipe "test" {
     param coverage: bool = false
-    
+
     if coverage {
         run "cargo tarpaulin --out html"
     } else {
@@ -10,8 +10,8 @@ recipe "test" {
 
 recipe "build" {
     param profile: ["debug", "release"] = if env.CI { "release" } else { "debug" }
-    param jobs: int = cpu.count()
-    
+    param jobs: int = if env.CI { cpu.count() } else { 1 }
+
     run "cargo build --profile ${profile} -j ${jobs}"
 }
 
@@ -28,6 +28,6 @@ recipe "release" {
         run "echo 'Working directory must be clean'"
         exit 1
     }
-    
+
     run "cargo release"
 }

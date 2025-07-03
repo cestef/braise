@@ -179,6 +179,34 @@ impl SymbolProvider {
                     Some(format!("Exit code: {}", code_preview)),
                 )
             }
+            Statement::Let {
+                name,
+                value,
+                param_type,
+            } => {
+                let value_preview = if let Some(value) = value {
+                    Some(self.get_expression_preview(&value.value))
+                } else {
+                    None
+                };
+                (
+                    format!("let {} #{}", name, index + 1),
+                    SymbolKind::VARIABLE,
+                    Some(format!(
+                        "Type: {}, Value: {}",
+                        param_type,
+                        value_preview.unwrap_or_default()
+                    )),
+                )
+            }
+            Statement::Assign { name, value } => {
+                let value_preview = self.get_expression_preview(&value.value);
+                (
+                    format!("assign {} #{}", name, index + 1),
+                    SymbolKind::VARIABLE,
+                    Some(format!("Value: {}", value_preview)),
+                )
+            }
         };
 
         Some(DocumentSymbol {

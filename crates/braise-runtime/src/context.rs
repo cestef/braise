@@ -21,4 +21,8 @@ impl ExecutionContext {
     pub fn get(&self, name: &str) -> Option<&Value> {
         self.variables.get(name)
     }
+
+    pub fn contains(&self, name: &str) -> bool {
+        self.variables.contains_key(name)
+    }
 }

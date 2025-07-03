@@ -101,6 +101,9 @@
                     "include": "#param-statement"
                 },
                 {
+                    "include": "#let-statement"
+                },
+                {
                     "include": "#if-statement"
                 },
                 {
@@ -142,6 +145,40 @@
                 }
             ]
         },
+        "let-statement": {
+            "patterns": [
+                {
+                    "name": "meta.let.braise",
+                    "begin": "\\b(let)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*:\\s*([a-zA-Z0-9_\\[\\]\"\\,\\s]+)\\s*(=)",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.braise"
+                        },
+                        "2": {
+                            "name": "variable.other.braise"
+                        },
+                        "3": {
+                            "name": "storage.type.braise"
+                        },
+                        "4": {
+                            "name": "keyword.operator.assignment.braise"
+                        }
+                    },
+                    "end": "(?=\\n\\s*(?:[a-zA-Z]|\\})|\\}|$)",
+                    "patterns": [
+                        {
+                            "include": "#if-expression"
+                        },
+                        {
+                            "include": "#match-expression"
+                        },
+                        {
+                            "include": "#expressions"
+                        }
+                    ]
+                }
+            ]
+        },
         "if-statement": {
             "patterns": [
                 {
@@ -152,13 +189,137 @@
                             "name": "keyword.control.conditional.braise"
                         }
                     },
+                    "end": "(?<=\\})(?!\\s*else)",
+                    "patterns": [
+                        {
+                            "include": "#if-condition-and-block"
+                        },
+                        {
+                            "include": "#else-if-chain"
+                        },
+                        {
+                            "include": "#else-block"
+                        }
+                    ]
+                }
+            ]
+        },
+        "if-condition-and-block": {
+            "patterns": [
+                {
+                    "name": "meta.if.condition.braise",
+                    "begin": "(?<=if)\\s+",
+                    "end": "(?=\\{)",
+                    "patterns": [
+                        {
+                            "include": "#expressions"
+                        }
+                    ]
+                },
+                {
+                    "include": "#block"
+                }
+            ]
+        },
+        "else-if-chain": {
+            "patterns": [
+                {
+                    "name": "meta.else-if.braise",
+                    "begin": "\\b(else)\\s+(if)\\b",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.conditional.braise"
+                        },
+                        "2": {
+                            "name": "keyword.control.conditional.braise"
+                        }
+                    },
+                    "end": "(?<=\\})(?!\\s*else)",
+                    "patterns": [
+                        {
+                            "name": "meta.else-if.condition.braise",
+                            "begin": "(?<=if)\\s+",
+                            "end": "(?=\\{)",
+                            "patterns": [
+                                {
+                                    "include": "#expressions"
+                                }
+                            ]
+                        },
+                        {
+                            "include": "#block"
+                        },
+                        {
+                            "include": "#else-if-chain"
+                        },
+                        {
+                            "include": "#else-block"
+                        }
+                    ]
+                }
+            ]
+        },
+        "else-block": {
+            "patterns": [
+                {
+                    "name": "meta.else.braise",
+                    "begin": "\\b(else)\\b(?!\\s+if)",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.conditional.braise"
+                        }
+                    },
+                    "end": "(?<=\\})",
+                    "patterns": [
+                        {
+                            "include": "#block"
+                        }
+                    ]
+                }
+            ]
+        },
+        "if-expression": {
+            "patterns": [
+                {
+                    "name": "meta.if.expression.braise",
+                    "begin": "\\b(if)\\b",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.conditional.braise"
+                        }
+                    },
+                    "end": "(?<=\\})(?!\\s*else)",
+                    "patterns": [
+                        {
+                            "include": "#if-condition-and-block"
+                        },
+                        {
+                            "include": "#else-if-chain"
+                        },
+                        {
+                            "include": "#else-block"
+                        }
+                    ]
+                }
+            ]
+        },
+        "match-expression": {
+            "patterns": [
+                {
+                    "name": "meta.match.expression.braise",
+                    "begin": "\\b(match)\\b",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.braise"
+                        }
+                    },
                     "end": "(?<=\\})",
                     "patterns": [
                         {
                             "include": "#expressions"
                         },
                         {
-                            "include": "#block"
+                            "include": "#match-arms"
                         }
                     ]
                 }
@@ -190,15 +351,24 @@
             "patterns": [
                 {
                     "name": "meta.match.arm.braise",
-                    "match": "(\"[^\"]*\"|_)\\s*(=>)",
-                    "captures": {
+                    "begin": "(\"[^\"]*\"|_)\\s*(=>)",
+                    "beginCaptures": {
                         "1": {
                             "name": "constant.other.braise"
                         },
                         "2": {
                             "name": "keyword.operator.braise"
                         }
-                    }
+                    },
+                    "end": "(?=\\s*(?:\"[^\"]*\"|_)\\s*=>|\\s*\\})",
+                    "patterns": [
+                        {
+                            "include": "#statements"
+                        },
+                        {
+                            "include": "#block"
+                        }
+                    ]
                 }
             ]
         },
@@ -335,7 +505,7 @@
             "patterns": [
                 {
                     "name": "keyword.control.braise",
-                    "match": "\\b(recipe|param|if|else|match|for|in|run|exit|async|print)\\b"
+                    "match": "\\b(recipe|param|let|if|else|match|for|in|run|exit|async|print)\\b"
                 }
             ]
         },

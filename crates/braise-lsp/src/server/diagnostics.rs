@@ -1,3 +1,5 @@
+use crate::server::text_document::TextDocumentProvider;
+
 use super::Document;
 use braise_core::{ast::*, error::BraiseError};
 use std::collections::HashMap;
@@ -186,7 +188,8 @@ impl DiagnosticsProvider {
             // Validate default value type compatibility
             if let Some(ref default_expr) = param.value.default {
                 if !self.is_expression_compatible_with_type(
-                    &default_expr.value,
+                    doc,
+                    &default_expr,
                     &param.value.param_type,
                 ) {
                     diagnostics.push(Diagnostic {
@@ -244,7 +247,101 @@ impl DiagnosticsProvider {
             Statement::Run(expr) | Statement::Print(expr) | Statement::Exit(expr) => {
                 self.validate_expression(&expr.value, doc, diagnostics);
             }
+            Statement::Let {
+                value, param_type, ..
+            } => {
+                if let Some(expr) = value {
+                    self.validate_expression(&expr.value, doc, diagnostics);
+                    if !self.is_expression_compatible_with_type(doc, &expr, param_type) {
+                        diagnostics.push(Diagnostic {
+                            range: self.span_to_range(&expr.span, doc),
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            code: Some(NumberOrString::String("type_mismatch".to_string())),
+                            message: format!(
+                                "Expression type doesn't match parameter type '{}'",
+                                param_type
+                            ),
+                            source: Some("braise".to_string()),
+                            ..Default::default()
+                        });
+                    }
+                }
+            }
+            Statement::Assign { value, name } => {
+                self.validate_expression(&value.value, doc, diagnostics);
+
+                if let Some(ref ast) = doc.ast {
+                    if let Some(recipe) = TextDocumentProvider::find_recipe_at_position(
+                        ast,
+                        Position {
+                            line: value.span.start.line as u32,
+                            character: value.span.start.column as u32,
+                        },
+                    ) {
+                        if !Self::is_variable_defined(name, &recipe.value) {
+                            diagnostics.push(Diagnostic {
+                                range: self.span_to_range(&value.span, doc),
+                                severity: Some(DiagnosticSeverity::ERROR),
+                                code: Some(NumberOrString::String(
+                                    "undefined_variable".to_string(),
+                                )),
+                                message: format!("Variable '{}' is not defined", name),
+                                source: Some("braise".to_string()),
+                                ..Default::default()
+                            });
+                        }
+                    } else {
+                        diagnostics.push(Diagnostic {
+                            range: self.span_to_range(&value.span, doc),
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            code: Some(NumberOrString::String("undefined_variable".to_string())),
+                            message: format!("Variable '{}' is not defined", name),
+                            source: Some("braise".to_string()),
+                            ..Default::default()
+                        });
+                    }
+                }
+            }
         }
+    }
+
+    pub fn is_variable_defined(name: &str, recipe: &Recipe) -> bool {
+        if recipe.parameters.iter().any(|p| p.value.name == name) {
+            return true;
+        }
+
+        for stmt in &recipe.body {
+            if let Statement::Let { name: var_name, .. } = &stmt.value {
+                if var_name == name {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    pub fn get_variable_type(name: &str, recipe: &Recipe) -> Option<ParamType> {
+        for param in &recipe.parameters {
+            if param.value.name == name {
+                return Some(param.value.param_type.clone());
+            }
+        }
+
+        for stmt in &recipe.body {
+            if let Statement::Let {
+                name: var_name,
+                param_type,
+                ..
+            } = &stmt.value
+            {
+                if var_name == name {
+                    return Some(param_type.clone());
+                }
+            }
+        }
+
+        None
     }
 
     fn validate_expression(
@@ -312,17 +409,18 @@ impl DiagnosticsProvider {
 
     fn is_expression_compatible_with_type(
         &self,
-        expr: &Expression,
+        doc: &Document,
+        expr: &SpannedNode<Expression>,
         param_type: &ParamType,
     ) -> bool {
-        match (expr, param_type) {
+        match (&expr.value, param_type) {
             (Expression::String(_), ParamType::String) => true,
             (Expression::Number(_), ParamType::Number) => true,
             (Expression::Bool(_), ParamType::Bool) => true,
             (Expression::Array(elements), ParamType::Array(element_type)) => elements
                 .iter()
-                .all(|elem| self.is_expression_compatible_with_type(&elem.value, element_type)),
-            (Expression::String(s), ParamType::Enum(variants)) => variants.contains(s),
+                .all(|elem| self.is_expression_compatible_with_type(doc, &elem, element_type)),
+            (Expression::String(s), ParamType::Enum(variants)) => variants.contains(&s),
             (
                 Expression::Conditional {
                     condition,
@@ -331,20 +429,42 @@ impl DiagnosticsProvider {
                 },
                 e,
             ) => {
-                self.is_expression_compatible_with_type(&condition.value, &ParamType::Bool)
-                    && self.is_expression_compatible_with_type(&then_expr.value, e)
-                    && self.is_expression_compatible_with_type(&else_expr.value, e)
+                self.is_expression_compatible_with_type(doc, &condition, &ParamType::Bool)
+                    && self.is_expression_compatible_with_type(doc, &then_expr, e)
+                    && self.is_expression_compatible_with_type(doc, &else_expr, e)
             }
             (
                 Expression::FunctionCall {
                     module, function, ..
                 },
                 _,
-            ) => self.is_valid_builtin_function(module, function),
+            ) => self.is_valid_builtin_function(&module, &function),
             (Expression::ModuleAccess { module, field }, _) => {
                 self.is_valid_builtin_field(&module, &field)
             }
-            _ => false,
+            (Expression::Variable(name), e) => {
+                if let Some(ref ast) = doc.ast {
+                    if let Some(recipe) = TextDocumentProvider::find_recipe_at_position(
+                        ast,
+                        Position {
+                            line: expr.span.start.line as u32,
+                            character: expr.span.start.column as u32,
+                        },
+                    ) {
+                        if let Some(param_type) = Self::get_variable_type(&name, &recipe.value) {
+                            return param_type.is_compatible_with(e);
+                        } else {
+                            // Variable is not defined in this recipe
+                            return false;
+                        }
+                    }
+                }
+                false
+            }
+            e => {
+                dbg!(e);
+                false
+            }
         }
     }
 

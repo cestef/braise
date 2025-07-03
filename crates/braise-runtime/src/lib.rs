@@ -340,6 +340,29 @@ impl Runtime {
                     return Err(RuntimeError::Exit(exit_code));
                 }
             }
+            Statement::Let {
+                name,
+                value,
+                param_type,
+            } => {
+                let value = if let Some(expr) = value {
+                    self.evaluate_expression(&expr.value, context)?
+                } else {
+                    Value::default_for_type(param_type)
+                };
+
+                self.validate_value_type(&value, param_type, name)?;
+
+                context.set(name.clone(), value);
+            }
+            Statement::Assign { name, value } => {
+                let value = self.evaluate_expression(&value.value, context)?;
+                self.validate_value_type(&value, &ParamType::String, name)?;
+                if !context.contains(name) {
+                    return Err(RuntimeError::UndefinedVariable(name.clone()));
+                }
+                context.set(name.clone(), value);
+            }
         }
         Ok(())
     }
