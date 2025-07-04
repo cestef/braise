@@ -537,7 +537,6 @@ impl Parser {
                     args,
                 })
             }
-            // ADD THIS CASE FOR MATCH EXPRESSIONS:
             Token::Match => {
                 self.advance(); // consume 'match'
                 let expr = self.parse_expression()?;
@@ -560,13 +559,11 @@ impl Parser {
 
                     self.consume_token(Token::FatArrow)?;
 
-                    // For match expressions, each arm should evaluate to an expression
                     let body_expr = self.parse_expression()?;
 
                     let arm_end = self.current;
                     let arm_span = self.span_from_token_range(arm_start, arm_end);
 
-                    // Create a match arm with a single expression (convert to statement block format)
                     let arm = MatchExpressionArm {
                         pattern,
                         expr: body_expr,

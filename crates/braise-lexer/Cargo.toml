@@ -9,3 +9,6 @@ logos.workspace = true
 
 logos-display = { path = "../logos-display" }
 braise-core = { path = "../braise-core" }
+
+[dev-dependencies]
+miette.workspace = true

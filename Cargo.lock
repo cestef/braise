@@ -186,6 +186,7 @@ dependencies = [
  "braise-core",
  "logos",
  "logos-display",
+ "miette",
 ]
 
 [[package]]

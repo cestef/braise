@@ -131,13 +131,13 @@ pub struct MatchArm {
     pub body: Vec<SpannedNode<Statement>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MatchPattern {
     String(String),
     Wildcard,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     String(String),
     Number(f64),
@@ -178,19 +178,19 @@ pub enum Expression {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MatchExpressionArm {
     pub pattern: MatchPattern,
     pub expr: SpannedNode<Expression>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum InterpolationPart {
     String(String),
     Expression(SpannedNode<Expression>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOperator {
     Equal,
     NotEqual,
@@ -202,7 +202,7 @@ pub enum BinaryOperator {
     Or,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOperator {
     Not,
 }

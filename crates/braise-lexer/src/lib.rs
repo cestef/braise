@@ -7,18 +7,15 @@ pub use crate::{extras::LexerExtras, spanned_token::SpannedToken};
 pub mod extras;
 pub mod spanned_token;
 
-/// Update line tracking when encountering newlines
 fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
     let slice = lex.slice();
     let span = lex.span();
 
-    // Count newlines in the current token
     let newline_count = slice.matches('\n').count();
 
     if newline_count > 0 {
         lex.extras.line += newline_count as u32;
 
-        // Find the position of the last newline to update line_start_offset
         if let Some(last_newline_pos) = slice.rfind('\n') {
             lex.extras.line_start_offset = span.start + last_newline_pos + 1;
         }
@@ -28,10 +25,10 @@ fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
 }
 
 #[derive(Logos, Debug, PartialEq, Clone, logos_display::Display)]
-#[logos(skip(r"[ \t\r]+"))] // Handle whitespace
-#[logos(skip(r"\n", callback = newline_callback))] // Handle newlines and update line tracking
+#[logos(skip(r"[ \t\r]+"))] // whitespace
+#[logos(skip(r"\n", callback = newline_callback))] // newlines
 #[logos(error(Range<usize>, callback = |lex| lex.span()))]
-#[logos(extras = LexerExtras)] // Use our custom extras
+#[logos(extras = LexerExtras)]
 pub enum Token {
     // Keywords
     #[token("recipe")]
@@ -63,7 +60,7 @@ pub enum Token {
     #[token("shell")]
     Shell,
 
-    // Type keywords - These should be recognized as keywords, not identifiers
+    // Type keywords
     #[token("string")]
     StringType,
     #[token("number")]
@@ -88,6 +85,7 @@ pub enum Token {
     #[regex(r"true|false", |lex| lex.slice().parse::<bool>().unwrap())]
     #[alias("bool")]
     Bool(bool),
+
     // Logical operators
     #[token("&&")]
     And,
@@ -146,7 +144,7 @@ pub enum Token {
     #[regex(r"//[^\n]*", logos::skip)]
     #[alias("line_comment")]
     LineComment,
-    #[regex(r"/\*[^*]*\*+(?:[^/*][^*/]*)*\*/", logos::skip)]
+    #[regex(r"/\*([^*]|\*[^/])*\*/", logos::skip)]
     #[alias("block_comment")]
     BlockComment,
 

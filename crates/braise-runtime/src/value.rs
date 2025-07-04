@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use super::{Result, RuntimeError};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     String(String),
     Number(f64),
