@@ -1,0 +1,31 @@
+recipe "test" {
+    call @recipe2(message: "hi")
+}
+
+recipe "recipe1" {
+    param message: string
+
+    run "echo recipe1 ${message}"
+}
+
+recipe "recipe2" {
+    param message: string
+
+    run "echo recipe2 ${message}"
+}
+
+recipe "info" {
+    print "Branch: ${git.branch()}"
+    print "Commit: ${git.commit_hash_short()}"
+    print "CPU cores: ${cpu.count()}"
+    print "Home: ${env.HOME}"
+
+
+    for file in ["package.json", "Cargo.toml", "README.md"] {
+        if fs.exists(file) {
+            print "${file} exists"
+        } else {
+            print "${file} does not exist"
+        }
+    }
+}

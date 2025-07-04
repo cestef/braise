@@ -475,22 +475,67 @@ impl TextDocumentProvider {
                 continue;
             }
 
-            // Decrease indent for closing braces
+            // closing
             if trimmed.starts_with('}') {
                 indent_level = indent_level.saturating_sub(1);
             }
 
-            // Add indentation
-            let indented_line = format!("{}{}", " ".repeat(indent_level * indent_size), trimmed);
+            // del. dup spaces
+            let cleaned_line = self.clean_duplicate_spaces(trimmed);
+
+            let indented_line =
+                format!("{}{}", " ".repeat(indent_level * indent_size), cleaned_line);
             formatted_lines.push(indented_line);
 
-            // Increase indent for opening braces
+            // opening
             if trimmed.ends_with('{') {
                 indent_level += 1;
             }
         }
 
         formatted_lines.join("\n")
+    }
+
+    fn clean_duplicate_spaces(&self, text: &str) -> String {
+        let mut result = String::with_capacity(text.len());
+        let mut chars = text.chars().peekable();
+        let mut in_string = false;
+        let mut last_was_space = false;
+        let mut escape_next = false;
+
+        while let Some(c) = chars.next() {
+            if escape_next {
+                result.push(c);
+                escape_next = false;
+                last_was_space = false;
+                continue;
+            }
+
+            match c {
+                '"' => {
+                    in_string = !in_string;
+                    result.push(c);
+                    last_was_space = false;
+                }
+                '\\' if in_string => {
+                    result.push(c);
+                    escape_next = true;
+                    last_was_space = false;
+                }
+                ' ' => {
+                    if in_string || !last_was_space {
+                        result.push(c);
+                    }
+                    last_was_space = !in_string && c == ' ';
+                }
+                _ => {
+                    result.push(c);
+                    last_was_space = false;
+                }
+            }
+        }
+
+        result
     }
 
     fn get_semantic_token_info(&self, token: &Token) -> (u32, u32) {
