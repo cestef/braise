@@ -11,6 +11,7 @@ members = [
     "crates/braise-runtime",
     "crates/braise-cli",
     "crates/braise-lsp",
+    "crates/braise-fmt",
     "crates/logos-display",
 ]
 

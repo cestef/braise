@@ -126,10 +126,7 @@ mod tests {
                 */
             }
         "#;
-        let tokens = tokenize(&input).map_err(|error_span| BraiseError::LexerError {
-            code: input.to_string(),
-            span: miette::SourceSpan::new(error_span.start.into(), error_span.len()),
-        })?;
+        let tokens = tokenize(&input)?;
         // Comments should be skipped, so we should only see the recipe tokens
         assert_eq!(tokens[0].token, Token::Recipe);
         assert_eq!(tokens[1].token, Token::String("test".to_string()));
@@ -143,10 +140,7 @@ mod tests {
     #[test]
     fn test_position_tracking() -> miette::Result<()> {
         let input = "recipe\n\"test\"";
-        let tokens = tokenize(&input).map_err(|error_span| BraiseError::LexerError {
-            code: input.to_string(),
-            span: miette::SourceSpan::new(error_span.start.into(), error_span.len()),
-        })?;
+        let tokens = tokenize(&input)?;
         // First token should be on line 1
         assert_eq!(tokens[0].span.start.line, 1);
         assert_eq!(tokens[0].span.start.column, 1);
@@ -163,8 +157,12 @@ mod tests {
         let result = tokenize(input);
 
         assert!(result.is_err());
-        let error_span = result.unwrap_err();
-        // Error should point to the '#' character
-        assert!(error_span.start > 13); // After "recipe \"test\" "
+        let err = result.unwrap_err();
+        assert!(matches!(err, BraiseError::LexerError { .. }));
+        if let BraiseError::LexerError { code, span } = err {
+            assert_eq!(code, input.to_string());
+            assert_eq!(span.offset(), 14);
+            assert_eq!(span.len(), 1);
+        }
     }
 }

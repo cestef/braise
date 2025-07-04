@@ -199,26 +199,4 @@ mod tests {
         assert!(table.lookup("inner").is_none());
         assert!(table.lookup("test").is_some());
     }
-
-    #[test]
-    fn test_find_first_existing_file() {
-        use std::fs::File;
-
-        // Create a temporary file
-        let temp_file = "test_braise_file.tmp";
-        File::create(temp_file).unwrap();
-
-        // Test with existing file
-        let files = &["nonexistent1.braise", temp_file, "nonexistent2.braise"];
-        let result = find_first_existing_file(files);
-        assert_eq!(result, Some(temp_file.to_string()));
-
-        // Clean up
-        std::fs::remove_file(temp_file).unwrap();
-
-        // Test with no existing files
-        let files = &["nonexistent1.braise", "nonexistent2.braise"];
-        let result = find_first_existing_file(files);
-        assert_eq!(result, None);
-    }
 }

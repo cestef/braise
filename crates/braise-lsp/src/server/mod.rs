@@ -62,13 +62,8 @@ impl Document {
     pub fn parse(&mut self) -> Result<(), BraiseError> {
         let text = self.get_text();
 
-        // Tokenize
-        let tokens = tokenize(&text).map_err(|error_span| BraiseError::LexerError {
-            code: text.clone(),
-            span: miette::SourceSpan::new(error_span.start.into(), error_span.len()),
-        })?;
+        let tokens = tokenize(&text)?;
 
-        // Parse
         let mut parser = Parser::new(tokens.clone(), text, self.uri.to_string());
         let ast = parser.parse()?;
 

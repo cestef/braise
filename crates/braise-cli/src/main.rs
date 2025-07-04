@@ -1,32 +1,36 @@
 use clap::{Command, arg};
-use core::{BraiseError, constants::DEFAULT_FILES, utils::find_first_existing_file};
+use core::{cli::CliError, constants::DEFAULT_FILES};
 use lexer::tokenize;
 use parser::Parser;
-use runtime::{Runtime, Value};
-use std::collections::HashMap;
+use runtime::Runtime;
+
+mod utils;
 
 fn main() -> miette::Result<()> {
     Ok(run()?)
 }
 
 fn run() -> core::Result<()> {
-    let matches = create().get_matches();
-    let (sub, sub_matches) = matches.subcommand().ok_or(BraiseError::NoTask)?;
+    let matches = create_cli().get_matches();
+    let (sub, sub_matches) = matches.subcommand().ok_or(CliError::NoTask)?;
     let file = if let Some(file) = matches.get_one::<String>("file") {
         file
     } else {
-        &find_first_existing_file(DEFAULT_FILES).ok_or(BraiseError::NoRecipeFileFound)?
+        &utils::find_first_existing_file(DEFAULT_FILES).ok_or(CliError::NoRecipeFileFound)?
     };
 
-    let contents = std::fs::read_to_string(file).map_err(|e| BraiseError::ReadRecipeError {
+    let contents = std::fs::read_to_string(file).map_err(|e| CliError::ReadRecipeError {
         src: Box::new(e),
         file: file.clone(),
     })?;
 
-    let tokens = tokenize(&contents).map_err(|error_span| BraiseError::LexerError {
-        code: contents.clone(),
-        span: miette::SourceSpan::new(error_span.start.into(), error_span.len()),
-    })?;
+    if matches.get_flag("format") {
+        let formatted = fmt::Formatter::format(&contents);
+        println!("{}", formatted);
+        return Ok(());
+    }
+
+    let tokens = tokenize(&contents)?;
 
     let mut parser = Parser::new(tokens, contents, file.clone());
     let ast = parser.parse()?;
@@ -42,59 +46,19 @@ fn run() -> core::Result<()> {
         .map(|args| args.map(|s| s.to_string_lossy().to_string()).collect())
         .unwrap_or_default();
 
-    let params = extract_args(&args);
+    let params = utils::extract_args(&args);
 
     runtime.execute_recipe(sub, params)?;
     Ok(())
 }
 
-pub fn create() -> Command {
+pub fn create_cli() -> Command {
     Command::new(env!("CARGO_PKG_NAME"))
         .allow_external_subcommands(true)
         .version(env!("CARGO_PKG_VERSION"))
         .author(clap::crate_authors!())
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(arg!(-f --file <FILE> "Path to the recipe file"))
+        .arg(arg!(-F --format "Format the provided recipe file"))
         .arg(arg!(-d --dry "Dry run mode, does not execute the recipe"))
-}
-
-// --arg1 value1 --arg2=value2 -x 21 -y=23 --z
-// {"arg1": "value1", "arg2": "value2", "x": "21", "y": "23", "z": "true"}
-pub fn extract_args(args: &[String]) -> HashMap<String, Value> {
-    let mut result = HashMap::new();
-    let mut i = 0;
-
-    while i < args.len() {
-        let arg = &args[i];
-
-        if arg.starts_with("--") {
-            let arg_name = arg.trim_start_matches("--");
-
-            if let Some(equals_pos) = arg_name.find('=') {
-                let (name, value) = arg_name.split_at(equals_pos);
-                result.insert(name.to_string(), Value::String(value[1..].to_string()));
-            } else if i + 1 < args.len() && !args[i + 1].starts_with('-') {
-                result.insert(arg_name.to_string(), Value::String(args[i + 1].clone()));
-                i += 1;
-            } else {
-                result.insert(arg_name.to_string(), Value::Bool(true));
-            }
-        } else if arg.starts_with('-') {
-            let arg_name = arg.trim_start_matches("-");
-
-            if let Some(equals_pos) = arg_name.find('=') {
-                let (name, value) = arg_name.split_at(equals_pos);
-                result.insert(name.to_string(), Value::String(value[1..].to_string()));
-            } else if i + 1 < args.len() && !args[i + 1].starts_with('-') {
-                result.insert(arg_name.to_string(), Value::String(args[i + 1].clone()));
-                i += 1;
-            } else {
-                result.insert(arg_name.to_string(), Value::Bool(true));
-            }
-        }
-
-        i += 1;
-    }
-
-    result
 }

@@ -14,6 +14,7 @@ core = { path = "../braise-core", package = "braise-core" }
 parser = { path = "../braise-parser", package = "braise-parser" }
 lexer = { path = "../braise-lexer", package = "braise-lexer" }
 runtime = { path = "../braise-runtime", package = "braise-runtime" }
+fmt = { path = "../braise-fmt", package = "braise-fmt" }
 
 [[bin]]
 name = "braise"

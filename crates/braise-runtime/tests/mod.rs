@@ -1,18 +1,15 @@
 #[cfg(test)]
 mod tests {
     use braise_runtime::{Runtime, StringExecutor, Value};
+    use core::ParamType;
     use core::runtime::RuntimeError;
-    use core::{BraiseError, ParamType};
     use lexer::tokenize;
     use miette::Result;
     use parser::Parser;
     use std::collections::HashMap;
 
     fn create_runtime(input: &str) -> Result<Runtime> {
-        let tokens = tokenize(&input).map_err(|error_span| BraiseError::LexerError {
-            code: input.to_string(),
-            span: miette::SourceSpan::new(error_span.start.into(), error_span.len()),
-        })?;
+        let tokens = tokenize(&input)?;
         let mut parser = Parser::new(tokens, input.to_string(), "test.braise".to_string());
         let ast = parser.parse()?;
         Ok(Runtime::new(ast).with_executor(StringExecutor::new(false)))

@@ -161,6 +161,7 @@ name = "braise-cli"
 version = "0.1.0"
 dependencies = [
  "braise-core",
+ "braise-fmt",
  "braise-lexer",
  "braise-parser",
  "braise-runtime",
@@ -180,6 +181,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "braise-fmt"
+version = "0.1.0"
+
+[[package]]
 name = "braise-lexer"
 version = "0.1.0"
 dependencies = [
@@ -194,6 +199,7 @@ name = "braise-lsp"
 version = "0.1.0"
 dependencies = [
  "braise-core",
+ "braise-fmt",
  "braise-lexer",
  "braise-parser",
  "miette",

@@ -14,6 +14,7 @@ pub enum ParseError {
         #[label("right here")]
         span: SourceSpan,
     },
+
     #[error("Invalid expression")]
     InvalidExpression {
         expression: String,

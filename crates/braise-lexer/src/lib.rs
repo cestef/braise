@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use braise_core::BraiseError;
 use logos::{Lexer, Logos, Skip};
 
 pub use crate::{extras::LexerExtras, spanned_token::SpannedToken};
@@ -159,7 +160,14 @@ pub fn create_lexer<'a>(source: &'a str) -> logos::Lexer<'a, Token> {
 }
 
 /// Tokenize source code and return a vector of spanned tokens
-pub fn tokenize(source: &str) -> Result<Vec<SpannedToken>, Range<usize>> {
+pub fn tokenize(source: &str) -> Result<Vec<SpannedToken>, BraiseError> {
+    _tokenize(source).map_err(|error_span| BraiseError::LexerError {
+        code: source.to_string(),
+        span: miette::SourceSpan::new(error_span.start.into(), error_span.len()),
+    })
+}
+
+fn _tokenize(source: &str) -> Result<Vec<SpannedToken>, Range<usize>> {
     let mut lexer = create_lexer(source);
     let mut tokens = Vec::new();
 
