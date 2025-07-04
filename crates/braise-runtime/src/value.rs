@@ -186,7 +186,7 @@ impl Value {
                 }
             }
             _ => Err(RuntimeError::TypeError {
-                expected: format!("supported parameter type"),
+                expected: "supported parameter type".to_string(),
                 got: format!("{expected:?}"),
                 context: "parameter type validation".to_string(),
             }),

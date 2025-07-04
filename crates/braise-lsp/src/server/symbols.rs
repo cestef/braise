@@ -1,4 +1,6 @@
 #![allow(deprecated)]
+use crate::utils::{get_expression_preview, span_to_range};
+
 use super::Document;
 use braise_core::ast::*;
 use std::collections::HashMap;
@@ -17,7 +19,7 @@ impl SymbolProvider {
 
         if let Some(ref ast) = doc.ast {
             for recipe in &ast.recipes {
-                let recipe_symbol = self.create_recipe_symbol(recipe, doc);
+                let recipe_symbol = self.create_recipe_symbol(recipe);
                 symbols.push(recipe_symbol);
             }
         }
@@ -43,7 +45,7 @@ impl SymbolProvider {
                             deprecated: Some(false),
                             location: Location {
                                 uri: uri.clone(),
-                                range: self.span_to_range(&recipe.span, doc),
+                                range: span_to_range(&recipe.span),
                             },
                             container_name: None,
                         });
@@ -62,7 +64,7 @@ impl SymbolProvider {
                                 deprecated: Some(false),
                                 location: Location {
                                     uri: uri.clone(),
-                                    range: self.span_to_range(&param.span, doc),
+                                    range: span_to_range(&param.span),
                                 },
                                 container_name: Some(recipe.value.name.clone()),
                             });
@@ -75,7 +77,7 @@ impl SymbolProvider {
         symbols
     }
 
-    fn create_recipe_symbol(&self, recipe: &SpannedNode<Recipe>, doc: &Document) -> DocumentSymbol {
+    fn create_recipe_symbol(&self, recipe: &SpannedNode<Recipe>) -> DocumentSymbol {
         let mut children = Vec::new();
 
         for param in &recipe.value.parameters {
@@ -85,14 +87,14 @@ impl SymbolProvider {
                 kind: SymbolKind::VARIABLE,
                 tags: None,
                 deprecated: Some(false),
-                range: self.span_to_range(&param.span, doc),
-                selection_range: self.span_to_range(&param.span, doc),
+                range: span_to_range(&param.span),
+                selection_range: span_to_range(&param.span),
                 children: None,
             });
         }
 
         for (i, statement) in recipe.value.body.iter().enumerate() {
-            let statement_symbol = self.create_statement_symbol(statement, i, doc);
+            let statement_symbol = self.create_statement_symbol(statement, i);
             if let Some(symbol) = statement_symbol {
                 children.push(symbol);
             }
@@ -114,8 +116,8 @@ impl SymbolProvider {
             kind: SymbolKind::FUNCTION,
             tags: None,
             deprecated: Some(false),
-            range: self.span_to_range(&recipe.span, doc),
-            selection_range: self.span_to_range(&recipe.span, doc),
+            range: span_to_range(&recipe.span),
+            selection_range: span_to_range(&recipe.span),
             children: if children.is_empty() {
                 None
             } else {
@@ -128,11 +130,10 @@ impl SymbolProvider {
         &self,
         statement: &SpannedNode<Statement>,
         index: usize,
-        doc: &Document,
     ) -> Option<DocumentSymbol> {
         let (name, kind, detail) = match &statement.value {
             Statement::Run(expr) => {
-                let command_preview = Self::get_expression_preview(&expr.value);
+                let command_preview = get_expression_preview(&expr.value);
                 (
                     format!("run #{}", index + 1),
                     SymbolKind::METHOD,
@@ -140,7 +141,7 @@ impl SymbolProvider {
                 )
             }
             Statement::Print(expr) => {
-                let message_preview = Self::get_expression_preview(&expr.value);
+                let message_preview = get_expression_preview(&expr.value);
                 (
                     format!("print #{}", index + 1),
                     SymbolKind::METHOD,
@@ -148,7 +149,7 @@ impl SymbolProvider {
                 )
             }
             Statement::If { condition, .. } => {
-                let condition_preview = Self::get_expression_preview(&condition.value);
+                let condition_preview = get_expression_preview(&condition.value);
                 (
                     format!("if #{}", index + 1),
                     SymbolKind::CONSTANT,
@@ -156,7 +157,7 @@ impl SymbolProvider {
                 )
             }
             Statement::Match { expr, arms } => {
-                let expr_preview = Self::get_expression_preview(&expr.value);
+                let expr_preview = get_expression_preview(&expr.value);
                 (
                     format!("match #{}", index + 1),
                     SymbolKind::CONSTANT,
@@ -164,7 +165,7 @@ impl SymbolProvider {
                 )
             }
             Statement::For { var, iterable, .. } => {
-                let iterable_preview = Self::get_expression_preview(&iterable.value);
+                let iterable_preview = get_expression_preview(&iterable.value);
                 (
                     format!("for #{}", index + 1),
                     SymbolKind::CONSTANT,
@@ -172,7 +173,7 @@ impl SymbolProvider {
                 )
             }
             Statement::Exit(expr) => {
-                let code_preview = Self::get_expression_preview(&expr.value);
+                let code_preview = get_expression_preview(&expr.value);
                 (
                     format!("exit #{}", index + 1),
                     SymbolKind::METHOD,
@@ -186,7 +187,7 @@ impl SymbolProvider {
             } => {
                 let value_preview = value
                     .as_ref()
-                    .map(|value| Self::get_expression_preview(&value.value));
+                    .map(|value| get_expression_preview(&value.value));
                 (
                     format!("let {} #{}", name, index + 1),
                     SymbolKind::VARIABLE,
@@ -198,7 +199,7 @@ impl SymbolProvider {
                 )
             }
             Statement::Assign { name, value } => {
-                let value_preview = Self::get_expression_preview(&value.value);
+                let value_preview = get_expression_preview(&value.value);
                 (
                     format!("assign {} #{}", name, index + 1),
                     SymbolKind::VARIABLE,
@@ -208,14 +209,14 @@ impl SymbolProvider {
             Statement::Call { recipe, args } => {
                 let args_preview: Vec<String> = args
                     .iter()
-                    .map(|(k, arg)| format!("{k}: {}", Self::get_expression_preview(&arg.value)))
+                    .map(|(k, arg)| format!("{k}: {}", get_expression_preview(&arg.value)))
                     .collect();
                 let args_str = if args_preview.is_empty() {
                     String::new()
                 } else {
                     format!("({})", args_preview.join(", "))
                 };
-                let recipe_preview = Self::get_expression_preview(&recipe.value);
+                let recipe_preview = get_expression_preview(&recipe.value);
                 (
                     format!("call {recipe_preview}{args_str}"),
                     SymbolKind::FUNCTION,
@@ -235,122 +236,9 @@ impl SymbolProvider {
             kind,
             tags: None,
             deprecated: Some(false),
-            range: self.span_to_range(&statement.span, doc),
-            selection_range: self.span_to_range(&statement.span, doc),
+            range: span_to_range(&statement.span),
+            selection_range: span_to_range(&statement.span),
             children: None,
         })
-    }
-
-    fn get_expression_preview(expr: &Expression) -> String {
-        match expr {
-            Expression::String(s) => format!("\"{s}\""),
-            Expression::Number(n) => n.to_string(),
-            Expression::Bool(b) => b.to_string(),
-            Expression::Variable(name) => name.clone(),
-            Expression::FunctionCall {
-                module, function, ..
-            } => {
-                format!("{module}.{function}()")
-            }
-            Expression::ModuleAccess { module, field } => {
-                format!("{module}.{field}")
-            }
-            Expression::Interpolation(parts) => {
-                let preview: Vec<String> = parts
-                    .iter()
-                    .take(3)
-                    .map(|part| match part {
-                        InterpolationPart::String(s) => s.clone(),
-                        InterpolationPart::Expression(expr) => {
-                            format!("${{{}}}", Self::get_expression_preview(&expr.value))
-                        }
-                    })
-                    .collect();
-
-                let result = preview.join("");
-                if parts.len() > 3 {
-                    format!("\"{result}...\"")
-                } else {
-                    format!("\"{result}\"")
-                }
-            }
-            Expression::Array(elements) => {
-                if elements.is_empty() {
-                    "[]".to_string()
-                } else if elements.len() == 1 {
-                    format!("[{}]", Self::get_expression_preview(&elements[0].value))
-                } else {
-                    format!(
-                        "[{}, ...]",
-                        Self::get_expression_preview(&elements[0].value)
-                    )
-                }
-            }
-            Expression::BinaryOp { left, op, right } => {
-                let op_str = match op {
-                    BinaryOperator::Equal => "==",
-                    BinaryOperator::NotEqual => "!=",
-                    BinaryOperator::Less => "<",
-                    BinaryOperator::LessEqual => "<=",
-                    BinaryOperator::Greater => ">",
-                    BinaryOperator::GreaterEqual => ">=",
-                    BinaryOperator::And => "&&",
-                    BinaryOperator::Or => "||",
-                };
-                format!(
-                    "{} {} {}",
-                    Self::get_expression_preview(&left.value),
-                    op_str,
-                    Self::get_expression_preview(&right.value)
-                )
-            }
-            Expression::UnaryOp { op, expr } => {
-                let op_str = match op {
-                    UnaryOperator::Not => "!",
-                };
-                format!("{}{}", op_str, Self::get_expression_preview(&expr.value))
-            }
-            Expression::Conditional { condition, .. } => {
-                format!("if {}", Self::get_expression_preview(&condition.value))
-            }
-            Expression::RecipeRef { recipe, args } => {
-                let args_preview: Vec<String> = args
-                    .iter()
-                    .map(|(k, arg)| format!("{k}: {}", Self::get_expression_preview(&arg.value)))
-                    .collect();
-                if args_preview.is_empty() {
-                    recipe.clone()
-                } else {
-                    format!("@{}({})", recipe, args_preview.join(", "))
-                }
-            }
-            Expression::Match { expr, arms } => {
-                let expr_preview = Self::get_expression_preview(&expr.value);
-                let arms_count = arms.len();
-                if arms_count == 0 {
-                    format!("match {expr_preview} {{}}")
-                } else {
-                    format!("match {expr_preview} with {arms_count} arms")
-                }
-            }
-        }
-    }
-
-    fn span_to_range(&self, span: &braise_core::Span, _doc: &Document) -> Range {
-        let start_line = span.start.line.saturating_sub(1) as usize;
-        let start_char = span.start.column.saturating_sub(1);
-        let end_line = span.end.line.saturating_sub(1) as usize;
-        let end_char = span.end.column.saturating_sub(1);
-
-        Range {
-            start: Position {
-                line: start_line as u32,
-                character: start_char,
-            },
-            end: Position {
-                line: end_line as u32,
-                character: end_char,
-            },
-        }
     }
 }

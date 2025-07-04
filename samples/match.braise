@@ -8,10 +8,10 @@ recipe "basic" {
 
     // String matching
     match status {
-        // "success" => print "✅ Operation completed successfully!",
+        "success" => print "✅ Operation completed successfully!",
         "error" => print "❌ Operation failed!",
-        // "pending" => print "⏳ Operation in progress...",
-        // _ => print "❓ Unknown status"
+        "pending" => print "⏳ Operation in progress...",
+        _ => print "❓ Unknown status"
     }
 
     // Number matching

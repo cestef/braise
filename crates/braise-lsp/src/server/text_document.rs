@@ -1,4 +1,7 @@
-use crate::server::diagnostics::DiagnosticsProvider;
+use crate::{
+    server::diagnostics::DiagnosticsProvider,
+    utils::{get_expression_preview, span_to_range},
+};
 
 use super::Document;
 use braise_core::ast::*;
@@ -22,10 +25,8 @@ impl TextDocumentProvider {
                 return None;
             }
 
-            // Find word at position
             let word = self.get_word_at_position(line, char_pos)?;
 
-            // Check if it's a built-in module or function
             if let Some(hover_content) = self.get_builtin_hover(&word) {
                 return Some(Hover {
                     contents: HoverContents::Markup(MarkupContent {
@@ -39,7 +40,6 @@ impl TextDocumentProvider {
             if let Some(ref ast) = doc.ast
                 && let Some(current_recipe) = Self::find_recipe_at_position(ast, position)
             {
-                // Check if it's a parameter in the current recipe
                 for param in &current_recipe.value.parameters {
                     if param.value.name == word {
                         let content = format!(
@@ -49,7 +49,7 @@ impl TextDocumentProvider {
                             if let Some(ref default) = param.value.default {
                                 format!(
                                     "\n\n**Default**: `{}`",
-                                    Self::expression_to_string(&default.value)
+                                    get_expression_preview(&default.value)
                                 )
                             } else {
                                 String::new()
@@ -66,7 +66,6 @@ impl TextDocumentProvider {
                     }
                 }
 
-                // Check if it's a variable in the current recipe
                 if let Some(param_type) =
                     DiagnosticsProvider::get_variable_type(&word, &current_recipe.value)
                 {
@@ -81,7 +80,6 @@ impl TextDocumentProvider {
                     });
                 }
 
-                // Check if it's a recipe call
                 for recipe in &ast.recipes {
                     if recipe.value.name == word {
                         let content = format!(
@@ -99,7 +97,7 @@ impl TextDocumentProvider {
                                         if let Some(ref default) = param.value.default {
                                             format!(
                                                 " (default: `{}`)",
-                                                Self::expression_to_string(&default.value)
+                                                get_expression_preview(&default.value)
                                             )
                                         } else {
                                             String::new()
@@ -132,7 +130,6 @@ impl TextDocumentProvider {
             let char_pos = position.character as usize;
             let word = self.get_word_at_position(line, char_pos)?;
 
-            // Look for parameter definitions in the current recipe only
             if let Some(ref ast) = doc.ast
                 && let Some(current_recipe) = Self::find_recipe_at_position(ast, position)
             {
@@ -140,7 +137,7 @@ impl TextDocumentProvider {
                     if param.value.name == word {
                         return Some(Location {
                             uri: doc.uri.clone(),
-                            range: self.span_to_range(&param.span),
+                            range: span_to_range(&param.span),
                         });
                     }
                 }
@@ -375,50 +372,6 @@ impl TextDocumentProvider {
             "let" => Some("**let** keyword\n\nDefines a variable.\n\n**Syntax:**\n```braise\nlet name: type = value\n```\n\n**Types:** `string`, `number`, `bool`, `[type]` (array), `[\"opt1\", \"opt2\"]` (enum)".to_string()),
             "shell" => Some("**shell** keyword\n\nSets the shell to use for commands.\n\n**Syntax:**\n```braise\nshell \"bash\"\n```".to_string()),
             _ => None,
-        }
-    }
-
-    fn expression_to_string(expr: &Expression) -> String {
-        match expr {
-            Expression::String(s) => format!("\"{s}\""),
-            Expression::Number(n) => n.to_string(),
-            Expression::Bool(b) => b.to_string(),
-            Expression::Variable(name) => name.clone(),
-            Expression::FunctionCall {
-                module, function, ..
-            } => {
-                format!("{module}.{function}(...)")
-            }
-            Expression::ModuleAccess { module, field } => {
-                format!("{module}.{field}")
-            }
-            Expression::Array(elements) => {
-                let elements_str: Vec<String> = elements
-                    .iter()
-                    .take(3)
-                    .map(|elem| Self::expression_to_string(&elem.value))
-                    .collect();
-
-                if elements.len() > 3 {
-                    format!("[{}, ...]", elements_str.join(", "))
-                } else {
-                    format!("[{}]", elements_str.join(", "))
-                }
-            }
-            _ => "...".to_string(),
-        }
-    }
-
-    fn span_to_range(&self, span: &braise_core::Span) -> Range {
-        Range {
-            start: Position {
-                line: span.start.line.saturating_sub(1),
-                character: span.start.column.saturating_sub(1),
-            },
-            end: Position {
-                line: span.end.line.saturating_sub(1),
-                character: span.end.column.saturating_sub(1),
-            },
         }
     }
 

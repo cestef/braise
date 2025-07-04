@@ -34,6 +34,12 @@ pub struct Formatter {
     config: FormatterConfig,
 }
 
+impl Default for Formatter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Formatter {
     #[inline]
     pub fn new() -> Self {
@@ -151,12 +157,12 @@ impl Formatter {
 
         // Slow path: clean spaces
         let mut result = String::with_capacity(text.len());
-        let mut chars = text.chars();
+        let chars = text.chars();
         let mut in_string = false;
         let mut last_was_space = false;
         let mut escape_next = false;
 
-        while let Some(c) = chars.next() {
+        for c in chars {
             if escape_next {
                 result.push(c);
                 escape_next = false;

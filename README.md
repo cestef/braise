@@ -15,8 +15,6 @@
 
 Yet another task runner, because apparently the world needed one more. But hey, at least this one has types and doesn't make you want to cry when debugging your build scripts.
 
-Braisé is what happens when you get tired of writing the same bash scripts over and over, but also refuse to learn Make properly. It's like having a sous chef that actually follows recipes instead of improvising and burning down the kitchen.
-
 ## Features
 
 - **Actual types** (revolutionary, I know)
@@ -46,6 +44,7 @@ cargo install --git https://github.com/cestef/braise --branch dev --bins
 </details>
 
 Create a `Braisefile`:
+
 ```
 recipe "hello" {
     param name: string = "World"
@@ -62,6 +61,7 @@ recipe "test" {
 ```
 
 Run it:
+
 ```bash
 braise hello --name "Chef"
 braise build
@@ -122,8 +122,11 @@ braise <recipe-name>
 # With parameters
 braise deploy --env prod --version v1.0.0 --force
 
+# With key=value parameters
+braise deploy env=prod version=v1.0.0 force
+
 # Dry run (see what would happen)
-braise deploy --dry
+braise --dry deploy
 
 # Custom file
 braise -f my-recipes.braise build
@@ -131,15 +134,11 @@ braise -f my-recipes.braise build
 
 ## Why Not Just Use...?
 
-- **Make**: Because it's 1976 and we have better things now
-- **npm scripts**: Because JSON isn't a programming language
-- **Bash scripts**: Because debugging them is a form of self-harm
-- **Justfile**: Actually pretty good, can't say anything bad about it.
+- **Make**: 1976 is calling
+- **npm scripts**: JSON isn't a programming language
+- **Bash scripts**: Good luck debugging that
+- **Justfile**: Actually good, no complaints
 
 ## Contributing
 
 Found a bug? Great! [Open an issue](https://github.com/cestef/braise/issues/new). Want to add a feature? Even better! [Submit a PR](https://github.com/cestef/braise/pulls).
-
-## License
-
-MIT - Because sharing is caring, but attribution is nice.

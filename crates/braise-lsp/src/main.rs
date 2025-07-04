@@ -6,6 +6,8 @@ use tracing_subscriber::{EnvFilter, fmt};
 mod server;
 use server::BraiseLspServer;
 
+mod utils;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     fmt()

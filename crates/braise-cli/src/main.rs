@@ -110,7 +110,7 @@ fn list_recipes(contents: &str, file: &str) -> core::Result<()> {
     let ast = parser.parse()?;
 
     if ast.recipes.is_empty() {
-        println!("No recipes found in {}", file);
+        println!("No recipes found in {file}");
         return Ok(());
     }
 
@@ -149,13 +149,13 @@ fn format_recipe(contents: &str, file: &str, stdout: bool) -> core::Result<()> {
     let formatted = fmt::Formatter::format(contents);
 
     if stdout {
-        print!("{}", formatted);
+        print!("{formatted}");
     } else {
         std::fs::write(file, formatted).map_err(|e| CliError::ReadRecipeError {
             src: Box::new(e),
             file: file.to_string(),
         })?;
-        println!("✨ Formatted {}", file);
+        println!("✨ Formatted {file}");
     }
 
     Ok(())
@@ -207,17 +207,17 @@ fn show_recipe_info(contents: &str, file: &str, recipe_name: &str) -> core::Resu
 fn format_expression_preview(expr: &core::ast::Expression) -> String {
     use core::ast::Expression;
     match expr {
-        Expression::String(s) => format!("\"{}\"", s),
+        Expression::String(s) => format!("\"{s}\""),
         Expression::Number(n) => n.to_string(),
         Expression::Bool(b) => b.to_string(),
         Expression::Variable(name) => name.clone(),
         Expression::FunctionCall {
             module, function, ..
         } => {
-            format!("{}.{}()", module, function)
+            format!("{module}.{function}()")
         }
         Expression::ModuleAccess { module, field } => {
-            format!("{}.{}", module, field)
+            format!("{module}.{field}")
         }
         Expression::Array(elements) => {
             if elements.len() <= 2 {

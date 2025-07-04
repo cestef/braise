@@ -1,4 +1,5 @@
 use crate::server::text_document::TextDocumentProvider;
+use crate::utils::span_to_range;
 
 use super::Document;
 use braise_core::parser::ParseError;
@@ -44,7 +45,7 @@ impl DiagnosticsProvider {
             let name = &recipe.value.name;
             if let Some(first_span) = recipe_names.get(name) {
                 diagnostics.push(Diagnostic {
-                    range: self.span_to_range(&recipe.span, doc),
+                    range: span_to_range(&recipe.span),
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("duplicate_recipe".to_string())),
                     message: format!("Duplicate recipe name '{name}'"),
@@ -52,7 +53,7 @@ impl DiagnosticsProvider {
                     related_information: Some(vec![DiagnosticRelatedInformation {
                         location: Location {
                             uri: doc.uri.clone(),
-                            range: self.span_to_range(first_span, doc),
+                            range: span_to_range(first_span),
                         },
                         message: "First definition here".to_string(),
                     }]),
@@ -63,9 +64,9 @@ impl DiagnosticsProvider {
             }
         }
 
-        self.check_circular_dependencies(ast, doc, &mut diagnostics);
+        self.check_circular_dependencies(ast, &mut diagnostics);
 
-        self.check_undefined_dependencies(ast, doc, &mut diagnostics);
+        self.check_undefined_dependencies(ast, &mut diagnostics);
 
         for recipe in &ast.recipes {
             self.validate_recipe_parameters(&recipe.value, doc, &mut diagnostics);
@@ -114,12 +115,7 @@ impl DiagnosticsProvider {
         }
     }
 
-    fn check_circular_dependencies(
-        &self,
-        ast: &Config,
-        doc: &Document,
-        diagnostics: &mut Vec<Diagnostic>,
-    ) {
+    fn check_circular_dependencies(&self, ast: &Config, diagnostics: &mut Vec<Diagnostic>) {
         fn has_cycle(
             recipe: &str,
             dependencies: &HashMap<String, Vec<String>>,
@@ -152,7 +148,7 @@ impl DiagnosticsProvider {
             let mut visited = Vec::new();
             if has_cycle(&recipe.value.name, &dependencies, &mut visited) {
                 diagnostics.push(Diagnostic {
-                    range: self.span_to_range(&recipe.span, doc),
+                    range: span_to_range(&recipe.span),
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("circular_dependency".to_string())),
                     message: format!(
@@ -166,12 +162,7 @@ impl DiagnosticsProvider {
         }
     }
 
-    fn check_undefined_dependencies(
-        &self,
-        ast: &Config,
-        doc: &Document,
-        diagnostics: &mut Vec<Diagnostic>,
-    ) {
+    fn check_undefined_dependencies(&self, ast: &Config, diagnostics: &mut Vec<Diagnostic>) {
         let recipe_names: std::collections::HashSet<String> =
             ast.recipes.iter().map(|r| r.value.name.clone()).collect();
 
@@ -179,7 +170,7 @@ impl DiagnosticsProvider {
             for dep in &recipe.value.dependencies {
                 if !recipe_names.contains(dep) {
                     diagnostics.push(Diagnostic {
-                        range: self.span_to_range(&recipe.span, doc),
+                        range: span_to_range(&recipe.span),
                         severity: Some(DiagnosticSeverity::ERROR),
                         code: Some(NumberOrString::String("undefined_dependency".to_string())),
                         message: format!("Undefined dependency '{dep}'"),
@@ -203,7 +194,7 @@ impl DiagnosticsProvider {
             let name = &param.value.name;
             if let Some(first_span) = param_names.get(name) {
                 diagnostics.push(Diagnostic {
-                    range: self.span_to_range(&param.span, doc),
+                    range: span_to_range(&param.span),
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("duplicate_parameter".to_string())),
                     message: format!("Duplicate parameter name '{name}'"),
@@ -211,7 +202,7 @@ impl DiagnosticsProvider {
                     related_information: Some(vec![DiagnosticRelatedInformation {
                         location: Location {
                             uri: doc.uri.clone(),
-                            range: self.span_to_range(first_span, doc),
+                            range: span_to_range(first_span),
                         },
                         message: "First definition here".to_string(),
                     }]),
@@ -230,7 +221,7 @@ impl DiagnosticsProvider {
                 )
             {
                 diagnostics.push(Diagnostic {
-                    range: self.span_to_range(&default_expr.span, doc),
+                    range: span_to_range(&default_expr.span),
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("type_mismatch".to_string())),
                     message: format!(
@@ -256,7 +247,7 @@ impl DiagnosticsProvider {
                 then_block,
                 else_block,
             } => {
-                self.validate_expression(&condition, doc, diagnostics);
+                self.validate_expression(condition, diagnostics);
                 for stmt in then_block {
                     self.validate_statement(&stmt.value, doc, diagnostics);
                 }
@@ -267,7 +258,7 @@ impl DiagnosticsProvider {
                 }
             }
             Statement::Match { expr, arms } => {
-                self.validate_expression(&expr, doc, diagnostics);
+                self.validate_expression(expr, diagnostics);
                 for arm in arms {
                     for stmt in &arm.value.body {
                         self.validate_statement(&stmt.value, doc, diagnostics);
@@ -275,22 +266,22 @@ impl DiagnosticsProvider {
                 }
             }
             Statement::For { iterable, body, .. } => {
-                self.validate_expression(&iterable, doc, diagnostics);
+                self.validate_expression(iterable, diagnostics);
                 for stmt in body {
                     self.validate_statement(&stmt.value, doc, diagnostics);
                 }
             }
             Statement::Run(expr) | Statement::Print(expr) | Statement::Exit(expr) => {
-                self.validate_expression(&expr, doc, diagnostics);
+                self.validate_expression(expr, diagnostics);
             }
             Statement::Let {
                 value, param_type, ..
             } => {
                 if let Some(expr) = value {
-                    self.validate_expression(&expr, doc, diagnostics);
+                    self.validate_expression(expr, diagnostics);
                     if !self.is_expression_compatible_with_type(doc, expr, param_type) {
                         diagnostics.push(Diagnostic {
-                            range: self.span_to_range(&expr.span, doc),
+                            range: span_to_range(&expr.span),
                             severity: Some(DiagnosticSeverity::ERROR),
                             code: Some(NumberOrString::String("type_mismatch".to_string())),
                             message: format!(
@@ -303,7 +294,7 @@ impl DiagnosticsProvider {
                 }
             }
             Statement::Assign { value, name } => {
-                self.validate_expression(&value, doc, diagnostics);
+                self.validate_expression(value, diagnostics);
 
                 if let Some(ref ast) = doc.ast {
                     if let Some(recipe) = TextDocumentProvider::find_recipe_at_position(
@@ -315,7 +306,7 @@ impl DiagnosticsProvider {
                     ) {
                         if !Self::is_variable_defined(name, &recipe.value) {
                             diagnostics.push(Diagnostic {
-                                range: self.span_to_range(&value.span, doc),
+                                range: span_to_range(&value.span),
                                 severity: Some(DiagnosticSeverity::ERROR),
                                 code: Some(NumberOrString::String(
                                     "undefined_variable".to_string(),
@@ -327,7 +318,7 @@ impl DiagnosticsProvider {
                         }
                     } else {
                         diagnostics.push(Diagnostic {
-                            range: self.span_to_range(&value.span, doc),
+                            range: span_to_range(&value.span),
                             severity: Some(DiagnosticSeverity::ERROR),
                             code: Some(NumberOrString::String("undefined_variable".to_string())),
                             message: format!("Variable '{name}' is not defined"),
@@ -350,7 +341,7 @@ impl DiagnosticsProvider {
                     for (arg_name, arg_expr) in args {
                         if !Self::is_variable_defined(arg_name, &recipe_ref.value) {
                             diagnostics.push(Diagnostic {
-                                range: self.span_to_range(&arg_expr.span, doc),
+                                range: span_to_range(&arg_expr.span),
                                 severity: Some(DiagnosticSeverity::ERROR),
                                 code: Some(NumberOrString::String(
                                     "undefined_variable".to_string(),
@@ -364,7 +355,7 @@ impl DiagnosticsProvider {
                             && !self.is_expression_compatible_with_type(doc, arg_expr, &param_type)
                         {
                             diagnostics.push(Diagnostic {
-                                        range: self.span_to_range(&arg_expr.span, doc),
+                                        range: span_to_range(&arg_expr.span),
                                         severity: Some(DiagnosticSeverity::ERROR),
                                         code: Some(NumberOrString::String(
                                             "type_mismatch".to_string(),
@@ -424,7 +415,6 @@ impl DiagnosticsProvider {
     fn validate_expression(
         &self,
         expr: &SpannedNode<Expression>,
-        doc: &Document,
         diagnostics: &mut Vec<Diagnostic>,
     ) {
         match &expr.value {
@@ -433,16 +423,13 @@ impl DiagnosticsProvider {
                 function,
                 args,
             } => {
-                if !self.is_valid_builtin_function(&module, &function) {
+                if !self.is_valid_builtin_function(module, function) {
                     diagnostics.push(Diagnostic {
-                        range: self.span_to_range(
-                            if args.is_empty() {
-                                &expr.span
-                            } else {
-                                &args[0].span
-                            },
-                            doc,
-                        ),
+                        range: span_to_range(if args.is_empty() {
+                            &expr.span
+                        } else {
+                            &args[0].span
+                        }),
                         severity: Some(DiagnosticSeverity::ERROR),
                         code: Some(NumberOrString::String("invalid_function".to_string())),
                         message: format!("Invalid function call '{module}.{function}'"),
@@ -451,39 +438,39 @@ impl DiagnosticsProvider {
                     });
                 }
                 for arg in args {
-                    self.validate_expression(&arg, doc, diagnostics);
+                    self.validate_expression(arg, diagnostics);
                 }
             }
             Expression::ModuleAccess { module, field } => {
-                if !self.is_valid_builtin_field(&module, &field) {
+                if !self.is_valid_builtin_field(module, field) {
                     // TODO: need spans for module fields
                 }
             }
             Expression::BinaryOp { left, right, .. } => {
-                self.validate_expression(&left, doc, diagnostics);
-                self.validate_expression(&right, doc, diagnostics);
+                self.validate_expression(left, diagnostics);
+                self.validate_expression(right, diagnostics);
             }
             Expression::UnaryOp { expr, .. } => {
-                self.validate_expression(&expr, doc, diagnostics);
+                self.validate_expression(expr, diagnostics);
             }
             Expression::Conditional {
                 condition,
                 then_expr,
                 else_expr,
             } => {
-                self.validate_expression(&condition, doc, diagnostics);
-                self.validate_expression(&then_expr, doc, diagnostics);
-                self.validate_expression(&else_expr, doc, diagnostics);
+                self.validate_expression(condition, diagnostics);
+                self.validate_expression(then_expr, diagnostics);
+                self.validate_expression(else_expr, diagnostics);
             }
             Expression::Array(elements) => {
                 for elem in elements {
-                    self.validate_expression(&elem, doc, diagnostics);
+                    self.validate_expression(elem, diagnostics);
                 }
             }
             Expression::Interpolation(parts) => {
                 for part in parts {
                     if let InterpolationPart::Expression(expr) = part {
-                        self.validate_expression(&expr, doc, diagnostics);
+                        self.validate_expression(expr, diagnostics);
                     }
                 }
             }
@@ -688,23 +675,5 @@ impl DiagnosticsProvider {
     fn strip_colors(&self, text: &str) -> String {
         let re = regex::Regex::new(r"\x1B\[[0-9;]*[mK]").unwrap();
         re.replace_all(text, "").to_string()
-    }
-
-    fn span_to_range(&self, span: &braise_core::Span, _doc: &Document) -> Range {
-        let start_line = span.start.line.saturating_sub(1) as usize;
-        let start_char = span.start.column.saturating_sub(1);
-        let end_line = span.end.line.saturating_sub(1) as usize;
-        let end_char = span.end.column.saturating_sub(1);
-
-        Range {
-            start: Position {
-                line: start_line as u32,
-                character: start_char,
-            },
-            end: Position {
-                line: end_line as u32,
-                character: end_char,
-            },
-        }
     }
 }

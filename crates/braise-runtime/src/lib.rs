@@ -44,6 +44,7 @@ impl Runtime {
         self.dry_run = true;
         self
     }
+
     pub fn execute_recipe(&self, name: &str, user_params: HashMap<String, Value>) -> Result<()> {
         let mut stack = HashSet::new();
         self._execute_recipe(name, user_params, &mut stack)
@@ -108,7 +109,12 @@ impl Runtime {
                 });
             };
 
-            let value = self.try_match_type(&value, &param.value.param_type, &param.value.name)?;
+            let value = match value {
+                Value::String(s) => {
+                    Value::from_str(&s, &param.value.name, &param.value.param_type)?
+                }
+                e => e,
+            };
 
             context.set(param.value.name.clone(), value);
         }
@@ -180,7 +186,7 @@ impl Runtime {
                 }
             }
             Statement::Match { expr, arms } => {
-                self.execute_match_statement(&expr, arms, context)?;
+                self.execute_match_statement(expr, arms, context)?;
             }
             Statement::For {
                 var,
@@ -521,14 +527,14 @@ impl Runtime {
             }
 
             MatchPattern::Type(param_type) => {
-                let matched = match (param_type, value) {
-                    (ParamType::String, Value::String(_)) => true,
-                    (ParamType::Number, Value::Number(_)) => true,
-                    (ParamType::Bool, Value::Bool(_)) => true,
-                    (ParamType::Array(_), Value::Array(_)) => true,
-                    (ParamType::Recipe, Value::Recipe(_, _)) => true,
-                    _ => false,
-                };
+                let matched = matches!(
+                    (param_type, value),
+                    (ParamType::String, Value::String(_))
+                        | (ParamType::Number, Value::Number(_))
+                        | (ParamType::Bool, Value::Bool(_))
+                        | (ParamType::Array(_), Value::Array(_))
+                        | (ParamType::Recipe, Value::Recipe(_, _))
+                );
 
                 Ok(PatternMatch {
                     matched,
@@ -679,9 +685,7 @@ impl Runtime {
 
                 Ok(Value::Recipe(recipe.clone(), arg_values))
             }
-            Expression::Match { expr, arms } => {
-                self.evaluate_match_expression(&expr, arms, context)
-            }
+            Expression::Match { expr, arms } => self.evaluate_match_expression(expr, arms, context),
         }
     }
 
