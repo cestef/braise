@@ -109,15 +109,13 @@ impl BraiseLspServer {
                 self.diagnostics_provider
                     .publish_parse_error(uri, &error)
                     .await;
+            } else if let Some(ref ast) = doc.ast {
+                let diagnostics = self.diagnostics_provider.validate_ast(ast, &doc);
+                self.diagnostics_provider
+                    .publish_diagnostics(uri, diagnostics)
+                    .await;
             } else {
-                if let Some(ref ast) = doc.ast {
-                    let diagnostics = self.diagnostics_provider.validate_ast(ast, &doc);
-                    self.diagnostics_provider
-                        .publish_diagnostics(uri, diagnostics)
-                        .await;
-                } else {
-                    self.diagnostics_provider.clear_diagnostics(uri).await;
-                }
+                self.diagnostics_provider.clear_diagnostics(uri).await;
             }
 
             let mut documents = self.documents.write().await;
@@ -175,7 +173,6 @@ impl LanguageServer for BraiseLspServer {
                 ),
                 version: Some(env!("CARGO_PKG_VERSION").to_string()),
             }),
-            ..Default::default()
         })
     }
 
@@ -211,17 +208,17 @@ impl LanguageServer for BraiseLspServer {
         let uri = params.text_document.uri;
         let version = params.text_document.version;
 
-        if let Some(change) = params.content_changes.into_iter().next() {
-            if let Some(mut doc) = self.get_document(&uri).await {
-                doc.update_content(change.text, version);
+        if let Some(change) = params.content_changes.into_iter().next()
+            && let Some(mut doc) = self.get_document(&uri).await
+        {
+            doc.update_content(change.text, version);
 
-                {
-                    let mut documents = self.documents.write().await;
-                    documents.insert(uri.clone(), doc);
-                }
-
-                self.parse_and_publish_diagnostics(&uri).await;
+            {
+                let mut documents = self.documents.write().await;
+                documents.insert(uri.clone(), doc);
             }
+
+            self.parse_and_publish_diagnostics(&uri).await;
         }
     }
 

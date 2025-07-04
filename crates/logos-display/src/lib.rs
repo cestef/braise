@@ -25,34 +25,34 @@ fn _logos_display(input: TokenStream2, debug: bool) -> TokenStream2 {
     let ident = ast.ident;
     let mut concat = Some("/".to_string());
     for attr in ast.attrs.into_iter() {
-        if let syn::Meta::List(l) = attr.meta {
-            if l.path.is_ident("display_concat") {
-                let as_str = l.tokens.to_string();
-                let cand = match syn::parse2::<LitStr>(l.tokens) {
-                    Ok(res) => Ok(res.value()),
-                    Err(e) => {
-                        let resp = as_str;
-                        if resp == "None" {
-                            Ok(resp)
-                        } else {
-                            Err(syn::Error::new(
-                                e.span(),
-                                "Concat must be either a string or None",
-                            ))
-                        }
+        if let syn::Meta::List(l) = attr.meta
+            && l.path.is_ident("display_concat")
+        {
+            let as_str = l.tokens.to_string();
+            let cand = match syn::parse2::<LitStr>(l.tokens) {
+                Ok(res) => Ok(res.value()),
+                Err(e) => {
+                    let resp = as_str;
+                    if resp == "None" {
+                        Ok(resp)
+                    } else {
+                        Err(syn::Error::new(
+                            e.span(),
+                            "Concat must be either a string or None",
+                        ))
                     }
-                };
-                let litstr = match cand {
-                    Ok(res) => res,
-                    Err(e) => return e.to_compile_error(),
-                };
-                if litstr == "None" {
-                    concat = None;
-                } else {
-                    concat = Some(litstr);
                 }
-                break;
+            };
+            let litstr = match cand {
+                Ok(res) => res,
+                Err(e) => return e.to_compile_error(),
+            };
+            if litstr == "None" {
+                concat = None;
+            } else {
+                concat = Some(litstr);
             }
+            break;
         }
     }
     let resp = match ast.data {
@@ -85,7 +85,7 @@ fn _logos_display(input: TokenStream2, debug: bool) -> TokenStream2 {
 fn gen_anon_args(n: usize) -> Vec<TokenStream2> {
     let mut args = Vec::new();
     for i in 1..=n {
-        let arg_ident = Ident::new(&format!("_arg{}", i), proc_macro2::Span::call_site());
+        let arg_ident = Ident::new(&format!("_arg{i}"), proc_macro2::Span::call_site());
         args.push(quote!(#arg_ident));
     }
     args
@@ -134,10 +134,7 @@ fn logos_display_derive(
         for attr in variant.attrs.into_iter() {
             if let syn::Meta::List(l) = attr.meta {
                 if l.path.is_ident("display_override") {
-                    let litstr = match syn::parse2::<LitStr>(l.tokens) {
-                        Ok(res) => res,
-                        Err(e) => return Err(e),
-                    };
+                    let litstr = syn::parse2::<LitStr>(l.tokens)?;
                     display_override = Some(litstr.value());
                 } else if l.path.is_ident("alias") {
                     let litstr = match syn::parse2::<LitStr>(l.tokens) {

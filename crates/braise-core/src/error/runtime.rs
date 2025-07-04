@@ -39,6 +39,9 @@ pub enum RuntimeError {
         recipe: String,
         stack: HashSet<String>,
     },
+    #[error("Match expression has no arms for value: {value}")]
+    #[diagnostic(code(braise::runtime::match_no_arm))]
+    MatchNoArm { value: String },
 }
 
 pub type Result<T> = std::result::Result<T, RuntimeError>;

@@ -80,7 +80,7 @@ impl std::fmt::Display for ParamType {
             ParamType::String => write!(f, "string"),
             ParamType::Number => write!(f, "number"),
             ParamType::Bool => write!(f, "bool"),
-            ParamType::Array(element_type) => write!(f, "array[{}]", element_type),
+            ParamType::Array(element_type) => write!(f, "array[{element_type}]"),
             ParamType::Enum(variants) => write!(f, "enum[{}]", variants.join(", ")),
             ParamType::Recipe => write!(f, "recipe"),
         }
@@ -172,6 +172,16 @@ pub enum Expression {
         recipe: String,
         args: HashMap<String, SpannedNode<Expression>>,
     },
+    Match {
+        expr: Box<SpannedNode<Expression>>,
+        arms: Vec<SpannedNode<MatchExpressionArm>>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct MatchExpressionArm {
+    pub pattern: MatchPattern,
+    pub expr: SpannedNode<Expression>,
 }
 
 #[derive(Debug, Clone)]

@@ -537,6 +537,54 @@ impl Parser {
                     args,
                 })
             }
+            // ADD THIS CASE FOR MATCH EXPRESSIONS:
+            Token::Match => {
+                self.advance(); // consume 'match'
+                let expr = self.parse_expression()?;
+                self.consume_token(Token::LeftBrace)?;
+
+                let mut arms = Vec::new();
+
+                while !self.check(&Token::RightBrace) && !self.is_at_end() {
+                    let arm_start = self.current;
+
+                    let pattern = if self.check(&Token::String(String::new())) {
+                        MatchPattern::String(self.parse_string()?)
+                    } else if self.match_token(&Token::Identifier("_".to_string())) {
+                        MatchPattern::Wildcard
+                    } else {
+                        return Err(
+                            self.create_error("match pattern".to_string(), self.peek().clone())
+                        );
+                    };
+
+                    self.consume_token(Token::FatArrow)?;
+
+                    // For match expressions, each arm should evaluate to an expression
+                    let body_expr = self.parse_expression()?;
+
+                    let arm_end = self.current;
+                    let arm_span = self.span_from_token_range(arm_start, arm_end);
+
+                    // Create a match arm with a single expression (convert to statement block format)
+                    let arm = MatchExpressionArm {
+                        pattern,
+                        expr: body_expr,
+                    };
+                    arms.push(SpannedNode::new(arm, arm_span));
+
+                    if !self.check(&Token::RightBrace) {
+                        self.consume_token(Token::Comma)?;
+                    }
+                }
+
+                self.consume_token(Token::RightBrace)?;
+
+                Ok(Expression::Match {
+                    expr: Box::new(expr),
+                    arms,
+                })
+            }
             e => Err(self.create_error("expression".to_string(), e)),
         }
     }
@@ -640,7 +688,7 @@ impl Parser {
                 let mut expr_text = String::new();
                 let mut brace_count = 1;
 
-                while let Some(ch) = chars.next() {
+                for ch in chars.by_ref() {
                     if ch == '{' {
                         brace_count += 1;
                     } else if ch == '}' {

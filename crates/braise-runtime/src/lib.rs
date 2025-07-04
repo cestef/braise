@@ -76,9 +76,9 @@ impl Runtime {
         let mut context = self.resolve_parameters(&recipe.value, user_params)?;
 
         if self.dry_run {
-            println!("🔍 Dry run for recipe: {}", name);
+            println!("🔍 Dry run for recipe: {name}");
         } else {
-            println!("🔥 Running recipe: {}", name);
+            println!("🔥 Running recipe: {name}");
         }
 
         for statement in &recipe.value.body {
@@ -147,7 +147,7 @@ impl Runtime {
                 param_name,
                 expected_type,
                 value.type_name(),
-                value.to_string()
+                value
             ))
         })?;
 
@@ -265,17 +265,16 @@ impl Runtime {
                     }
                 } else {
                     return Err(RuntimeError::TypeError(format!(
-                        "Cannot iterate over {:?}",
-                        iterable_value
+                        "Cannot iterate over {iterable_value:?}"
                     )));
                 }
             }
             Statement::Print(expr) => {
                 let value = self.evaluate_expression(&expr.value, context)?;
                 if self.dry_run {
-                    println!("  📣 {}", value.to_string());
+                    println!("  📣 {value}");
                 } else {
-                    println!("{}", value.to_string());
+                    println!("{value}");
                 }
             }
             Statement::Exit(expr) => {
@@ -285,7 +284,7 @@ impl Runtime {
                 };
 
                 if self.dry_run {
-                    println!("  ⚡ exit {}", exit_code);
+                    println!("  ⚡ exit {exit_code}");
                 } else {
                     return Err(RuntimeError::Exit(exit_code));
                 }
@@ -335,10 +334,7 @@ impl Runtime {
                 }
 
                 if self.dry_run {
-                    println!(
-                        "  ⚡ Call recipe: {} with args: {:?}",
-                        recipe_name, resolved_args
-                    );
+                    println!("  ⚡ Call recipe: {recipe_name} with args: {resolved_args:?}");
                 } else {
                     self.execute_recipe(&recipe_name, resolved_args)?;
                 }
@@ -425,6 +421,23 @@ impl Runtime {
 
                 Ok(Value::Recipe(recipe.clone(), arg_values))
             }
+            Expression::Match { expr, arms } => {
+                let match_value = self.evaluate_expression(&expr.value, context)?;
+                let match_str = match_value.to_string();
+
+                for arm in arms {
+                    let matches = match &arm.value.pattern {
+                        MatchPattern::String(pattern) => pattern == &match_str,
+                        MatchPattern::Wildcard => true,
+                    };
+
+                    if matches {
+                        return self.evaluate_expression(&arm.value.expr.value, context);
+                    }
+                }
+
+                Err(RuntimeError::MatchNoArm { value: match_str })
+            }
         }
     }
 
@@ -435,8 +448,8 @@ impl Runtime {
         right: &Value,
     ) -> Result<Value> {
         match op {
-            BinaryOperator::Equal => Ok(Value::Bool(self.values_equal(left, right))),
-            BinaryOperator::NotEqual => Ok(Value::Bool(!self.values_equal(left, right))),
+            BinaryOperator::Equal => Ok(Value::Bool(Self::values_equal(left, right))),
+            BinaryOperator::NotEqual => Ok(Value::Bool(!Self::values_equal(left, right))),
             BinaryOperator::Less => {
                 let left_num = left.to_number()?;
                 let right_num = right.to_number()?;
@@ -462,13 +475,16 @@ impl Runtime {
         }
     }
 
-    fn values_equal(&self, left: &Value, right: &Value) -> bool {
+    fn values_equal(left: &Value, right: &Value) -> bool {
         match (left, right) {
             (Value::String(a), Value::String(b)) => a == b,
             (Value::Number(a), Value::Number(b)) => a == b,
             (Value::Bool(a), Value::Bool(b)) => a == b,
             (Value::Array(a), Value::Array(b)) => {
-                a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| self.values_equal(x, y))
+                a.len() == b.len()
+                    && a.iter()
+                        .zip(b.iter())
+                        .all(|(x, y)| Self::values_equal(x, y))
             }
             // mixed
             (Value::String(s), Value::Number(n)) | (Value::Number(n), Value::String(s)) => {
@@ -479,11 +495,11 @@ impl Runtime {
     }
 
     fn show_command(&self, command: &str) {
-        println!("  ⚡ {}", command);
+        println!("  ⚡ {command}");
     }
 
     fn run_command(&self, command: &str, shell: Option<&String>) -> Result<()> {
-        println!("  → {}", command);
+        println!("  → {command}");
 
         self.executor.run(command, shell)
     }

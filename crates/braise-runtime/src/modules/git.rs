@@ -12,7 +12,7 @@ impl GitModule {
         let output = Command::new("git")
             .args(["status", "--porcelain"])
             .output()
-            .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {}", e)))?;
+            .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {e}")))?;
 
         Ok(Value::Bool(!output.stdout.is_empty()))
     }
@@ -25,7 +25,7 @@ impl GitModule {
         let output = Command::new("git")
             .args(["rev-parse", "--abbrev-ref", "HEAD"])
             .output()
-            .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {}", e)))?;
+            .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {e}")))?;
 
         let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(Value::String(branch))
@@ -35,7 +35,7 @@ impl GitModule {
         let output = Command::new("git")
             .args(["rev-parse", "HEAD"])
             .output()
-            .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {}", e)))?;
+            .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {e}")))?;
 
         let hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(Value::String(hash))
@@ -45,7 +45,7 @@ impl GitModule {
         let output = Command::new("git")
             .args(["rev-parse", "--short", "HEAD"])
             .output()
-            .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {}", e)))?;
+            .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {e}")))?;
 
         let hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(Value::String(hash))
@@ -55,7 +55,7 @@ impl GitModule {
         let output = Command::new("git")
             .args(["describe", "--tags", "--exact-match"])
             .output()
-            .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {}", e)))?;
+            .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {e}")))?;
 
         if output.status.success() {
             let tag = String::from_utf8_lossy(&output.stdout).trim().to_string();

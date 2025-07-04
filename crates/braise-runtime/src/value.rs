@@ -12,28 +12,39 @@ pub enum Value {
     Recipe(String, HashMap<String, Value>),
 }
 
-impl ToString for Value {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::String(s) => s.clone(),
+            Value::String(s) => write!(f, "{s}"),
             Value::Number(n) => {
                 if n.fract() == 0.0 {
-                    format!("{}", *n as i64)
+                    write!(f, "{}", *n as i64)
                 } else {
-                    format!("{}", n)
+                    write!(f, "{n}")
                 }
             }
-            Value::Bool(b) => b.to_string(),
+            Value::Bool(b) => write!(f, "{b}"),
             Value::Array(arr) => {
-                let strings: Vec<String> = arr.iter().map(|v| v.to_string()).collect();
-                format!("[{}]", strings.join(", "))
+                write!(f, "[")?;
+                let mut iter = arr.iter();
+                if let Some(first) = iter.next() {
+                    write!(f, "{first}")?;
+                    for v in iter {
+                        write!(f, ", {v}")?;
+                    }
+                }
+                write!(f, "]")
             }
             Value::Recipe(name, args) => {
-                let args_str: Vec<String> = args
-                    .iter()
-                    .map(|(k, v)| format!("{k}: {}", v.to_string()))
-                    .collect();
-                format!("{}({})", name, args_str.join(", "))
+                write!(f, "{name}(")?;
+                let mut iter = args.iter();
+                if let Some((k, v)) = iter.next() {
+                    write!(f, "{k}: {v}")?;
+                    for (k, v) in iter {
+                        write!(f, ", {k}: {v}")?;
+                    }
+                }
+                write!(f, ")")
             }
         }
     }
@@ -55,7 +66,7 @@ impl Value {
             Value::Number(n) => Ok(*n),
             Value::String(s) => s
                 .parse()
-                .map_err(|_| RuntimeError::TypeError(format!("Cannot convert '{}' to number", s))),
+                .map_err(|_| RuntimeError::TypeError(format!("Cannot convert '{s}' to number"))),
             Value::Bool(true) => Ok(1.0),
             Value::Bool(false) => Ok(0.0),
             Value::Array(_) => Err(RuntimeError::TypeError(
@@ -144,14 +155,14 @@ impl Value {
                     .map(|s| {
                         let trimmed = s.trim();
                         let temp_param = Parameter {
-                            name: format!("{}_element", name),
+                            name: format!("{name}_element"),
                             param_type: (**element_type).clone(),
                             default: None,
                         };
                         Value::from_str(trimmed, &temp_param.name, &temp_param.param_type).map_err(
                             |_| RuntimeError::InvalidParameter {
                                 name: temp_param.name.clone(),
-                                expected: format!("array of {}", element_type),
+                                expected: format!("array of {element_type}"),
                                 got: trimmed.to_string(),
                             },
                         )
@@ -162,14 +173,13 @@ impl Value {
                     Ok(values) => Ok(Value::Array(values)),
                     Err(e) => Err(RuntimeError::InvalidParameter {
                         name: name.clone(),
-                        expected: format!("array of {}", element_type),
-                        got: format!("{} (error in array element: {})", user_value, e),
+                        expected: format!("array of {element_type}"),
+                        got: format!("{user_value} (error in array element: {e})"),
                     }),
                 }
             }
             _ => Err(RuntimeError::TypeError(format!(
-                "Unsupported parameter type: {:?}",
-                expected
+                "Unsupported parameter type: {expected:?}"
             ))),
         }
     }
@@ -190,9 +200,12 @@ impl Value {
                     ))
                 }
             }
-            ParamType::Enum(_) => Err(RuntimeError::TypeError(
-                "Cannot convert value to enum".to_string(),
-            )),
+            ParamType::Enum(e) => match self {
+                Value::String(s) if e.contains(s) => Ok(Value::String(s.clone())),
+                _ => Err(RuntimeError::TypeError(format!(
+                    "Cannot convert value to enum type: expected one of {e:?}, got {self:?}",
+                ))),
+            },
             ParamType::Recipe => match self {
                 Value::Recipe(name, args) => Ok(Value::Recipe(name.clone(), args.clone())),
                 Value::String(name) => Ok(Value::Recipe(name.clone(), HashMap::new())),
@@ -204,18 +217,18 @@ impl Value {
     }
 }
 
-impl Into<String> for Value {
-    fn into(self) -> String {
-        self.to_string()
+impl From<Value> for String {
+    fn from(val: Value) -> Self {
+        val.to_string()
     }
 }
-impl Into<f64> for Value {
-    fn into(self) -> f64 {
-        self.to_number().unwrap_or(0.0)
+impl From<Value> for f64 {
+    fn from(val: Value) -> Self {
+        val.to_number().unwrap_or(0.0)
     }
 }
-impl Into<bool> for Value {
-    fn into(self) -> bool {
-        self.to_bool()
+impl From<Value> for bool {
+    fn from(val: Value) -> Self {
+        val.to_bool()
     }
 }

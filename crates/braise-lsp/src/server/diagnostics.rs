@@ -47,7 +47,7 @@ impl DiagnosticsProvider {
                     range: self.span_to_range(&recipe.span, doc),
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("duplicate_recipe".to_string())),
-                    message: format!("Duplicate recipe name '{}'", name),
+                    message: format!("Duplicate recipe name '{name}'"),
                     source: Some("braise".to_string()),
                     related_information: Some(vec![DiagnosticRelatedInformation {
                         location: Location {
@@ -148,7 +148,7 @@ impl DiagnosticsProvider {
                         range: self.span_to_range(&recipe.span, doc),
                         severity: Some(DiagnosticSeverity::ERROR),
                         code: Some(NumberOrString::String("undefined_dependency".to_string())),
-                        message: format!("Undefined dependency '{}'", dep),
+                        message: format!("Undefined dependency '{dep}'"),
                         source: Some("braise".to_string()),
                         ..Default::default()
                     });
@@ -172,7 +172,7 @@ impl DiagnosticsProvider {
                     range: self.span_to_range(&param.span, doc),
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("duplicate_parameter".to_string())),
-                    message: format!("Duplicate parameter name '{}'", name),
+                    message: format!("Duplicate parameter name '{name}'"),
                     source: Some("braise".to_string()),
                     related_information: Some(vec![DiagnosticRelatedInformation {
                         location: Location {
@@ -188,24 +188,24 @@ impl DiagnosticsProvider {
             }
 
             // Validate default value type compatibility
-            if let Some(ref default_expr) = param.value.default {
-                if !self.is_expression_compatible_with_type(
+            if let Some(ref default_expr) = param.value.default
+                && !self.is_expression_compatible_with_type(
                     doc,
-                    &default_expr,
+                    default_expr,
                     &param.value.param_type,
-                ) {
-                    diagnostics.push(Diagnostic {
-                        range: self.span_to_range(&default_expr.span, doc),
-                        severity: Some(DiagnosticSeverity::ERROR),
-                        code: Some(NumberOrString::String("type_mismatch".to_string())),
-                        message: format!(
-                            "Default value type doesn't match parameter type '{}'",
-                            param.value.param_type
-                        ),
-                        source: Some("braise".to_string()),
-                        ..Default::default()
-                    });
-                }
+                )
+            {
+                diagnostics.push(Diagnostic {
+                    range: self.span_to_range(&default_expr.span, doc),
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("type_mismatch".to_string())),
+                    message: format!(
+                        "Default value type doesn't match parameter type '{}'",
+                        param.value.param_type
+                    ),
+                    source: Some("braise".to_string()),
+                    ..Default::default()
+                });
             }
         }
     }
@@ -254,14 +254,13 @@ impl DiagnosticsProvider {
             } => {
                 if let Some(expr) = value {
                     self.validate_expression(&expr.value, doc, diagnostics);
-                    if !self.is_expression_compatible_with_type(doc, &expr, param_type) {
+                    if !self.is_expression_compatible_with_type(doc, expr, param_type) {
                         diagnostics.push(Diagnostic {
                             range: self.span_to_range(&expr.span, doc),
                             severity: Some(DiagnosticSeverity::ERROR),
                             code: Some(NumberOrString::String("type_mismatch".to_string())),
                             message: format!(
-                                "Expression type doesn't match parameter type '{}'",
-                                param_type
+                                "Expression type doesn't match parameter type '{param_type}'"
                             ),
                             source: Some("braise".to_string()),
                             ..Default::default()
@@ -276,8 +275,8 @@ impl DiagnosticsProvider {
                     if let Some(recipe) = TextDocumentProvider::find_recipe_at_position(
                         ast,
                         Position {
-                            line: value.span.start.line as u32,
-                            character: value.span.start.column as u32,
+                            line: value.span.start.line,
+                            character: value.span.start.column,
                         },
                     ) {
                         if !Self::is_variable_defined(name, &recipe.value) {
@@ -287,7 +286,7 @@ impl DiagnosticsProvider {
                                 code: Some(NumberOrString::String(
                                     "undefined_variable".to_string(),
                                 )),
-                                message: format!("Variable '{}' is not defined", name),
+                                message: format!("Variable '{name}' is not defined"),
                                 source: Some("braise".to_string()),
                                 ..Default::default()
                             });
@@ -297,7 +296,7 @@ impl DiagnosticsProvider {
                             range: self.span_to_range(&value.span, doc),
                             severity: Some(DiagnosticSeverity::ERROR),
                             code: Some(NumberOrString::String("undefined_variable".to_string())),
-                            message: format!("Variable '{}' is not defined", name),
+                            message: format!("Variable '{name}' is not defined"),
                             source: Some("braise".to_string()),
                             ..Default::default()
                         });
@@ -305,49 +304,43 @@ impl DiagnosticsProvider {
                 }
             }
             Statement::Call { recipe, args } => {
-                if let Some(ref ast) = doc.ast {
-                    if let Some(recipe_ref) = TextDocumentProvider::find_recipe_at_position(
+                if let Some(ref ast) = doc.ast
+                    && let Some(recipe_ref) = TextDocumentProvider::find_recipe_at_position(
                         ast,
                         Position {
-                            line: recipe.span.start.line as u32,
-                            character: recipe.span.start.column as u32,
+                            line: recipe.span.start.line,
+                            character: recipe.span.start.column,
                         },
-                    ) {
-                        for (arg_name, arg_expr) in args {
-                            if !Self::is_variable_defined(arg_name, &recipe_ref.value) {
-                                diagnostics.push(Diagnostic {
-                                    range: self.span_to_range(&arg_expr.span, doc),
-                                    severity: Some(DiagnosticSeverity::ERROR),
-                                    code: Some(NumberOrString::String(
-                                        "undefined_variable".to_string(),
-                                    )),
-                                    message: format!("Variable '{}' is not defined", arg_name),
-                                    source: Some("braise".to_string()),
-                                    ..Default::default()
-                                });
-                            } else if let Some(param_type) =
-                                Self::get_variable_type(arg_name, &recipe_ref.value)
-                            {
-                                if !self.is_expression_compatible_with_type(
-                                    doc,
-                                    &arg_expr,
-                                    &param_type,
-                                ) {
-                                    diagnostics.push(Diagnostic {
+                    )
+                {
+                    for (arg_name, arg_expr) in args {
+                        if !Self::is_variable_defined(arg_name, &recipe_ref.value) {
+                            diagnostics.push(Diagnostic {
+                                range: self.span_to_range(&arg_expr.span, doc),
+                                severity: Some(DiagnosticSeverity::ERROR),
+                                code: Some(NumberOrString::String(
+                                    "undefined_variable".to_string(),
+                                )),
+                                message: format!("Variable '{arg_name}' is not defined"),
+                                source: Some("braise".to_string()),
+                                ..Default::default()
+                            });
+                        } else if let Some(param_type) =
+                            Self::get_variable_type(arg_name, &recipe_ref.value)
+                            && !self.is_expression_compatible_with_type(doc, arg_expr, &param_type)
+                        {
+                            diagnostics.push(Diagnostic {
                                         range: self.span_to_range(&arg_expr.span, doc),
                                         severity: Some(DiagnosticSeverity::ERROR),
                                         code: Some(NumberOrString::String(
                                             "type_mismatch".to_string(),
                                         )),
                                         message: format!(
-                                            "Argument '{}' type doesn't match parameter type '{}'",
-                                            arg_name, param_type
+                                            "Argument '{arg_name}' type doesn't match parameter type '{param_type}'"
                                         ),
                                         source: Some("braise".to_string()),
                                         ..Default::default()
                                     });
-                                }
-                            }
                         }
                     }
                 }
@@ -362,10 +355,10 @@ impl DiagnosticsProvider {
         }
 
         for stmt in &recipe.body {
-            if let Statement::Let { name: var_name, .. } = &stmt.value {
-                if var_name == name {
-                    return true;
-                }
+            if let Statement::Let { name: var_name, .. } = &stmt.value
+                && var_name == name
+            {
+                return true;
             }
         }
 
@@ -385,10 +378,9 @@ impl DiagnosticsProvider {
                 param_type,
                 ..
             } = &stmt.value
+                && var_name == name
             {
-                if var_name == name {
-                    return Some(param_type.clone());
-                }
+                return Some(param_type.clone());
             }
         }
 
@@ -412,7 +404,7 @@ impl DiagnosticsProvider {
                         range: self.span_to_range(&args[0].span, doc),
                         severity: Some(DiagnosticSeverity::ERROR),
                         code: Some(NumberOrString::String("invalid_function".to_string())),
-                        message: format!("Invalid function call '{}.{}'", module, function),
+                        message: format!("Invalid function call '{module}.{function}'"),
                         source: Some("braise".to_string()),
                         ..Default::default()
                     });
@@ -470,8 +462,8 @@ impl DiagnosticsProvider {
             (Expression::Bool(_), ParamType::Bool) => true,
             (Expression::Array(elements), ParamType::Array(element_type)) => elements
                 .iter()
-                .all(|elem| self.is_expression_compatible_with_type(doc, &elem, element_type)),
-            (Expression::String(s), ParamType::Enum(variants)) => variants.contains(&s),
+                .all(|elem| self.is_expression_compatible_with_type(doc, elem, element_type)),
+            (Expression::String(s), ParamType::Enum(variants)) => variants.contains(s),
             (
                 Expression::Conditional {
                     condition,
@@ -480,39 +472,41 @@ impl DiagnosticsProvider {
                 },
                 e,
             ) => {
-                self.is_expression_compatible_with_type(doc, &condition, &ParamType::Bool)
-                    && self.is_expression_compatible_with_type(doc, &then_expr, e)
-                    && self.is_expression_compatible_with_type(doc, &else_expr, e)
+                self.is_expression_compatible_with_type(doc, condition, &ParamType::Bool)
+                    && self.is_expression_compatible_with_type(doc, then_expr, e)
+                    && self.is_expression_compatible_with_type(doc, else_expr, e)
             }
             (
                 Expression::FunctionCall {
                     module, function, ..
                 },
                 _,
-            ) => self.is_valid_builtin_function(&module, &function),
+            ) => self.is_valid_builtin_function(module, function),
             (Expression::ModuleAccess { module, field }, _) => {
-                self.is_valid_builtin_field(&module, &field)
+                self.is_valid_builtin_field(module, field)
             }
             (Expression::Variable(name), e) => {
-                if let Some(ref ast) = doc.ast {
-                    if let Some(recipe) = TextDocumentProvider::find_recipe_at_position(
+                if let Some(ref ast) = doc.ast
+                    && let Some(recipe) = TextDocumentProvider::find_recipe_at_position(
                         ast,
                         Position {
-                            line: expr.span.start.line as u32,
-                            character: expr.span.start.column as u32,
+                            line: expr.span.start.line,
+                            character: expr.span.start.column,
                         },
-                    ) {
-                        if let Some(param_type) = Self::get_variable_type(&name, &recipe.value) {
-                            return param_type.is_compatible_with(e);
-                        } else {
-                            // Variable is not defined in this recipe
-                            return false;
-                        }
+                    )
+                {
+                    if let Some(param_type) = Self::get_variable_type(name, &recipe.value) {
+                        return param_type.is_compatible_with(e);
+                    } else {
+                        return false;
                     }
                 }
                 false
             }
             (Expression::RecipeRef { .. }, ParamType::Recipe) => true,
+            (Expression::Match { arms, .. }, e) => arms
+                .iter()
+                .all(|arm| self.is_expression_compatible_with_type(doc, &arm.value.expr, e)),
             e => {
                 dbg!(e);
                 false
@@ -581,7 +575,7 @@ impl DiagnosticsProvider {
         dbg!(&error);
         match error {
             BraiseError::LexerError { span, code } => Diagnostic {
-                range: self.source_span_to_range(span, &code),
+                range: self.source_span_to_range(span, code),
                 severity: Some(DiagnosticSeverity::ERROR),
                 code: Some(NumberOrString::String("lexer_error".to_string())),
                 message: "Unexpected token".to_string(),
@@ -595,10 +589,10 @@ impl DiagnosticsProvider {
                     code,
                     span,
                 } => Diagnostic {
-                    range: self.source_span_to_range(span, &code),
+                    range: self.source_span_to_range(span, code),
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("unexpected_token".to_string())),
-                    message: format!("Unexpected token: expected {}, found {}", expected, found),
+                    message: format!("Unexpected token: expected {expected}, found {found}"),
                     source: Some("braise".to_string()),
                     ..Default::default()
                 },
@@ -607,10 +601,10 @@ impl DiagnosticsProvider {
                     code,
                     span,
                 } => Diagnostic {
-                    range: self.source_span_to_range(span, &code),
+                    range: self.source_span_to_range(span, code),
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("invalid_expression".to_string())),
-                    message: format!("Invalid expression: {}", expression),
+                    message: format!("Invalid expression: {expression}"),
                     source: Some("braise".to_string()),
                     ..Default::default()
                 },
@@ -659,9 +653,9 @@ impl DiagnosticsProvider {
 
     fn span_to_range(&self, span: &braise_core::Span, _doc: &Document) -> Range {
         let start_line = span.start.line.saturating_sub(1) as usize;
-        let start_char = span.start.column.saturating_sub(1) as u32;
+        let start_char = span.start.column.saturating_sub(1);
         let end_line = span.end.line.saturating_sub(1) as usize;
-        let end_char = span.end.column.saturating_sub(1) as u32;
+        let end_char = span.end.column.saturating_sub(1);
 
         Range {
             start: Position {

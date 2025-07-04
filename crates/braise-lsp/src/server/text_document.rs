@@ -36,41 +36,25 @@ impl TextDocumentProvider {
                 });
             }
 
-            if let Some(ref ast) = doc.ast {
-                if let Some(current_recipe) = Self::find_recipe_at_position(ast, position) {
-                    // Check if it's a parameter in the current recipe
-                    for param in &current_recipe.value.parameters {
-                        if param.value.name == word {
-                            let content = format!(
-                                "**Parameter**: `{}`\n\n**Type**: `{}`{}",
-                                param.value.name,
-                                param.value.param_type,
-                                if let Some(ref default) = param.value.default {
-                                    format!(
-                                        "\n\n**Default**: `{}`",
-                                        self.expression_to_string(&default.value)
-                                    )
-                                } else {
-                                    String::new()
-                                }
-                            );
-
-                            return Some(Hover {
-                                contents: HoverContents::Markup(MarkupContent {
-                                    kind: MarkupKind::Markdown,
-                                    value: content,
-                                }),
-                                range: Some(self.get_word_range(line, char_pos, position.line)),
-                            });
-                        }
-                    }
-
-                    // Check if it's a variable in the current recipe
-                    if let Some(param_type) =
-                        DiagnosticsProvider::get_variable_type(&word, &current_recipe.value)
-                    {
-                        let content =
-                            format!("**Variable**: `{}`\n\n**Type**: `{}`", word, param_type);
+            if let Some(ref ast) = doc.ast
+                && let Some(current_recipe) = Self::find_recipe_at_position(ast, position)
+            {
+                // Check if it's a parameter in the current recipe
+                for param in &current_recipe.value.parameters {
+                    if param.value.name == word {
+                        let content = format!(
+                            "**Parameter**: `{}`\n\n**Type**: `{}`{}",
+                            param.value.name,
+                            param.value.param_type,
+                            if let Some(ref default) = param.value.default {
+                                format!(
+                                    "\n\n**Default**: `{}`",
+                                    Self::expression_to_string(&default.value)
+                                )
+                            } else {
+                                String::new()
+                            }
+                        );
 
                         return Some(Hover {
                             contents: HoverContents::Markup(MarkupContent {
@@ -80,43 +64,58 @@ impl TextDocumentProvider {
                             range: Some(self.get_word_range(line, char_pos, position.line)),
                         });
                     }
+                }
 
-                    // Check if it's a recipe call
-                    for recipe in &ast.recipes {
-                        if recipe.value.name == word {
-                            let content = format!(
-                                "**Recipe**: `{}`\n\n**Parameters**:\n{}",
-                                recipe.value.name,
-                                recipe
-                                    .value
-                                    .parameters
-                                    .iter()
-                                    .map(|param| {
-                                        format!(
-                                            "- `{}`: `{}`{}",
-                                            param.value.name,
-                                            param.value.param_type,
-                                            if let Some(ref default) = param.value.default {
-                                                format!(
-                                                    " (default: `{}`)",
-                                                    self.expression_to_string(&default.value)
-                                                )
-                                            } else {
-                                                String::new()
-                                            }
-                                        )
-                                    })
-                                    .collect::<Vec<_>>()
-                                    .join("\n")
-                            );
-                            return Some(Hover {
-                                contents: HoverContents::Markup(MarkupContent {
-                                    kind: MarkupKind::Markdown,
-                                    value: content,
-                                }),
-                                range: Some(self.get_word_range(line, char_pos, position.line)),
-                            });
-                        }
+                // Check if it's a variable in the current recipe
+                if let Some(param_type) =
+                    DiagnosticsProvider::get_variable_type(&word, &current_recipe.value)
+                {
+                    let content = format!("**Variable**: `{word}`\n\n**Type**: `{param_type}`");
+
+                    return Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: content,
+                        }),
+                        range: Some(self.get_word_range(line, char_pos, position.line)),
+                    });
+                }
+
+                // Check if it's a recipe call
+                for recipe in &ast.recipes {
+                    if recipe.value.name == word {
+                        let content = format!(
+                            "**Recipe**: `{}`\n\n**Parameters**:\n{}",
+                            recipe.value.name,
+                            recipe
+                                .value
+                                .parameters
+                                .iter()
+                                .map(|param| {
+                                    format!(
+                                        "- `{}`: `{}`{}",
+                                        param.value.name,
+                                        param.value.param_type,
+                                        if let Some(ref default) = param.value.default {
+                                            format!(
+                                                " (default: `{}`)",
+                                                Self::expression_to_string(&default.value)
+                                            )
+                                        } else {
+                                            String::new()
+                                        }
+                                    )
+                                })
+                                .collect::<Vec<_>>()
+                                .join("\n")
+                        );
+                        return Some(Hover {
+                            contents: HoverContents::Markup(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: content,
+                            }),
+                            range: Some(self.get_word_range(line, char_pos, position.line)),
+                        });
                     }
                 }
             }
@@ -134,15 +133,15 @@ impl TextDocumentProvider {
             let word = self.get_word_at_position(line, char_pos)?;
 
             // Look for parameter definitions in the current recipe only
-            if let Some(ref ast) = doc.ast {
-                if let Some(current_recipe) = Self::find_recipe_at_position(ast, position) {
-                    for param in &current_recipe.value.parameters {
-                        if param.value.name == word {
-                            return Some(Location {
-                                uri: doc.uri.clone(),
-                                range: self.span_to_range(&param.span),
-                            });
-                        }
+            if let Some(ref ast) = doc.ast
+                && let Some(current_recipe) = Self::find_recipe_at_position(ast, position)
+            {
+                for param in &current_recipe.value.parameters {
+                    if param.value.name == word {
+                        return Some(Location {
+                            uri: doc.uri.clone(),
+                            range: self.span_to_range(&param.span),
+                        });
                     }
                 }
             }
@@ -205,17 +204,17 @@ impl TextDocumentProvider {
                     '"' => in_string = !in_string,
                     '{' if !in_string => brace_stack.push(line_num as u32),
                     '}' if !in_string => {
-                        if let Some(start_line) = brace_stack.pop() {
-                            if line_num as u32 > start_line {
-                                ranges.push(FoldingRange {
-                                    start_line,
-                                    start_character: None,
-                                    end_line: line_num as u32,
-                                    end_character: None,
-                                    kind: Some(FoldingRangeKind::Region),
-                                    collapsed_text: None,
-                                });
-                            }
+                        if let Some(start_line) = brace_stack.pop()
+                            && line_num as u32 > start_line
+                        {
+                            ranges.push(FoldingRange {
+                                start_line,
+                                start_character: None,
+                                end_line: line_num as u32,
+                                end_character: None,
+                                kind: Some(FoldingRangeKind::Region),
+                                collapsed_text: None,
+                            });
                         }
                     }
                     _ => {}
@@ -267,10 +266,10 @@ impl TextDocumentProvider {
                 data: semantic_tokens
                     .iter()
                     .map(|&x| SemanticToken {
-                        delta_line: x as u32,
+                        delta_line: x,
                         delta_start: 0, // No delta start for now
                         length: 0,      // Length is handled in the next token
-                        token_type: x as u32,
+                        token_type: x,
                         token_modifiers_bitset: 0, // No modifiers for now
                     })
                     .collect(),
@@ -379,25 +378,25 @@ impl TextDocumentProvider {
         }
     }
 
-    fn expression_to_string(&self, expr: &Expression) -> String {
+    fn expression_to_string(expr: &Expression) -> String {
         match expr {
-            Expression::String(s) => format!("\"{}\"", s),
+            Expression::String(s) => format!("\"{s}\""),
             Expression::Number(n) => n.to_string(),
             Expression::Bool(b) => b.to_string(),
             Expression::Variable(name) => name.clone(),
             Expression::FunctionCall {
                 module, function, ..
             } => {
-                format!("{}.{}(...)", module, function)
+                format!("{module}.{function}(...)")
             }
             Expression::ModuleAccess { module, field } => {
-                format!("{}.{}", module, field)
+                format!("{module}.{field}")
             }
             Expression::Array(elements) => {
                 let elements_str: Vec<String> = elements
                     .iter()
                     .take(3)
-                    .map(|elem| self.expression_to_string(&elem.value))
+                    .map(|elem| Self::expression_to_string(&elem.value))
                     .collect();
 
                 if elements.len() > 3 {
@@ -527,10 +526,10 @@ impl TextDocumentProvider {
     }
 
     /// Find which recipe contains the given position
-    pub fn find_recipe_at_position<'a>(
-        ast: &'a Config,
+    pub fn find_recipe_at_position(
+        ast: &Config,
         position: Position,
-    ) -> Option<&'a SpannedNode<Recipe>> {
+    ) -> Option<&SpannedNode<Recipe>> {
         for recipe in &ast.recipes {
             let recipe_start = Position {
                 line: recipe.span.start.line.saturating_sub(1),

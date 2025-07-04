@@ -26,7 +26,7 @@ impl DefaultExecutor {
 impl Executor for DefaultExecutor {
     fn run(&self, input: &str, shell: Option<&String>) -> Result<()> {
         if self.dry_run {
-            println!("Dry run: {}", input);
+            println!("Dry run: {input}");
             return Ok(());
         }
         let mut cmd = resolve_shell(shell);
@@ -78,7 +78,7 @@ impl Executor for StringExecutor {
         // pipe cmd outptu to a string
         if self.dry_run {
             let mut output = self.output.lock().unwrap();
-            output.push_str(&format!("Dry run: {}\n", input));
+            output.push_str(&format!("Dry run: {input}\n"));
             return Ok(());
         }
 

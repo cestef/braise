@@ -8,8 +8,7 @@ pub trait BuiltinModule: Send + Sync {
     fn call_function(&self, function: &str, args: Vec<Value>) -> Result<Value>;
     fn get_field(&self, field: &str) -> Result<Value> {
         Err(RuntimeError::BuiltinError(format!(
-            "Field '{}' not supported by this module",
-            field
+            "Field '{field}' not supported by this module"
         )))
     }
 }
@@ -128,8 +127,7 @@ impl BuiltinModules {
         match MODULES.get(module) {
             Some(m) => m.call_function(function, args),
             None => Err(RuntimeError::BuiltinError(format!(
-                "Unknown module: {}",
-                module
+                "Unknown module: {module}"
             ))),
         }
     }
@@ -138,8 +136,7 @@ impl BuiltinModules {
         match MODULES.get(module) {
             Some(m) => m.get_field(field),
             None => Err(RuntimeError::BuiltinError(format!(
-                "Unknown module: {}",
-                module
+                "Unknown module: {module}"
             ))),
         }
     }

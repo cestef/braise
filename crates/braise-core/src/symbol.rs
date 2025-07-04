@@ -47,7 +47,7 @@ impl SymbolTable {
 
         self.symbols
             .entry(symbol.name.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(symbol);
 
         Ok(())
