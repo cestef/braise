@@ -166,7 +166,10 @@ impl Runtime {
                 if self.dry_run {
                     self.show_command(&command_str);
                 } else {
-                    self.run_command(&command_str, context.shell.as_ref())?;
+                    self.run_command(
+                        &command_str,
+                        context.shell.as_ref().or(self.config.shell.as_ref()),
+                    )?;
                 }
             }
             Statement::If {

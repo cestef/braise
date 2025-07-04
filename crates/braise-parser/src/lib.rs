@@ -87,12 +87,19 @@ impl Parser {
 
     pub fn parse(&mut self) -> Result<Config> {
         let mut recipes = Vec::new();
+        let mut shell = None;
         let start_token = self.current;
 
         while !self.is_at_end() {
             if self.match_token(&Token::Shell) {
-                let _shell = self.parse_string()?;
-                // TODO: handle global shell command
+                if shell.is_some() {
+                    return Err(self.create_error(
+                        "only one shell command is allowed".to_string(),
+                        Token::Shell,
+                    ));
+                }
+                let s = self.parse_string()?;
+                shell = Some(s);
                 continue;
             }
             recipes.push(self.parse_recipe()?);
@@ -101,7 +108,11 @@ impl Parser {
         let end_token = self.current;
         let span = self.span_from_token_range(start_token, end_token.max(1));
 
-        Ok(Config { recipes, span })
+        Ok(Config {
+            recipes,
+            span,
+            shell,
+        })
     }
 
     fn parse_recipe(&mut self) -> Result<SpannedNode<Recipe>> {

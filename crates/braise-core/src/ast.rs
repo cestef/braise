@@ -7,6 +7,7 @@ pub type SpannedNode<T> = Spanned<T>;
 #[derive(Debug, Clone)]
 pub struct Config {
     pub recipes: Vec<SpannedNode<Recipe>>,
+    pub shell: Option<String>,
     pub span: Span,
 }
 

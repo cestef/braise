@@ -10,6 +10,9 @@
             "include": "#recipe-definition"
         },
         {
+            "include": "#shell-statement"
+        },
+        {
             "include": "#keywords"
         },
         {
@@ -120,6 +123,9 @@
                 },
                 {
                     "include": "#exit-statement"
+                },
+                {
+                    "include": "#shell-statement"
                 },
                 {
                     "include": "#print-statement"
@@ -529,6 +535,25 @@
                 {
                     "name": "meta.exit.braise",
                     "begin": "\\b(exit)\\b",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.braise"
+                        }
+                    },
+                    "end": "(?=\\n\\s*(?:[a-zA-Z]|\\})|\\}|$)",
+                    "patterns": [
+                        {
+                            "include": "#expressions"
+                        }
+                    ]
+                }
+            ]
+        },
+        "shell-statement": {
+            "patterns": [
+                {
+                    "name": "meta.shell.braise",
+                    "begin": "\\b(shell)\\b",
                     "beginCaptures": {
                         "1": {
                             "name": "keyword.control.braise"

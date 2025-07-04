@@ -1,4 +1,4 @@
-shell "bash"
+shell "bash -c"
 
 recipe "test" {
     param coverage: bool = false
@@ -8,6 +8,10 @@ recipe "test" {
     } else {
         run "cargo nextest r"
     }
+}
+
+recipe "test-coverage" {
+    call @test(coverage: true)
 }
 
 

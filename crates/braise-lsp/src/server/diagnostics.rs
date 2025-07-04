@@ -1,7 +1,9 @@
 use crate::server::text_document::TextDocumentProvider;
 
 use super::Document;
+use braise_core::parser::ParseError;
 use braise_core::{ast::*, error::BraiseError};
+use miette::SourceSpan;
 use std::collections::HashMap;
 use tower_lsp::Client;
 use tower_lsp::lsp_types::*;
@@ -541,41 +543,94 @@ impl DiagnosticsProvider {
         }
     }
 
+    fn offset_to_position(&self, offset: usize, text: &str) -> Position {
+        let mut line = 0;
+        let mut character = 0;
+
+        for (i, c) in text.char_indices() {
+            if i == offset {
+                return Position {
+                    line: line as u32,
+                    character: character as u32,
+                };
+            }
+            if c == '\n' {
+                line += 1;
+                character = 0;
+            } else {
+                character += 1;
+            }
+        }
+
+        Position {
+            line: line as u32,
+            character: character as u32,
+        }
+    }
+
+    fn source_span_to_range(&self, span: &SourceSpan, code: &str) -> Range {
+        let start = self.offset_to_position(span.offset(), code);
+        let mut end = self.offset_to_position(span.offset() + span.len(), code);
+
+        end.character = end.character.saturating_sub(1);
+        dbg!(&start, &end);
+        Range { start, end }
+    }
+
     fn error_to_diagnostic(&self, error: &BraiseError) -> Diagnostic {
+        dbg!(&error);
         match error {
-            BraiseError::LexerError { span, .. } => Diagnostic {
-                range: Range {
-                    start: Position {
-                        line: 0,
-                        character: span.offset() as u32,
-                    },
-                    end: Position {
-                        line: 0,
-                        character: (span.offset() + span.len()) as u32,
-                    },
-                },
+            BraiseError::LexerError { span, code } => Diagnostic {
+                range: self.source_span_to_range(span, &code),
                 severity: Some(DiagnosticSeverity::ERROR),
                 code: Some(NumberOrString::String("lexer_error".to_string())),
                 message: "Unexpected token".to_string(),
                 source: Some("braise".to_string()),
                 ..Default::default()
             },
-            BraiseError::ParserError(parse_error) => Diagnostic {
-                range: Range {
-                    start: Position {
-                        line: 0,
-                        character: 0,
-                    },
-                    end: Position {
-                        line: 0,
-                        character: 0,
-                    },
+            BraiseError::ParserError(parse_error) => match parse_error {
+                ParseError::UnexpectedToken {
+                    expected,
+                    found,
+                    code,
+                    span,
+                } => Diagnostic {
+                    range: self.source_span_to_range(span, &code),
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("unexpected_token".to_string())),
+                    message: format!("Unexpected token: expected {}, found {}", expected, found),
+                    source: Some("braise".to_string()),
+                    ..Default::default()
                 },
-                severity: Some(DiagnosticSeverity::ERROR),
-                code: Some(NumberOrString::String("parser_error".to_string())),
-                message: self.strip_colors(&parse_error.to_string()),
-                source: Some("braise".to_string()),
-                ..Default::default()
+                ParseError::InvalidExpression {
+                    expression,
+                    code,
+                    span,
+                } => Diagnostic {
+                    range: self.source_span_to_range(span, &code),
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("invalid_expression".to_string())),
+                    message: format!("Invalid expression: {}", expression),
+                    source: Some("braise".to_string()),
+                    ..Default::default()
+                },
+                ParseError::Other(e) => Diagnostic {
+                    range: Range {
+                        start: Position {
+                            line: 0,
+                            character: 0,
+                        },
+                        end: Position {
+                            line: 0,
+                            character: 0,
+                        },
+                    },
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("parse_error".to_string())),
+                    message: self.strip_colors(&e.to_string()),
+                    source: Some("braise".to_string()),
+                    ..Default::default()
+                },
             },
             _ => Diagnostic {
                 range: Range {
