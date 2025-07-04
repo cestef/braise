@@ -1,0 +1,37 @@
+recipe "hello" {
+    param name: string = "World"
+    print "Hello, ${name}!"
+}
+
+recipe "build" -> ["test"] {
+    run "cargo build --release"
+}
+
+recipe "test" {
+    run "cargo test"
+}
+
+recipe "deploy" {
+    param env: ["dev", "prod"] = "dev"  // enum
+    param version: string               // required
+    param force: bool = false           // boolean
+    param replicas: number = 3          // number
+    param services: [string] = []       // array
+
+    print "Deploying version ${version} to ${env} environment with ${replicas} replicas."
+    if force {
+        print "Force deployment enabled."
+    }
+
+    for service in services {
+        print "Deploying service: ${service}"
+    }
+
+}
+
+recipe "smart-build" {
+    match env.get("CI") {
+        "true" => run "cargo build --release",
+        _ => run "cargo build"
+    }
+}
