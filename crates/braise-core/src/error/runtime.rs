@@ -13,9 +13,17 @@ pub enum RuntimeError {
     #[diagnostic(code(braise::runtime::undefined_recipe))]
     UndefinedRecipe(String),
 
-    #[error("Type error: {0}")]
+    #[error("Type error: expected {expected}, got {got} (context: {context})",
+        expected = .expected.bold().green(),
+        got = .got.bold().red(),
+        context = .context.dimmed()
+    )]
     #[diagnostic(code(braise::runtime::type_error))]
-    TypeError(String),
+    TypeError {
+        expected: String,
+        got: String,
+        context: String,
+    },
 
     #[error("Command failed: {command} (exit code: {exit_code})", command = .command.bold().green(), exit_code = .exit_code)]
     #[diagnostic(code(braise::runtime::command_failed))]
@@ -29,6 +37,14 @@ pub enum RuntimeError {
         got: String,
     },
 
+    #[error("Missing required parameter: {name} ({expected_type})",
+        name = .name.bold(),
+        expected_type = .expected_type.green()
+    )]
+    #[diagnostic(code(braise::runtime::missing_required_parameter))]
+    #[help("You can also provide a default value for this parameter in the recipe definition.")]
+    MissingRequiredParameter { name: String, expected_type: String },
+
     #[error("Builtin error: {0}")]
     #[diagnostic(code(braise::runtime::builtin_error))]
     BuiltinError(String),
@@ -41,8 +57,12 @@ pub enum RuntimeError {
     #[diagnostic(code(braise::runtime::other))]
     Other(String),
 
-    #[error("Circular dependency detected in recipe: {recipe} (stack: {stack:?})")]
+    #[error("Circular dependency detected in recipe: {recipe} (stack: {stack})",
+        recipe = .recipe.bold(),
+        stack = .stack.iter().map(|s| s.bold().to_string()).collect::<Vec<_>>().join(", ")
+    )]
     #[diagnostic(code(braise::runtime::circular_dependency))]
+    #[help("This usually means that the recipe is trying to call itself directly or indirectly.")]
     CircularDependency {
         recipe: String,
         stack: HashSet<String>,
@@ -50,6 +70,7 @@ pub enum RuntimeError {
 
     #[error("Match expression has no arms for value: {value}")]
     #[diagnostic(code(braise::runtime::match_no_arm))]
+    #[help("Ensure that all possible values are covered by the match arms.")]
     MatchNoArm { value: String },
 }
 

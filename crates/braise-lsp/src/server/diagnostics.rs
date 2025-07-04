@@ -222,7 +222,7 @@ impl DiagnosticsProvider {
                 then_block,
                 else_block,
             } => {
-                self.validate_expression(&condition.value, doc, diagnostics);
+                self.validate_expression(&condition, doc, diagnostics);
                 for stmt in then_block {
                     self.validate_statement(&stmt.value, doc, diagnostics);
                 }
@@ -233,7 +233,7 @@ impl DiagnosticsProvider {
                 }
             }
             Statement::Match { expr, arms } => {
-                self.validate_expression(&expr.value, doc, diagnostics);
+                self.validate_expression(&expr, doc, diagnostics);
                 for arm in arms {
                     for stmt in &arm.value.body {
                         self.validate_statement(&stmt.value, doc, diagnostics);
@@ -241,19 +241,19 @@ impl DiagnosticsProvider {
                 }
             }
             Statement::For { iterable, body, .. } => {
-                self.validate_expression(&iterable.value, doc, diagnostics);
+                self.validate_expression(&iterable, doc, diagnostics);
                 for stmt in body {
                     self.validate_statement(&stmt.value, doc, diagnostics);
                 }
             }
             Statement::Run(expr) | Statement::Print(expr) | Statement::Exit(expr) => {
-                self.validate_expression(&expr.value, doc, diagnostics);
+                self.validate_expression(&expr, doc, diagnostics);
             }
             Statement::Let {
                 value, param_type, ..
             } => {
                 if let Some(expr) = value {
-                    self.validate_expression(&expr.value, doc, diagnostics);
+                    self.validate_expression(&expr, doc, diagnostics);
                     if !self.is_expression_compatible_with_type(doc, expr, param_type) {
                         diagnostics.push(Diagnostic {
                             range: self.span_to_range(&expr.span, doc),
@@ -269,7 +269,7 @@ impl DiagnosticsProvider {
                 }
             }
             Statement::Assign { value, name } => {
-                self.validate_expression(&value.value, doc, diagnostics);
+                self.validate_expression(&value, doc, diagnostics);
 
                 if let Some(ref ast) = doc.ast {
                     if let Some(recipe) = TextDocumentProvider::find_recipe_at_position(
@@ -389,19 +389,26 @@ impl DiagnosticsProvider {
 
     fn validate_expression(
         &self,
-        expr: &Expression,
+        expr: &SpannedNode<Expression>,
         doc: &Document,
         diagnostics: &mut Vec<Diagnostic>,
     ) {
-        match expr {
+        match &expr.value {
             Expression::FunctionCall {
                 module,
                 function,
                 args,
             } => {
-                if !self.is_valid_builtin_function(module, function) {
+                if !self.is_valid_builtin_function(&module, &function) {
                     diagnostics.push(Diagnostic {
-                        range: self.span_to_range(&args[0].span, doc),
+                        range: self.span_to_range(
+                            if args.is_empty() {
+                                &expr.span
+                            } else {
+                                &args[0].span
+                            },
+                            doc,
+                        ),
                         severity: Some(DiagnosticSeverity::ERROR),
                         code: Some(NumberOrString::String("invalid_function".to_string())),
                         message: format!("Invalid function call '{module}.{function}'"),
@@ -410,39 +417,39 @@ impl DiagnosticsProvider {
                     });
                 }
                 for arg in args {
-                    self.validate_expression(&arg.value, doc, diagnostics);
+                    self.validate_expression(&arg, doc, diagnostics);
                 }
             }
             Expression::ModuleAccess { module, field } => {
-                if !self.is_valid_builtin_field(module, field) {
+                if !self.is_valid_builtin_field(&module, &field) {
                     // TODO: need spans for module fields
                 }
             }
             Expression::BinaryOp { left, right, .. } => {
-                self.validate_expression(&left.value, doc, diagnostics);
-                self.validate_expression(&right.value, doc, diagnostics);
+                self.validate_expression(&left, doc, diagnostics);
+                self.validate_expression(&right, doc, diagnostics);
             }
             Expression::UnaryOp { expr, .. } => {
-                self.validate_expression(&expr.value, doc, diagnostics);
+                self.validate_expression(&expr, doc, diagnostics);
             }
             Expression::Conditional {
                 condition,
                 then_expr,
                 else_expr,
             } => {
-                self.validate_expression(&condition.value, doc, diagnostics);
-                self.validate_expression(&then_expr.value, doc, diagnostics);
-                self.validate_expression(&else_expr.value, doc, diagnostics);
+                self.validate_expression(&condition, doc, diagnostics);
+                self.validate_expression(&then_expr, doc, diagnostics);
+                self.validate_expression(&else_expr, doc, diagnostics);
             }
             Expression::Array(elements) => {
                 for elem in elements {
-                    self.validate_expression(&elem.value, doc, diagnostics);
+                    self.validate_expression(&elem, doc, diagnostics);
                 }
             }
             Expression::Interpolation(parts) => {
                 for part in parts {
                     if let InterpolationPart::Expression(expr) = part {
-                        self.validate_expression(&expr.value, doc, diagnostics);
+                        self.validate_expression(&expr, doc, diagnostics);
                     }
                 }
             }

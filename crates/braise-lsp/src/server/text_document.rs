@@ -162,7 +162,7 @@ impl TextDocumentProvider {
 
     pub async fn provide_formatting(&self, doc: &Document) -> Vec<TextEdit> {
         let text = doc.get_text();
-        let formatted = fmt::Formatter::format_str(&text);
+        let formatted = fmt::Formatter::format(&text);
 
         if formatted != text {
             vec![TextEdit {

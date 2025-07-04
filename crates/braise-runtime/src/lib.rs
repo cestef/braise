@@ -102,10 +102,9 @@ impl Runtime {
             } else if let Some(default_expr) = &param.value.default {
                 self.evaluate_expression(&default_expr.value, &context)?
             } else {
-                return Err(RuntimeError::InvalidParameter {
+                return Err(RuntimeError::MissingRequiredParameter {
                     name: param.value.name.clone(),
-                    expected: param.value.param_type.to_string(),
-                    got: "no value provided and no default".to_string(),
+                    expected_type: param.value.param_type.to_string(),
                 });
             };
 
@@ -141,15 +140,7 @@ impl Runtime {
         expected_type: &ParamType,
         param_name: &str,
     ) -> Result<Value> {
-        let converted_value = value.convert_to_type(expected_type).map_err(|_| {
-            RuntimeError::TypeError(format!(
-                "Variable '{}' expected type {}, but got {} value: {}",
-                param_name,
-                expected_type,
-                value.type_name(),
-                value
-            ))
-        })?;
+        let converted_value = value.convert_to_type(expected_type, param_name)?;
 
         Ok(converted_value)
     }
@@ -264,9 +255,11 @@ impl Runtime {
                         }
                     }
                 } else {
-                    return Err(RuntimeError::TypeError(format!(
-                        "Cannot iterate over {iterable_value:?}"
-                    )));
+                    return Err(RuntimeError::TypeError {
+                        expected: "iterable".to_string(),
+                        got: iterable_value.type_name().to_string(),
+                        context: format!("For loop variable '{var}'"),
+                    });
                 }
             }
             Statement::Print(expr) => {

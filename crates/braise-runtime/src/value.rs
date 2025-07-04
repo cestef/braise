@@ -64,19 +64,26 @@ impl Value {
     pub fn to_number(&self) -> Result<f64> {
         match self {
             Value::Number(n) => Ok(*n),
-            Value::String(s) => s
-                .parse()
-                .map_err(|_| RuntimeError::TypeError(format!("Cannot convert '{s}' to number"))),
+            Value::String(s) => s.parse().map_err(|_| RuntimeError::TypeError {
+                expected: "number".to_string(),
+                got: format!("string '{s}'"),
+                context: "string to number conversion".to_string(),
+            }),
             Value::Bool(true) => Ok(1.0),
             Value::Bool(false) => Ok(0.0),
-            Value::Array(_) => Err(RuntimeError::TypeError(
-                "Cannot convert array to number".to_string(),
-            )),
-            Value::Recipe(_, _) => Err(RuntimeError::TypeError(
-                "Cannot convert recipe to number".to_string(),
-            )),
+            Value::Array(_) => Err(RuntimeError::TypeError {
+                expected: "number".to_string(),
+                got: "array".to_string(),
+                context: "array to number conversion".to_string(),
+            }),
+            Value::Recipe(_, _) => Err(RuntimeError::TypeError {
+                expected: "number".to_string(),
+                got: "recipe".to_string(),
+                context: "recipe to number conversion".to_string(),
+            }),
         }
     }
+
     pub fn is<T: 'static>(&self) -> bool {
         match self {
             Value::String(_) => std::any::TypeId::of::<T>() == std::any::TypeId::of::<String>(),
@@ -178,40 +185,61 @@ impl Value {
                     }),
                 }
             }
-            _ => Err(RuntimeError::TypeError(format!(
-                "Unsupported parameter type: {expected:?}"
-            ))),
+            _ => Err(RuntimeError::TypeError {
+                expected: format!("supported parameter type"),
+                got: format!("{expected:?}"),
+                context: "parameter type validation".to_string(),
+            }),
         }
     }
 
-    pub fn convert_to_type(&self, target_type: &ParamType) -> Result<Value> {
+    pub fn convert_to_type(&self, target_type: &ParamType, name: &str) -> Result<Value> {
         match target_type {
             ParamType::String => Ok(Value::String(self.to_string())),
             ParamType::Number => Ok(Value::Number(self.to_number()?)),
             ParamType::Bool => Ok(Value::Bool(self.to_bool())),
             ParamType::Array(inside_type) => {
                 if let Value::Array(arr) = self {
-                    let converted: Result<Vec<Value>> =
-                        arr.iter().map(|v| v.convert_to_type(inside_type)).collect();
+                    let converted: Result<Vec<Value>> = arr
+                        .iter()
+                        .map(|v| v.convert_to_type(inside_type, name))
+                        .collect();
                     converted.map(Value::Array)
+                } else if let Value::String(s) = self {
+                    // split string into array elements
+                    let elements: Vec<Value> = s
+                        .split(',')
+                        .map(|e| {
+                            let trimmed = e.trim();
+                            Value::from_str(trimmed, &name.to_string(), inside_type)
+                                .unwrap_or_else(|_| Value::default_for_type(inside_type))
+                        })
+                        .collect();
+                    Ok(Value::Array(elements))
                 } else {
-                    Err(RuntimeError::TypeError(
-                        "Cannot convert non-array value to array".to_string(),
-                    ))
+                    Err(RuntimeError::TypeError {
+                        expected: "array".to_string(),
+                        got: self.type_name().to_string(),
+                        context: "array type conversion".to_string(),
+                    })
                 }
             }
             ParamType::Enum(e) => match self {
                 Value::String(s) if e.contains(s) => Ok(Value::String(s.clone())),
-                _ => Err(RuntimeError::TypeError(format!(
-                    "Cannot convert value to enum type: expected one of {e:?}, got {self:?}",
-                ))),
+                _ => Err(RuntimeError::TypeError {
+                    expected: format!("one of {e:?}"),
+                    got: format!("{self:?}"),
+                    context: "enum type conversion".to_string(),
+                }),
             },
             ParamType::Recipe => match self {
                 Value::Recipe(name, args) => Ok(Value::Recipe(name.clone(), args.clone())),
                 Value::String(name) => Ok(Value::Recipe(name.clone(), HashMap::new())),
-                _ => Err(RuntimeError::TypeError(
-                    "Cannot convert value to recipe".to_string(),
-                )),
+                _ => Err(RuntimeError::TypeError {
+                    expected: "recipe".to_string(),
+                    got: self.type_name().to_string(),
+                    context: "recipe type conversion".to_string(),
+                }),
             },
         }
     }
@@ -230,5 +258,15 @@ impl From<Value> for f64 {
 impl From<Value> for bool {
     fn from(val: Value) -> Self {
         val.to_bool()
+    }
+}
+
+impl From<Value> for Vec<Value> {
+    fn from(val: Value) -> Self {
+        if let Value::Array(arr) = val {
+            arr
+        } else {
+            vec![val]
+        }
     }
 }

@@ -371,17 +371,23 @@ mod tests {
     fn test_value_convert_to_type() {
         // String to number
         let string_val = Value::String("42".to_string());
-        let converted = string_val.convert_to_type(&ParamType::Number).unwrap();
+        let converted = string_val
+            .convert_to_type(&ParamType::Number, "string_val")
+            .unwrap();
         assert_eq!(converted, Value::Number(42.0));
 
         // Number to string
         let number_val = Value::Number(42.0);
-        let converted = number_val.convert_to_type(&ParamType::String).unwrap();
+        let converted = number_val
+            .convert_to_type(&ParamType::String, "number_val")
+            .unwrap();
         assert_eq!(converted, Value::String("42".to_string()));
 
         // Bool to string
         let bool_val = Value::Bool(true);
-        let converted = bool_val.convert_to_type(&ParamType::String).unwrap();
+        let converted = bool_val
+            .convert_to_type(&ParamType::String, "bool_var")
+            .unwrap();
         assert_eq!(converted, Value::String("true".to_string()));
 
         // Array conversion
@@ -390,7 +396,7 @@ mod tests {
             Value::String("2".to_string()),
         ]);
         let array_type = ParamType::Array(Box::new(ParamType::Number));
-        let converted = array_val.convert_to_type(&array_type).unwrap();
+        let converted = array_val.convert_to_type(&array_type, "array_val").unwrap();
         assert_eq!(
             converted,
             Value::Array(vec![Value::Number(1.0), Value::Number(2.0)])
@@ -399,17 +405,21 @@ mod tests {
         // Enum conversion
         let string_val = Value::String("dev".to_string());
         let enum_type = ParamType::Enum(vec!["dev".to_string(), "prod".to_string()]);
-        let converted = string_val.convert_to_type(&enum_type).unwrap();
+        let converted = string_val
+            .convert_to_type(&enum_type, "string_val")
+            .unwrap();
         assert_eq!(converted, Value::String("dev".to_string()));
 
         // Invalid enum conversion
         let string_val = Value::String("staging".to_string());
-        let result = string_val.convert_to_type(&enum_type);
+        let result = string_val.convert_to_type(&enum_type, "string_val");
         assert!(result.is_err());
 
         // Recipe conversion
         let string_val = Value::String("test_recipe".to_string());
-        let converted = string_val.convert_to_type(&ParamType::Recipe).unwrap();
+        let converted = string_val
+            .convert_to_type(&ParamType::Recipe, "string_val")
+            .unwrap();
         assert_eq!(
             converted,
             Value::Recipe("test_recipe".to_string(), HashMap::new())
