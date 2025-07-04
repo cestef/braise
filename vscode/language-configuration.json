@@ -1,6 +1,10 @@
 {
     "comments": {
-        "lineComment": "//"
+        "lineComment": "//",
+        "blockComment": [
+            "/*",
+            "*/"
+        ]
     },
     "brackets": [
         [
@@ -33,10 +37,6 @@
             "\"",
             "\""
         ],
-        [
-            "'",
-            "'"
-        ]
     ],
     "surroundingPairs": [
         [
@@ -55,10 +55,6 @@
             "\"",
             "\""
         ],
-        [
-            "'",
-            "'"
-        ]
     ],
     "folding": {
         "markers": {

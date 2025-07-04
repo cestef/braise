@@ -24,11 +24,16 @@
             {
                 "id": "braise",
                 "aliases": [
-                    "Braise",
-                    "braise"
+                    "Braisé",
+                    "braisé",
+                    "Braise"
                 ],
                 "extensions": [
-                    ".braise"
+                    ".braise",
+                    ".braisefile"
+                ],
+                "filenames": [
+                    "Braisefile"
                 ],
                 "configuration": "./language-configuration.json",
                 "icon": {

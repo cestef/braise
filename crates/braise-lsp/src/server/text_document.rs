@@ -467,11 +467,13 @@ impl TextDocumentProvider {
         let mut indent_level: usize = 0;
         let indent_size = 4;
 
+        // First pass: format indentation and clean spaces
+        let mut pre_aligned_lines = Vec::new();
         for line in lines {
             let trimmed = line.trim();
 
             if trimmed.is_empty() {
-                formatted_lines.push(String::new());
+                pre_aligned_lines.push((String::new(), None));
                 continue;
             }
 
@@ -483,9 +485,12 @@ impl TextDocumentProvider {
             // del. dup spaces
             let cleaned_line = self.clean_duplicate_spaces(trimmed);
 
-            let indented_line =
-                format!("{}{}", " ".repeat(indent_level * indent_size), cleaned_line);
-            formatted_lines.push(indented_line);
+            // Split line into code and comment
+            let (code_part, comment_part) = self.split_code_and_comment(&cleaned_line);
+
+            let indented_line = format!("{}{}", " ".repeat(indent_level * indent_size), code_part);
+
+            pre_aligned_lines.push((indented_line, comment_part));
 
             // opening
             if trimmed.ends_with('{') {
@@ -493,7 +498,79 @@ impl TextDocumentProvider {
             }
         }
 
+        // Second pass: align comments
+        let mut i = 0;
+        while i < pre_aligned_lines.len() {
+            let mut comment_group = Vec::new();
+            let mut j = i;
+
+            // Find consecutive lines with comments
+            while j < pre_aligned_lines.len() && pre_aligned_lines[j].1.is_some() {
+                comment_group.push(j);
+                j += 1;
+            }
+
+            // Align comments if we have at least 2 consecutive commented lines
+            if comment_group.len() >= 2 {
+                let max_code_len = comment_group
+                    .iter()
+                    .map(|&idx| pre_aligned_lines[idx].0.len())
+                    .max()
+                    .unwrap_or(0);
+
+                // Add 2 spaces between code and comment
+                let comment_start = max_code_len + 2;
+
+                for idx in comment_group {
+                    let (code, comment) = &pre_aligned_lines[idx];
+                    let padding = " ".repeat(comment_start.saturating_sub(code.len()));
+                    formatted_lines.push(format!(
+                        "{}{}{}",
+                        code,
+                        padding,
+                        comment.as_ref().unwrap()
+                    ));
+                }
+
+                i = j;
+            } else {
+                // Handle the current line without special alignment
+                let (code, comment) = &pre_aligned_lines[i];
+                if let Some(cmt) = comment {
+                    formatted_lines.push(format!("{}  {}", code, cmt));
+                } else {
+                    formatted_lines.push(code.clone());
+                }
+                i += 1;
+            }
+        }
+
         formatted_lines.join("\n")
+    }
+
+    fn split_code_and_comment(&self, line: &str) -> (String, Option<String>) {
+        let mut in_string = false;
+        let mut escape_next = false;
+
+        for (i, c) in line.char_indices() {
+            if escape_next {
+                escape_next = false;
+                continue;
+            }
+
+            match c {
+                '"' => in_string = !in_string,
+                '\\' if in_string => escape_next = true,
+                '/' if !in_string && i + 1 < line.len() && line.chars().nth(i + 1) == Some('/') => {
+                    let code = line[..i].trim_end().to_string();
+                    let comment = line[i..].to_string();
+                    return (code, Some(comment));
+                }
+                _ => {}
+            }
+        }
+
+        (line.to_string(), None)
     }
 
     fn clean_duplicate_spaces(&self, text: &str) -> String {
