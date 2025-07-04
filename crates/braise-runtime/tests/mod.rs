@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use braise_runtime::{Runtime, StringExecutor};
+    use braise_runtime::{Runtime, StringExecutor, Value};
     use core::BraiseError;
     use core::runtime::RuntimeError;
     use lexer::tokenize;
@@ -122,6 +122,57 @@ mod tests {
         let result = runtime.execute_recipe("greet", HashMap::new());
         assert!(result.is_ok());
         assert!(runtime.executor.output().unwrap().contains("Hello, World!"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_shell_setting() -> Result<()> {
+        let input = r#"
+        recipe "shell" {
+            shell "bash -c"
+            run "echo using $0"
+            shell "zsh -c"
+            run "echo using $0"
+        }"#;
+        let runtime = create_runtime(input)?;
+        let result = runtime.execute_recipe("shell", HashMap::new());
+        assert!(result.is_ok());
+        let output = runtime.executor.output().unwrap();
+
+        // Check that bash is mentioned first, then zsh
+        let bash_pos = output.find("bash").expect("Output should contain 'bash'");
+        let zsh_pos = output.find("zsh").expect("Output should contain 'zsh'");
+        assert!(
+            bash_pos < zsh_pos,
+            "bash should appear before zsh in the output"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_recipe_with_parameters() -> Result<()> {
+        let input = r#"
+        recipe "greet" {
+            param name: string
+            run "echo Hello, ${name}!"
+        }"#;
+        let runtime = create_runtime(input)?;
+        let mut params = HashMap::new();
+        params.insert("name".to_string(), Value::String("Alice".to_string()));
+        let result = runtime.execute_recipe("greet", params);
+        assert!(result.is_ok());
+        assert!(runtime.executor.output().unwrap().contains("Hello, Alice!"));
+
+        let result = runtime.execute_recipe("greet", HashMap::new());
+        assert!(result.is_err());
+
+        match result.unwrap_err() {
+            RuntimeError::InvalidParameter { name, .. } => {
+                assert_eq!(name, "name");
+            }
+            _ => panic!("Expected missing parameter error"),
+        }
         Ok(())
     }
 }

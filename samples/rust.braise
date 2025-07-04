@@ -14,7 +14,6 @@ recipe "test-coverage" {
     call @test(coverage: true)
 }
 
-
 recipe "shell" {
     shell "bash -c"
     run "echo $0"
