@@ -80,6 +80,40 @@ impl DiagnosticsProvider {
         diagnostics
     }
 
+    pub fn check_match_exhaustiveness(patterns: &[MatchPattern], value_type: &ParamType) -> bool {
+        for pattern in patterns {
+            if pattern.is_exhaustive_for_type(value_type) {
+                return true;
+            }
+        }
+
+        match value_type {
+            ParamType::Bool => {
+                let has_true = patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Bool(true)));
+                let has_false = patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Bool(false)));
+                has_true && has_false
+            }
+
+            ParamType::Enum(variants) => {
+                for variant in variants {
+                    let covered = patterns
+                        .iter()
+                        .any(|p| matches!(p, MatchPattern::String(s) if s == variant));
+                    if !covered {
+                        return false;
+                    }
+                }
+                true
+            }
+
+            _ => false,
+        }
+    }
+
     fn check_circular_dependencies(
         &self,
         ast: &Config,
@@ -574,12 +608,10 @@ impl DiagnosticsProvider {
         let mut end = self.offset_to_position(span.offset() + span.len(), code);
 
         end.character = end.character.saturating_sub(1);
-        dbg!(&start, &end);
         Range { start, end }
     }
 
     fn error_to_diagnostic(&self, error: &BraiseError) -> Diagnostic {
-        dbg!(&error);
         match error {
             BraiseError::LexerError { span, code } => Diagnostic {
                 range: self.source_span_to_range(span, code),

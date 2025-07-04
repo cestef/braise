@@ -351,8 +351,6 @@ impl Runtime {
                     context.set(name, value);
                 }
 
-                dbg!(&context);
-
                 for stmt in &arm.value.body {
                     self.execute_statement(&stmt.value, context)?;
                 }
@@ -375,7 +373,6 @@ impl Runtime {
 
         for arm in arms {
             let pattern_match = self.match_pattern(&arm.value.pattern, &match_value, context)?;
-            dbg!(&pattern_match);
             if pattern_match.matched {
                 // Check guard condition if present
                 if let Some(ref guard) = arm.value.guard {
@@ -391,14 +388,11 @@ impl Runtime {
                     }
                 }
 
-                // Create context with pattern bindings for expression evaluation
                 let mut expr_context = context.clone();
                 for (name, value) in pattern_match.bindings {
                     expr_context.set(name, value);
                 }
-                dbg!(&expr_context);
 
-                // Evaluate the arm expression
                 return self.evaluate_expression(&arm.value.expr.value, &expr_context);
             }
         }
@@ -416,7 +410,6 @@ impl Runtime {
         value: &Value,
         context: &ExecutionContext,
     ) -> Result<PatternMatch<Value>> {
-        dbg!(&pattern, &value);
         match pattern {
             MatchPattern::String(s) => Ok(PatternMatch {
                 matched: value.to_string() == *s,
@@ -582,6 +575,7 @@ impl Runtime {
                         matched = false;
                         break;
                     }
+
                     array_index += 1;
                 }
 
@@ -608,44 +602,6 @@ impl Runtime {
         }
 
         Ok(PatternMatch { matched, bindings })
-    }
-
-    pub fn check_match_exhaustiveness(
-        &self,
-        patterns: &[MatchPattern],
-        value_type: &ParamType,
-    ) -> bool {
-        for pattern in patterns {
-            if pattern.is_exhaustive_for_type(value_type) {
-                return true;
-            }
-        }
-
-        match value_type {
-            ParamType::Bool => {
-                let has_true = patterns
-                    .iter()
-                    .any(|p| matches!(p, MatchPattern::Bool(true)));
-                let has_false = patterns
-                    .iter()
-                    .any(|p| matches!(p, MatchPattern::Bool(false)));
-                has_true && has_false
-            }
-
-            ParamType::Enum(variants) => {
-                for variant in variants {
-                    let covered = patterns
-                        .iter()
-                        .any(|p| matches!(p, MatchPattern::String(s) if s == variant));
-                    if !covered {
-                        return false;
-                    }
-                }
-                true
-            }
-
-            _ => false,
-        }
     }
 
     fn evaluate_expression(&self, expr: &Expression, context: &ExecutionContext) -> Result<Value> {
