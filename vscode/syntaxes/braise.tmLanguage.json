@@ -389,6 +389,9 @@
                             "include": "#block"
                         }
                     ]
+                },
+                {
+                    "include": "#comments"
                 }
             ]
         },

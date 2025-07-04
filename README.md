@@ -46,7 +46,7 @@ cargo install --git https://github.com/cestef/braise --branch dev --bins
 </details>
 
 Create a `Braisefile`:
-```braise
+```
 recipe "hello" {
     param name: string = "World"
     print "Hello, ${name}!"
@@ -70,7 +70,7 @@ braise build
 ## Language Basics
 
 ### Parameters (with actual types!)
-```braise
+```
 recipe "deploy" {
     param env: ["dev", "prod"] = "dev"    # enum
     param version: string                  # required
@@ -81,7 +81,7 @@ recipe "deploy" {
 ```
 
 ### Control Flow
-```braise
+```
 recipe "smart-build" {
     if git.is_dirty() {
         print "⚠️  Uncommitted changes detected"
@@ -100,7 +100,7 @@ recipe "smart-build" {
 ```
 
 ### Built-in Modules
-```braise
+```
 recipe "info" {
     print "Branch: ${git.branch()}"
     print "Commit: ${git.commit_hash_short()}"
@@ -134,16 +134,12 @@ braise -f my-recipes.braise build
 - **Make**: Because it's 1976 and we have better things now
 - **npm scripts**: Because JSON isn't a programming language
 - **Bash scripts**: Because debugging them is a form of self-harm
-- **Justfile**: Actually pretty good, but lacks types and LSP support
+- **Justfile**: Actually pretty good, can't say anything bad about it.
 
 ## Contributing
 
-Found a bug? Great! Open an issue. Want to add a feature? Even better! Submit a PR. Want to complain about my life choices? Keep it to yourself.
+Found a bug? Great! [Open an issue](https://github.com/cestef/braise/issues/new). Want to add a feature? Even better! [Submit a PR](https://github.com/cestef/braise/pulls).
 
 ## License
 
 MIT - Because sharing is caring, but attribution is nice.
-
----
-
-Made with questionable decisions and excessive caffeine by [cstef](https://github.com/cestef)

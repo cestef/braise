@@ -1,0 +1,66 @@
+// Enhanced Match Pattern Examples for Braisé
+
+// 1. Basic Literal Patterns
+recipe "basic" {
+    param status: ["success", "error", "pending"] = "success"
+    param count: number = 5
+    param enabled: bool = true
+
+    // String matching
+    match status {
+        // "success" => print "✅ Operation completed successfully!",
+        "error" => print "❌ Operation failed!",
+        // "pending" => print "⏳ Operation in progress...",
+        // _ => print "❓ Unknown status"
+    }
+
+    // Number matching
+    match count {
+        0 => print "No items",
+        1 => print "Single item",
+        5 => print "Five items",
+        _ => print "Multiple items"
+    }
+
+    // Boolean matching
+    match enabled {
+        true => print "Feature is enabled",
+        false => print "Feature is disabled"
+    }
+}
+
+recipe "variable" {
+    param value: number = 42
+
+    match cpu.count() {
+        cores => print "CPU cores: ${cores}"
+    }
+
+    match value {
+        x if x > 10 => print "Large value: ${x}",
+        small => print "Small value: ${small}"
+    }
+}
+
+recipe "range" {
+    print match cpu.count() {
+        1 => "single core",
+        2..4 => "few cores",
+        5..=8 => "many cores",
+        9.. => "lots of cores"
+    }
+
+    print cpu.count()
+}
+
+recipe "array" {
+    param services: [string] = ["web", "db", "cache"]
+
+    print match services {
+        [] => "no services",
+        [single] => "one service: ${single}",
+        [first, second] => "two services: ${first} and ${second}",
+        [head, ..tail] => "multiple services, first: ${head}",
+        all => "services: ${all}"
+    }
+}

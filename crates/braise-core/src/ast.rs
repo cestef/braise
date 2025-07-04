@@ -125,16 +125,153 @@ pub enum Statement {
     },
 }
 
-#[derive(Debug, Clone)]
-pub struct MatchArm {
-    pub pattern: MatchPattern,
-    pub body: Vec<SpannedNode<Statement>>,
+#[derive(Debug, Clone, PartialEq)]
+pub enum MatchPattern {
+    // Literal patterns
+    String(String),
+    Number(f64),
+    Bool(bool),
+
+    // Wildcard pattern
+    Wildcard,
+
+    // Variable binding pattern (captures the value)
+    Variable(String),
+
+    // Or pattern (multiple alternatives)
+    Or(Vec<SpannedNode<MatchPattern>>),
+
+    // Range patterns
+    Range {
+        start: Option<f64>, // None means unbounded
+        end: Option<f64>,   // None means unbounded
+        inclusive: bool,    // true for ..=, false for ..
+    },
+
+    // Array patterns
+    Array {
+        elements: Vec<SpannedNode<ArrayPatternElement>>,
+        rest: Option<String>, // Variable to capture remaining elements
+    },
+
+    // Guard pattern (pattern with condition)
+    Guard {
+        pattern: Box<SpannedNode<MatchPattern>>,
+        condition: SpannedNode<Expression>,
+    },
+
+    // Type checking pattern
+    Type(ParamType),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum MatchPattern {
-    String(String),
+pub enum ArrayPatternElement {
+    // Exact element pattern
+    Pattern(MatchPattern),
+    // Wildcard element
     Wildcard,
+    // Rest pattern (captures remaining elements)
+    Rest(Option<String>), // None for .._, Some(name) for ..name
+}
+
+// Enhanced match arm to support variable bindings
+#[derive(Debug, Clone)]
+pub struct MatchArm {
+    pub pattern: MatchPattern,
+    pub guard: Option<SpannedNode<Expression>>, // Additional guard condition
+    pub body: Vec<SpannedNode<Statement>>,
+    pub bindings: HashMap<String, String>, // Maps pattern variables to their types
+}
+
+// For expression matches
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchExpressionArm {
+    pub pattern: MatchPattern,
+    pub guard: Option<SpannedNode<Expression>>,
+    pub expr: SpannedNode<Expression>,
+    pub bindings: HashMap<String, String>,
+}
+
+// Helper for pattern matching in runtime
+#[derive(Debug, Clone)]
+pub struct PatternMatch<T> {
+    pub matched: bool,
+    pub bindings: HashMap<String, T>,
+}
+
+impl MatchPattern {
+    /// Check if this pattern can match the given value type
+    pub fn can_match_type(&self, value_type: &ParamType) -> bool {
+        match (self, value_type) {
+            (MatchPattern::String(_), ParamType::String) => true,
+            (MatchPattern::Number(_), ParamType::Number) => true,
+            (MatchPattern::Bool(_), ParamType::Bool) => true,
+            (MatchPattern::Array { .. }, ParamType::Array(_)) => true,
+            (MatchPattern::Type(pattern_type), _) => pattern_type == value_type,
+            (MatchPattern::Wildcard, _) => true,
+            (MatchPattern::Variable(_), _) => true,
+            (MatchPattern::Or(patterns), _) => {
+                patterns.iter().any(|p| p.value.can_match_type(value_type))
+            }
+            (MatchPattern::Range { .. }, ParamType::Number) => true,
+            (MatchPattern::Guard { pattern, .. }, _) => pattern.value.can_match_type(value_type),
+            _ => false,
+        }
+    }
+
+    /// Get all variable bindings in this pattern
+    pub fn get_bindings(&self) -> Vec<String> {
+        let mut bindings = Vec::new();
+        self.collect_bindings(&mut bindings);
+        bindings
+    }
+
+    fn collect_bindings(&self, bindings: &mut Vec<String>) {
+        match self {
+            MatchPattern::Variable(name) => bindings.push(name.clone()),
+            MatchPattern::Or(patterns) => {
+                for pattern in patterns {
+                    pattern.value.collect_bindings(bindings);
+                }
+            }
+            MatchPattern::Array { elements, rest } => {
+                for element in elements {
+                    match &element.value {
+                        ArrayPatternElement::Pattern(pattern) => {
+                            pattern.collect_bindings(bindings);
+                        }
+                        ArrayPatternElement::Rest(Some(name)) => {
+                            bindings.push(name.clone());
+                        }
+                        _ => {}
+                    }
+                }
+                if let Some(rest_name) = rest {
+                    bindings.push(rest_name.clone());
+                }
+            }
+            MatchPattern::Guard { pattern, .. } => {
+                pattern.value.collect_bindings(bindings);
+            }
+            _ => {}
+        }
+    }
+
+    /// Check if this pattern is exhaustive for the given type
+    pub fn is_exhaustive_for_type(&self, value_type: &ParamType) -> bool {
+        match self {
+            MatchPattern::Wildcard | MatchPattern::Variable(_) => true,
+            MatchPattern::Type(pattern_type) => pattern_type == value_type,
+            MatchPattern::Or(patterns) => {
+                // This is simplified - true exhaustiveness checking is complex
+                patterns.len() > 1
+                    && patterns
+                        .iter()
+                        .any(|p| p.value.is_exhaustive_for_type(value_type))
+            }
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -176,12 +313,6 @@ pub enum Expression {
         expr: Box<SpannedNode<Expression>>,
         arms: Vec<SpannedNode<MatchExpressionArm>>,
     },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct MatchExpressionArm {
-    pub pattern: MatchPattern,
-    pub expr: SpannedNode<Expression>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

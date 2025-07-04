@@ -180,22 +180,7 @@ impl Runtime {
                 }
             }
             Statement::Match { expr, arms } => {
-                let match_value = self.evaluate_expression(&expr.value, context)?;
-                let match_str = match_value.to_string();
-
-                for arm in arms {
-                    let matches = match &arm.value.pattern {
-                        MatchPattern::String(pattern) => pattern == &match_str,
-                        MatchPattern::Wildcard => true,
-                    };
-
-                    if matches {
-                        for stmt in &arm.value.body {
-                            self.execute_statement(&stmt.value, context)?;
-                        }
-                        break;
-                    }
-                }
+                self.execute_match_statement(&expr, arms, context)?;
             }
             Statement::For {
                 var,
@@ -338,6 +323,330 @@ impl Runtime {
         }
         Ok(())
     }
+    fn execute_match_statement(
+        &self,
+        expr: &SpannedNode<Expression>,
+        arms: &[SpannedNode<MatchArm>],
+        context: &mut ExecutionContext,
+    ) -> Result<()> {
+        let match_value = self.evaluate_expression(&expr.value, context)?;
+
+        for arm in arms {
+            let pattern_match = self.match_pattern(&arm.value.pattern, &match_value, context)?;
+
+            if pattern_match.matched {
+                if let Some(ref guard) = arm.value.guard {
+                    let mut guard_context = context.clone();
+                    for (name, value) in &pattern_match.bindings {
+                        guard_context.set(name.clone(), value.clone());
+                    }
+
+                    let guard_result = self.evaluate_expression(&guard.value, &guard_context)?;
+                    if !guard_result.to_bool() {
+                        continue;
+                    }
+                }
+
+                for (name, value) in pattern_match.bindings {
+                    context.set(name, value);
+                }
+
+                dbg!(&context);
+
+                for stmt in &arm.value.body {
+                    self.execute_statement(&stmt.value, context)?;
+                }
+                return Ok(());
+            }
+        }
+
+        Err(RuntimeError::MatchNoArm {
+            value: match_value.to_string(),
+        })
+    }
+
+    fn evaluate_match_expression(
+        &self,
+        expr: &SpannedNode<Expression>,
+        arms: &[SpannedNode<MatchExpressionArm>],
+        context: &ExecutionContext,
+    ) -> Result<Value> {
+        let match_value = self.evaluate_expression(&expr.value, context)?;
+
+        for arm in arms {
+            let pattern_match = self.match_pattern(&arm.value.pattern, &match_value, context)?;
+            dbg!(&pattern_match);
+            if pattern_match.matched {
+                // Check guard condition if present
+                if let Some(ref guard) = arm.value.guard {
+                    // Create temporary context with pattern bindings
+                    let mut guard_context = context.clone();
+                    for (name, value) in &pattern_match.bindings {
+                        guard_context.set(name.clone(), value.clone());
+                    }
+
+                    let guard_result = self.evaluate_expression(&guard.value, &guard_context)?;
+                    if !guard_result.to_bool() {
+                        continue; // Guard failed, try next arm
+                    }
+                }
+
+                // Create context with pattern bindings for expression evaluation
+                let mut expr_context = context.clone();
+                for (name, value) in pattern_match.bindings {
+                    expr_context.set(name, value);
+                }
+                dbg!(&expr_context);
+
+                // Evaluate the arm expression
+                return self.evaluate_expression(&arm.value.expr.value, &expr_context);
+            }
+        }
+
+        // No pattern matched
+        Err(RuntimeError::MatchNoArm {
+            value: match_value.to_string(),
+        })
+    }
+
+    /// Core pattern matching implementation
+    fn match_pattern(
+        &self,
+        pattern: &MatchPattern,
+        value: &Value,
+        context: &ExecutionContext,
+    ) -> Result<PatternMatch<Value>> {
+        dbg!(&pattern, &value);
+        match pattern {
+            MatchPattern::String(s) => Ok(PatternMatch {
+                matched: value.to_string() == *s,
+                bindings: HashMap::new(),
+            }),
+
+            MatchPattern::Number(n) => match value.to_number() {
+                Ok(val) => Ok(PatternMatch {
+                    matched: (val - n).abs() < f64::EPSILON,
+                    bindings: HashMap::new(),
+                }),
+                Err(_) => Ok(PatternMatch {
+                    matched: false,
+                    bindings: HashMap::new(),
+                }),
+            },
+
+            MatchPattern::Bool(b) => Ok(PatternMatch {
+                matched: value.to_bool() == *b,
+                bindings: HashMap::new(),
+            }),
+
+            MatchPattern::Wildcard => Ok(PatternMatch {
+                matched: true,
+                bindings: HashMap::new(),
+            }),
+
+            MatchPattern::Variable(name) => {
+                let mut bindings = HashMap::new();
+                bindings.insert(name.clone(), value.clone());
+                Ok(PatternMatch {
+                    matched: true,
+                    bindings,
+                })
+            }
+
+            MatchPattern::Or(patterns) => {
+                for pattern_node in patterns {
+                    let result = self.match_pattern(&pattern_node.value, value, context)?;
+                    if result.matched {
+                        return Ok(result);
+                    }
+                }
+                Ok(PatternMatch {
+                    matched: false,
+                    bindings: HashMap::new(),
+                })
+            }
+
+            MatchPattern::Range {
+                start,
+                end,
+                inclusive,
+            } => match value.to_number() {
+                Ok(val) => {
+                    let mut matched = true;
+
+                    if let Some(start_val) = start {
+                        matched = matched && val >= *start_val;
+                    }
+
+                    if let Some(end_val) = end {
+                        if *inclusive {
+                            matched = matched && val <= *end_val;
+                        } else {
+                            matched = matched && val < *end_val;
+                        }
+                    }
+
+                    Ok(PatternMatch {
+                        matched,
+                        bindings: HashMap::new(),
+                    })
+                }
+                Err(_) => Ok(PatternMatch {
+                    matched: false,
+                    bindings: HashMap::new(),
+                }),
+            },
+
+            MatchPattern::Array { elements, rest } => {
+                if let Value::Array(array_values) = value {
+                    self.match_array_pattern(elements, rest.as_ref(), array_values, context)
+                } else {
+                    Ok(PatternMatch {
+                        matched: false,
+                        bindings: HashMap::new(),
+                    })
+                }
+            }
+
+            MatchPattern::Guard { pattern, condition } => {
+                let base_match = self.match_pattern(&pattern.value, value, context)?;
+                if !base_match.matched {
+                    return Ok(base_match);
+                }
+
+                // Create context with pattern bindings for guard evaluation
+                let mut guard_context = context.clone();
+                for (name, binding_value) in &base_match.bindings {
+                    guard_context.set(name.clone(), binding_value.clone());
+                }
+
+                let guard_result = self.evaluate_expression(&condition.value, &guard_context)?;
+                Ok(PatternMatch {
+                    matched: guard_result.to_bool(),
+                    bindings: base_match.bindings,
+                })
+            }
+
+            MatchPattern::Type(param_type) => {
+                let matched = match (param_type, value) {
+                    (ParamType::String, Value::String(_)) => true,
+                    (ParamType::Number, Value::Number(_)) => true,
+                    (ParamType::Bool, Value::Bool(_)) => true,
+                    (ParamType::Array(_), Value::Array(_)) => true,
+                    (ParamType::Recipe, Value::Recipe(_, _)) => true,
+                    _ => false,
+                };
+
+                Ok(PatternMatch {
+                    matched,
+                    bindings: HashMap::new(),
+                })
+            }
+        }
+    }
+
+    /// Match array patterns with element patterns and rest patterns
+    fn match_array_pattern(
+        &self,
+        elements: &[SpannedNode<ArrayPatternElement>],
+        rest: Option<&String>,
+        array_values: &[Value],
+        context: &ExecutionContext,
+    ) -> Result<PatternMatch<Value>> {
+        let mut bindings = HashMap::new();
+        let mut array_index = 0;
+        let mut matched = true;
+
+        for element_node in elements {
+            match &element_node.value {
+                ArrayPatternElement::Pattern(pattern) => {
+                    if array_index >= array_values.len() {
+                        matched = false;
+                        break;
+                    }
+
+                    let element_match =
+                        self.match_pattern(pattern, &array_values[array_index], context)?;
+
+                    if !element_match.matched {
+                        matched = false;
+                        break;
+                    }
+
+                    bindings.extend(element_match.bindings);
+                    array_index += 1;
+                }
+
+                ArrayPatternElement::Wildcard => {
+                    if array_index >= array_values.len() {
+                        matched = false;
+                        break;
+                    }
+                    array_index += 1;
+                }
+
+                ArrayPatternElement::Rest(rest_name) => {
+                    let remaining: Vec<Value> = array_values[array_index..].to_vec();
+
+                    if let Some(name) = rest_name {
+                        bindings.insert(name.clone(), Value::Array(remaining));
+                    }
+
+                    array_index = array_values.len();
+                    break;
+                }
+            }
+        }
+
+        if rest.is_none() && array_index != array_values.len() {
+            matched = false;
+        }
+
+        if let Some(rest_name) = rest {
+            let remaining: Vec<Value> = array_values[array_index..].to_vec();
+            bindings.insert(rest_name.clone(), Value::Array(remaining));
+        }
+
+        Ok(PatternMatch { matched, bindings })
+    }
+
+    pub fn check_match_exhaustiveness(
+        &self,
+        patterns: &[MatchPattern],
+        value_type: &ParamType,
+    ) -> bool {
+        for pattern in patterns {
+            if pattern.is_exhaustive_for_type(value_type) {
+                return true;
+            }
+        }
+
+        match value_type {
+            ParamType::Bool => {
+                let has_true = patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Bool(true)));
+                let has_false = patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Bool(false)));
+                has_true && has_false
+            }
+
+            ParamType::Enum(variants) => {
+                for variant in variants {
+                    let covered = patterns
+                        .iter()
+                        .any(|p| matches!(p, MatchPattern::String(s) if s == variant));
+                    if !covered {
+                        return false;
+                    }
+                }
+                true
+            }
+
+            _ => false,
+        }
+    }
 
     fn evaluate_expression(&self, expr: &Expression, context: &ExecutionContext) -> Result<Value> {
         match expr {
@@ -415,21 +724,7 @@ impl Runtime {
                 Ok(Value::Recipe(recipe.clone(), arg_values))
             }
             Expression::Match { expr, arms } => {
-                let match_value = self.evaluate_expression(&expr.value, context)?;
-                let match_str = match_value.to_string();
-
-                for arm in arms {
-                    let matches = match &arm.value.pattern {
-                        MatchPattern::String(pattern) => pattern == &match_str,
-                        MatchPattern::Wildcard => true,
-                    };
-
-                    if matches {
-                        return self.evaluate_expression(&arm.value.expr.value, context);
-                    }
-                }
-
-                Err(RuntimeError::MatchNoArm { value: match_str })
+                self.evaluate_match_expression(&expr, arms, context)
             }
         }
     }

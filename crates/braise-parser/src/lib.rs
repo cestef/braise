@@ -309,6 +309,233 @@ impl Parser {
         })
     }
 
+    /// Parse a match pattern with full support for all pattern types
+    fn parse_match_pattern(&mut self) -> Result<MatchPattern> {
+        self.parse_or_pattern()
+    }
+
+    /// Parse or patterns (highest precedence in pattern matching)
+    fn parse_or_pattern(&mut self) -> Result<MatchPattern> {
+        let mut patterns = vec![SpannedNode::new(
+            self.parse_guard_pattern()?,
+            self.get_current_span(),
+        )];
+
+        while self.match_token(&Token::Or) {
+            patterns.push(SpannedNode::new(
+                self.parse_guard_pattern()?,
+                self.get_current_span(),
+            ));
+        }
+
+        if patterns.len() == 1 {
+            Ok(patterns.into_iter().next().unwrap().value)
+        } else {
+            Ok(MatchPattern::Or(patterns))
+        }
+    }
+
+    /// Parse guard patterns (pattern if condition)
+    fn parse_guard_pattern(&mut self) -> Result<MatchPattern> {
+        let pattern = self.parse_primary_pattern()?;
+
+        if self.match_token(&Token::If) {
+            let condition = self.parse_expression()?;
+            Ok(MatchPattern::Guard {
+                pattern: Box::new(SpannedNode::new(pattern, self.get_current_span())),
+                condition,
+            })
+        } else {
+            Ok(pattern)
+        }
+    }
+
+    /// Parse primary patterns (literals, wildcards, arrays, etc.)
+    fn parse_primary_pattern(&mut self) -> Result<MatchPattern> {
+        match self.peek().clone() {
+            // String literal
+            Token::String(s) => {
+                self.advance();
+                Ok(MatchPattern::String(s))
+            }
+
+            // Number literal or range
+            Token::Number(n) => {
+                self.advance();
+
+                // Check for range pattern
+                if self.check(&Token::Dot) && self.peek_ahead(1) == Some(&Token::Dot) {
+                    self.advance(); // consume first dot
+                    self.advance(); // consume second dot
+
+                    let inclusive = self.match_token(&Token::Equals);
+
+                    if self.check(&Token::Number(0.0)) {
+                        if let Token::Number(end) = self.peek().clone() {
+                            self.advance();
+                            Ok(MatchPattern::Range {
+                                start: Some(n),
+                                end: Some(end),
+                                inclusive,
+                            })
+                        } else {
+                            Ok(MatchPattern::Range {
+                                start: Some(n),
+                                end: None,
+                                inclusive,
+                            })
+                        }
+                    } else {
+                        Ok(MatchPattern::Range {
+                            start: Some(n),
+                            end: None,
+                            inclusive,
+                        })
+                    }
+                } else {
+                    Ok(MatchPattern::Number(n))
+                }
+            }
+
+            // Boolean literal
+            Token::Bool(b) => {
+                self.advance();
+                Ok(MatchPattern::Bool(b))
+            }
+
+            // Wildcard
+            Token::Identifier(ref name) if name == "_" => {
+                self.advance();
+                Ok(MatchPattern::Wildcard)
+            }
+
+            // Variable binding or type pattern
+            Token::Identifier(name) => {
+                self.advance();
+
+                // Check if it's a type pattern
+                if self.match_token(&Token::LeftParen) {
+                    // This is a type check pattern like `string(x)` or `number(_)`
+                    let param_type = match name.as_str() {
+                        "string" => ParamType::String,
+                        "number" => ParamType::Number,
+                        "bool" => ParamType::Bool,
+                        _ => {
+                            return Err(self.create_error(
+                                "valid type name".to_string(),
+                                Token::Identifier(name),
+                            ));
+                        }
+                    };
+
+                    self.consume_token(Token::RightParen)?;
+                    Ok(MatchPattern::Type(param_type))
+                } else {
+                    // Variable binding
+                    Ok(MatchPattern::Variable(name))
+                }
+            }
+
+            // Array pattern
+            Token::LeftBracket => {
+                self.advance();
+                let mut elements = Vec::new();
+                let mut rest = None;
+
+                if !self.check(&Token::RightBracket) {
+                    loop {
+                        // Check for rest pattern
+                        if self.match_token(&Token::Dot) {
+                            self.consume_token(Token::Dot)?; // second dot
+
+                            if self.check(&Token::Identifier("_".to_string())) {
+                                self.advance();
+                                elements.push(SpannedNode::new(
+                                    ArrayPatternElement::Rest(None),
+                                    self.get_current_span(),
+                                ));
+                            } else if let Token::Identifier(name) = self.peek().clone() {
+                                self.advance();
+                                rest = Some(name.clone());
+                                elements.push(SpannedNode::new(
+                                    ArrayPatternElement::Rest(Some(name)),
+                                    self.get_current_span(),
+                                ));
+                            } else {
+                                return Err(self.create_error(
+                                    "rest pattern variable or _".to_string(),
+                                    self.peek().clone(),
+                                ));
+                            }
+                            break; // Rest pattern must be last
+                        } else if self.check(&Token::Identifier("_".to_string())) {
+                            self.advance();
+                            elements.push(SpannedNode::new(
+                                ArrayPatternElement::Wildcard,
+                                self.get_current_span(),
+                            ));
+                        } else {
+                            let pattern = self.parse_match_pattern()?;
+                            elements.push(SpannedNode::new(
+                                ArrayPatternElement::Pattern(pattern),
+                                self.get_current_span(),
+                            ));
+                        }
+
+                        if !self.match_token(&Token::Comma) {
+                            break;
+                        }
+                    }
+                }
+
+                self.consume_token(Token::RightBracket)?;
+                Ok(MatchPattern::Array { elements, rest })
+            }
+
+            // Range starting with ..
+            Token::Dot => {
+                self.advance();
+                self.consume_token(Token::Dot)?;
+
+                let inclusive = self.match_token(&Token::Equals);
+
+                if self.check(&Token::Number(0.0)) {
+                    if let Token::Number(end) = self.peek().clone() {
+                        self.advance();
+                        Ok(MatchPattern::Range {
+                            start: None,
+                            end: Some(end),
+                            inclusive,
+                        })
+                    } else {
+                        Ok(MatchPattern::Range {
+                            start: None,
+                            end: None,
+                            inclusive,
+                        })
+                    }
+                } else {
+                    Ok(MatchPattern::Range {
+                        start: None,
+                        end: None,
+                        inclusive,
+                    })
+                }
+            }
+
+            // Parenthesized pattern
+            Token::LeftParen => {
+                self.advance();
+                let pattern = self.parse_match_pattern()?;
+                self.consume_token(Token::RightParen)?;
+                Ok(pattern)
+            }
+
+            _ => Err(self.create_error("match pattern".to_string(), self.peek().clone())),
+        }
+    }
+
+    /// Enhanced match statement parsing
     fn parse_match_statement(&mut self) -> Result<Statement> {
         self.consume_token(Token::Match)?;
         let expr = self.parse_expression()?;
@@ -319,12 +546,13 @@ impl Parser {
         while !self.check(&Token::RightBrace) && !self.is_at_end() {
             let arm_start = self.current;
 
-            let pattern = if self.check(&Token::String(String::new())) {
-                MatchPattern::String(self.parse_string()?)
-            } else if self.match_token(&Token::Identifier("_".to_string())) {
-                MatchPattern::Wildcard
+            let pattern = self.parse_match_pattern()?;
+
+            // Optional guard condition
+            let guard = if self.match_token(&Token::If) {
+                Some(self.parse_expression()?)
             } else {
-                return Err(self.create_error("match pattern".to_string(), self.peek().clone()));
+                None
             };
 
             self.consume_token(Token::FatArrow)?;
@@ -338,7 +566,13 @@ impl Parser {
 
             let arm_end = self.current;
             let arm_span = self.span_from_token_range(arm_start, arm_end);
-            let arm = MatchArm { pattern, body };
+
+            let arm = MatchArm {
+                pattern,
+                guard,
+                body,
+                bindings: HashMap::new(), // Will be populated during semantic analysis
+            };
             arms.push(SpannedNode::new(arm, arm_span));
 
             if !self.check(&Token::RightBrace) {
@@ -349,6 +583,59 @@ impl Parser {
         self.consume_token(Token::RightBrace)?;
 
         Ok(Statement::Match { expr, arms })
+    }
+
+    /// Enhanced match expression parsing
+    fn parse_match_expression(&mut self) -> Result<Expression> {
+        self.advance(); // consume 'match'
+        let expr = self.parse_expression()?;
+        self.consume_token(Token::LeftBrace)?;
+
+        let mut arms = Vec::new();
+
+        while !self.check(&Token::RightBrace) && !self.is_at_end() {
+            let arm_start = self.current;
+
+            let pattern = self.parse_match_pattern()?;
+
+            // Optional guard condition
+            let guard = if self.match_token(&Token::If) {
+                Some(self.parse_expression()?)
+            } else {
+                None
+            };
+
+            self.consume_token(Token::FatArrow)?;
+
+            let body_expr = self.parse_expression()?;
+
+            let arm_end = self.current;
+            let arm_span = self.span_from_token_range(arm_start, arm_end);
+
+            let arm = MatchExpressionArm {
+                pattern,
+                guard,
+                expr: body_expr,
+                bindings: HashMap::new(), // Will be populated during semantic analysis
+            };
+            arms.push(SpannedNode::new(arm, arm_span));
+
+            if !self.check(&Token::RightBrace) {
+                self.consume_token(Token::Comma)?;
+            }
+        }
+
+        self.consume_token(Token::RightBrace)?;
+
+        Ok(Expression::Match {
+            expr: Box::new(expr),
+            arms,
+        })
+    }
+
+    /// Helper method to peek ahead in the token stream
+    fn peek_ahead(&self, n: usize) -> Option<&Token> {
+        self.tokens.get(self.current + n).map(|token| &token.token)
     }
 
     fn parse_for_statement(&mut self) -> Result<Statement> {
@@ -537,51 +824,8 @@ impl Parser {
                     args,
                 })
             }
-            Token::Match => {
-                self.advance(); // consume 'match'
-                let expr = self.parse_expression()?;
-                self.consume_token(Token::LeftBrace)?;
+            Token::Match => self.parse_match_expression(),
 
-                let mut arms = Vec::new();
-
-                while !self.check(&Token::RightBrace) && !self.is_at_end() {
-                    let arm_start = self.current;
-
-                    let pattern = if self.check(&Token::String(String::new())) {
-                        MatchPattern::String(self.parse_string()?)
-                    } else if self.match_token(&Token::Identifier("_".to_string())) {
-                        MatchPattern::Wildcard
-                    } else {
-                        return Err(
-                            self.create_error("match pattern".to_string(), self.peek().clone())
-                        );
-                    };
-
-                    self.consume_token(Token::FatArrow)?;
-
-                    let body_expr = self.parse_expression()?;
-
-                    let arm_end = self.current;
-                    let arm_span = self.span_from_token_range(arm_start, arm_end);
-
-                    let arm = MatchExpressionArm {
-                        pattern,
-                        expr: body_expr,
-                    };
-                    arms.push(SpannedNode::new(arm, arm_span));
-
-                    if !self.check(&Token::RightBrace) {
-                        self.consume_token(Token::Comma)?;
-                    }
-                }
-
-                self.consume_token(Token::RightBrace)?;
-
-                Ok(Expression::Match {
-                    expr: Box::new(expr),
-                    arms,
-                })
-            }
             e => Err(self.create_error("expression".to_string(), e)),
         }
     }
