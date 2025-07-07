@@ -4,7 +4,7 @@ use core::{BraiseType, Spanned, TypedValue, ValueData, ast::*};
 use owo_colors::OwoColorize;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 mod context;
 use context::*;
@@ -21,6 +21,7 @@ pub struct Runtime {
     pub executor: Box<dyn Executor>,
     dry_run: bool,
     source: Arc<String>,
+    stack: Arc<RwLock<HashSet<String>>>,
 }
 
 impl Runtime {
@@ -31,6 +32,7 @@ impl Runtime {
             executor: Box::new(executor::DefaultExecutor::new(false)),
             dry_run: false,
             source,
+            stack: Default::default(),
         }
     }
 
@@ -50,21 +52,14 @@ impl Runtime {
         name: &str,
         user_params: HashMap<String, TypedValue>,
     ) -> Result<()> {
-        let mut stack = HashSet::new();
-        self._execute_recipe(name, user_params, &mut stack)
-    }
-
-    fn _execute_recipe(
-        &self,
-        name: &str,
-        user_params: HashMap<String, TypedValue>,
-        stack: &mut HashSet<String>,
-    ) -> Result<()> {
-        if !stack.insert(name.to_string()) {
-            return Err(RuntimeError::CircularDependency {
-                recipe: name.to_string(),
-                stack: stack.iter().cloned().collect(),
-            });
+        {
+            let mut stack = self.stack.write().unwrap();
+            if !stack.insert(name.to_string()) {
+                return Err(RuntimeError::CircularDependency {
+                    recipe: name.to_string(),
+                    stack: stack.iter().cloned().collect(),
+                });
+            }
         }
 
         let recipe = self
@@ -75,7 +70,7 @@ impl Runtime {
             .ok_or_else(|| RuntimeError::UndefinedRecipe(name.to_string()))?;
 
         for dep in &recipe.value.dependencies {
-            self._execute_recipe(dep, HashMap::new(), stack)?; // TODO: maybe pass args to deps ?
+            self.execute_recipe(dep, HashMap::new())?; // TODO: maybe pass args to deps ?
         }
         let mut context = self.resolve_parameters(&recipe.value, user_params)?;
 

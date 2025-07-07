@@ -537,7 +537,18 @@ impl DiagnosticsProvider {
             (Expression::Match { arms, .. }, e) => arms
                 .iter()
                 .all(|arm| self.is_expression_compatible_with_type(doc, &arm.value.expr, e)),
-            _ => false,
+            (_, BraiseType::Union(ïnner_types)) => ïnner_types
+                .iter()
+                .any(|inner_type| self.is_expression_compatible_with_type(doc, expr, inner_type)),
+            (Expression::Interpolation(_), BraiseType::String) => true,
+            (Expression::BinaryOp { left, right, .. }, e) => {
+                self.is_expression_compatible_with_type(doc, left, e)
+                    && self.is_expression_compatible_with_type(doc, right, e)
+            }
+            e => {
+                dbg!(e);
+                false
+            }
         }
     }
 

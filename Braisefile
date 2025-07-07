@@ -35,3 +35,19 @@ recipe "smart-build" {
         _ => run "cargo build"
     }
 }
+
+recipe "infinite" {
+    call @infinite
+}
+
+recipe "r1" {
+    call @r2
+}
+
+recipe "r2" {
+    call @r3
+}
+
+recipe "r3" {
+    call @r1
+}
