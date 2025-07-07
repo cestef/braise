@@ -536,10 +536,7 @@ impl DiagnosticsProvider {
             (Expression::Match { arms, .. }, e) => arms
                 .iter()
                 .all(|arm| self.is_expression_compatible_with_type(doc, &arm.value.expr, e)),
-            e => {
-                dbg!(e);
-                false
-            }
+            _ => false,
         }
     }
 
@@ -624,7 +621,7 @@ impl DiagnosticsProvider {
                     ..Default::default()
                 },
                 ParseError::InvalidExpression {
-                    expression,
+                    reason: expression,
                     code,
                     span,
                 } => Diagnostic {
@@ -649,6 +646,23 @@ impl DiagnosticsProvider {
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("parse_error".to_string())),
                     message: self.strip_colors(&e.to_string()),
+                    source: Some("braise".to_string()),
+                    ..Default::default()
+                },
+                ParseError::NonExhaustiveMatch {
+                    code,
+                    span,
+                    missing,
+                } => Diagnostic {
+                    range: self.source_span_to_range(span, code),
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("non_exhaustive_match".to_string())),
+                    message: format!(
+                        "Non-exhaustive match: {}",
+                        missing
+                            .as_deref()
+                            .unwrap_or("consider adding a wildcard pattern '_'")
+                    ),
                     source: Some("braise".to_string()),
                     ..Default::default()
                 },

@@ -15,14 +15,24 @@ pub enum ParseError {
         span: SourceSpan,
     },
 
-    #[error("Invalid expression: {expression}")]
+    #[error("Invalid expression: {reason}")]
     #[diagnostic(code(braise::parser::invalid_expression))]
     InvalidExpression {
-        expression: String,
+        reason: String,
         #[source_code]
         code: String,
         #[label("right here")]
         span: SourceSpan,
+    },
+    // #[error("Non-exhaustive match: consider adding a wildcard pattern '_'")]
+    #[error("Non-exhaustive match: {}", missing.as_deref().map(|s| format!("missing: '{}'", s)).unwrap_or("consider adding a wildcard pattern '_'".to_string()))]
+    #[diagnostic(code(braise::parser::non_exhaustive_match))]
+    NonExhaustiveMatch {
+        #[source_code]
+        code: String,
+        #[label("right here")]
+        span: SourceSpan,
+        missing: Option<String>,
     },
 
     #[error("Error: {0}")]

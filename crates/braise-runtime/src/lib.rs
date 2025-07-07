@@ -79,11 +79,7 @@ impl Runtime {
         }
         let mut context = self.resolve_parameters(&recipe.value, user_params)?;
 
-        if self.dry_run {
-            println!("🔍 Dry run for recipe: {name}");
-        } else {
-            println!("🔥 Running recipe: {name}");
-        }
+        println!("{}\n", name.bold().underline());
 
         for statement in &recipe.value.body {
             self.execute_statement(&statement, &mut context)?;
@@ -367,7 +363,6 @@ impl Runtime {
         let match_value = self.evaluate_expression(&expr, context)?;
 
         for arm in arms {
-            dbg!(&arm);
             let pattern_match = self.match_pattern(&arm.value.pattern, &match_value, context)?;
 
             if pattern_match.matched {
@@ -686,9 +681,21 @@ impl Runtime {
                     .iter()
                     .map(|elem| self.evaluate_expression(&elem, context))
                     .collect();
+                let values = values?;
+                let array_type = if elements.is_empty() {
+                    BraiseType::Array(Box::new(BraiseType::Any))
+                } else {
+                    let value_types: Vec<BraiseType> =
+                        values.iter().map(|v| v.value_type.clone()).collect();
+                    let common_type = value_types
+                        .into_iter()
+                        .reduce(|acc, t| acc.common_type(&t))
+                        .unwrap_or(BraiseType::Any);
+
+                    BraiseType::Array(Box::new(common_type))
+                };
                 Ok(TypedValue::new(
-                    values?,
-                    BraiseType::Array(Box::new(BraiseType::Any)), // TODO: infer actual type if possible?
+                    values, array_type, // TODO: infer actual type if possible?
                 ))
             }
             Expression::BinaryOp {

@@ -13,12 +13,15 @@ thiserror.workspace = true
 logos.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+tokio.workspace = true
+owo-colors.workspace = true
 
 core = { path = "../braise-core", package = "braise-core" }
 parser = { path = "../braise-parser", package = "braise-parser" }
 lexer = { path = "../braise-lexer", package = "braise-lexer" }
 runtime = { path = "../braise-runtime", package = "braise-runtime" }
 fmt = { path = "../braise-fmt", package = "braise-fmt" }
+lsp = { path = "../braise-lsp", package = "braise-lsp" }
 
 [[bin]]
 name = "braise"

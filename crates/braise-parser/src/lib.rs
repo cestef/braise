@@ -1,10 +1,7 @@
 #![feature(assert_matches)]
 
 use ::lexer::{SpannedToken, Token};
-use core::{
-    BraiseType, TypeInferenceEngine, TypeValidator, ast::*, error::parser::Result,
-    parser::ParseError, runtime::RuntimeError, *,
-};
+use core::{ast::*, error::parser::Result, parser::ParseError, *};
 use std::sync::Arc;
 
 mod expressions;
@@ -178,7 +175,7 @@ impl Parser {
         }
 
         for statement in &mut recipe.body {
-            self.type_check_statement(&mut statement.value)?;
+            self.type_check_statement(statement)?;
         }
 
         self.type_engine = original_engine;
@@ -186,12 +183,12 @@ impl Parser {
     }
 
     /// Type check a statement
-    fn type_check_statement(&mut self, statement: &mut Statement) -> Result<()> {
+    fn type_check_statement(&mut self, statement: &mut Spanned<Statement>) -> Result<()> {
         if !self.enable_type_checking {
             return Ok(());
         }
 
-        match statement {
+        match &mut statement.value {
             Statement::Let {
                 name,
                 value,
@@ -253,12 +250,12 @@ impl Parser {
                 }
 
                 for stmt in then_block {
-                    self.type_check_statement(&mut stmt.value)?;
+                    self.type_check_statement(stmt)?;
                 }
 
                 if let Some(else_stmts) = else_block {
                     for stmt in else_stmts {
-                        self.type_check_statement(&mut stmt.value)?;
+                        self.type_check_statement(stmt)?;
                     }
                 }
             }
@@ -301,7 +298,7 @@ impl Parser {
                 self.type_engine.define_variable(var.clone(), element_type);
 
                 for stmt in body {
-                    self.type_check_statement(&mut stmt.value)?;
+                    self.type_check_statement(stmt)?;
                 }
 
                 self.type_engine = original_engine;
@@ -313,9 +310,7 @@ impl Parser {
                 let patterns: Vec<MatchPattern> =
                     arms.iter().map(|arm| arm.value.pattern.clone()).collect();
 
-                if let Err(e) = TypeValidator::check_match_exhaustiveness(&expr_type, &patterns) {
-                    return Err(self.create_error_from_runtime_error(e, &expr.span));
-                }
+                self.check_match_exhaustiveness(&expr_type, &patterns, &statement.span)?;
 
                 for arm in arms {
                     let new_engine = self.type_engine.enter_scope();
@@ -323,7 +318,7 @@ impl Parser {
 
                     self.bind_pattern_variables(&arm.value.pattern, &expr_type)?;
                     for stmt in &mut arm.value.body {
-                        self.type_check_statement(&mut stmt.value)?;
+                        self.type_check_statement(stmt)?;
                     }
 
                     self.type_engine = original_engine;
@@ -361,7 +356,6 @@ impl Parser {
             }
             MatchPattern::Guard { pattern, .. } => {
                 self.bind_pattern_variables(&pattern.value, expr_type)?;
-                // TODO: check condition?
             }
             MatchPattern::Array { .. } => todo!(),
             _ => {}
@@ -509,9 +503,7 @@ impl Parser {
                 let patterns: Vec<MatchPattern> =
                     arms.iter().map(|arm| arm.value.pattern.clone()).collect();
 
-                if let Err(e) = TypeValidator::check_match_exhaustiveness(&expr_type, &patterns) {
-                    return Err(self.create_error_from_runtime_error(e, &expr.span));
-                }
+                self.check_match_exhaustiveness(&expr_type, &patterns, &expression.span)?;
 
                 let mut original_engine = self.type_engine.clone();
 
@@ -538,6 +530,73 @@ impl Parser {
         };
 
         Ok(expr_type)
+    }
+
+    /// Check exhaustiveness of match patterns
+    pub fn check_match_exhaustiveness(
+        &self,
+        expr_type: &BraiseType,
+        patterns: &[MatchPattern],
+        span: &Span,
+    ) -> Result<()> {
+        match expr_type {
+            BraiseType::Bool => {
+                let has_true = patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Bool(true)));
+                let has_false = patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Bool(false)));
+                let has_wildcard = patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Wildcard | MatchPattern::Variable(_)));
+
+                if !(has_wildcard || (has_true && has_false)) {
+                    return Err(ParseError::NonExhaustiveMatch {
+                        code: self.source.to_string(),
+                        span: span.into(),
+                        missing: Some("patterns for both true and false".to_string()),
+                    });
+                }
+            }
+
+            BraiseType::Enum(variants) => {
+                let has_wildcard = patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Wildcard | MatchPattern::Variable(_)));
+
+                if !has_wildcard {
+                    for variant in variants {
+                        let is_covered = patterns
+                            .iter()
+                            .any(|p| matches!(p, MatchPattern::String(s) if s == variant));
+                        if !is_covered {
+                            return Err(ParseError::NonExhaustiveMatch {
+                                code: self.source.to_string(),
+                                span: span.into(),
+                                missing: Some(format!("pattern for enum variant '{}'", variant)),
+                            });
+                        }
+                    }
+                }
+            }
+
+            e => {
+                let has_wildcard = patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Wildcard | MatchPattern::Variable(_)));
+
+                if !has_wildcard {
+                    return Err(ParseError::NonExhaustiveMatch {
+                        code: self.source.to_string(),
+                        span: span.into(),
+                        missing: Some(format!("patterns for type '{}'", e.to_string())),
+                    });
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Get the return type of a builtin function
@@ -571,7 +630,6 @@ impl Parser {
         }
     }
 
-    /// Create a type error with better formatting
     fn create_type_error(
         &self,
         expected: String,
@@ -590,25 +648,15 @@ impl Parser {
         }
 
         ParseError::InvalidExpression {
-            expression: message,
+            reason: message,
             code: self.source.as_ref().clone(),
             span: span.into(),
         }
     }
 
-    /// Create an undefined variable error
     fn create_undefined_variable_error(&self, name: &str, span: &Span) -> ParseError {
         ParseError::InvalidExpression {
-            expression: format!("Undefined variable: '{}'", name),
-            code: self.source.as_ref().clone(),
-            span: span.into(),
-        }
-    }
-
-    /// Convert a runtime error to a parse error
-    fn create_error_from_runtime_error(&self, error: RuntimeError, span: &Span) -> ParseError {
-        ParseError::InvalidExpression {
-            expression: error.to_string(),
+            reason: format!("Undefined variable: '{}'", name),
             code: self.source.as_ref().clone(),
             span: span.into(),
         }

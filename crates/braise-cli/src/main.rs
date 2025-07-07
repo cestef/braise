@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use core::{cli::CliError, constants::DEFAULT_FILES};
 use lexer::tokenize;
+use owo_colors::OwoColorize;
 use parser::Parser as BraiseParser;
 use runtime::Runtime;
 use std::sync::Arc;
@@ -50,15 +51,12 @@ enum Commands {
     Info { recipe: String },
 }
 
-fn main() -> miette::Result<()> {
+#[tokio::main]
+async fn main() -> miette::Result<()> {
     miette::set_hook(Box::new(|_| {
         Box::new(miette::MietteHandlerOpts::new().build())
     }))?;
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .with_writer(std::io::stderr)
-        .init();
-    tracing::info!("Braise CLI started");
+
     let cli = Cli::parse();
 
     let file = if let Some(file) = cli.file {
@@ -75,7 +73,7 @@ fn main() -> miette::Result<()> {
     match cli.command {
         Some(Commands::List) => list_recipes(&contents, &file)?,
         Some(Commands::Format { stdout }) => format_recipe(&contents, &file, stdout)?,
-        Some(Commands::Lsp) => start_lsp()?,
+        Some(Commands::Lsp) => start_lsp().await?,
         Some(Commands::Info { recipe }) => show_recipe_info(&contents, &file, &recipe)?,
         None => {
             if let Some(recipe_name) = cli.recipe {
@@ -122,15 +120,24 @@ fn list_recipes(contents: &str, file: &str) -> core::Result<()> {
         return Ok(());
     }
 
-    println!("📋 Available recipes:");
+    println!("{}", "Available recipes:".underline());
     for recipe in &ast.recipes {
         let deps = if recipe.value.dependencies.is_empty() {
             String::new()
         } else {
-            format!(" → {}", recipe.value.dependencies.join(", "))
+            format!(
+                " → {}",
+                recipe
+                    .value
+                    .dependencies
+                    .iter()
+                    .map(|e| e.dimmed().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
         };
 
-        print!("  {}{}", recipe.value.name, deps);
+        print!("  {}{}", recipe.value.name.bold(), deps);
 
         if !recipe.value.parameters.is_empty() {
             let params: Vec<String> = recipe
@@ -139,9 +146,9 @@ fn list_recipes(contents: &str, file: &str) -> core::Result<()> {
                 .iter()
                 .map(|p| {
                     if p.value.default.is_some() {
-                        format!("[{}]", p.value.name)
+                        p.value.name.dimmed().green().to_string()
                     } else {
-                        p.value.name.clone()
+                        p.value.name.green().to_string()
                     }
                 })
                 .collect();
@@ -163,14 +170,14 @@ fn format_recipe(contents: &str, file: &str, stdout: bool) -> core::Result<()> {
             src: Box::new(e),
             file: file.to_string(),
         })?;
-        println!("✨ Formatted {file}");
+        println!("✨ Formatted {}", file.bold());
     }
 
     Ok(())
 }
 
-fn start_lsp() -> core::Result<()> {
-    Ok(())
+async fn start_lsp() -> miette::Result<()> {
+    lsp::run().await
 }
 
 fn show_recipe_info(contents: &str, file: &str, recipe_name: &str) -> core::Result<()> {
@@ -184,14 +191,14 @@ fn show_recipe_info(contents: &str, file: &str, recipe_name: &str) -> core::Resu
         .find(|r| r.value.name == recipe_name)
         .ok_or_else(|| core::runtime::RuntimeError::UndefinedRecipe(recipe_name.to_string()))?;
 
-    println!("🔍 Recipe: {}", recipe.value.name);
+    println!("{}", recipe.value.name.bold().underline());
 
     if !recipe.value.dependencies.is_empty() {
         println!("   Dependencies: {}", recipe.value.dependencies.join(" → "));
     }
 
     if !recipe.value.parameters.is_empty() {
-        println!("   Parameters:");
+        println!("  {}", "Parameters:".underline());
         for param in &recipe.value.parameters {
             let default = if let Some(ref default_expr) = param.value.default {
                 format!(" = {}", format_expression_preview(&default_expr.value))
@@ -199,13 +206,13 @@ fn show_recipe_info(contents: &str, file: &str, recipe_name: &str) -> core::Resu
                 String::new()
             };
             println!(
-                "     {}: {}{}",
+                "       {}: {}{}",
                 param.value.name, param.value.param_type, default
             );
         }
     }
 
-    println!("   Steps: {}", recipe.value.body.len());
+    println!("  {} {}", "Steps:".underline(), recipe.value.body.len());
 
     Ok(())
 }

@@ -29,8 +29,8 @@ impl BraiseType {
 
             (BraiseType::Enum(a), BraiseType::Enum(b)) => a == b,
 
-            (BraiseType::Union(types), other) => types.iter().any(|t| t == other),
-            (other, BraiseType::Union(types)) => types.iter().any(|t| t == other),
+            (BraiseType::Union(types), other) => types.iter().any(|t| t.is_compatible_with(other)),
+            (other, BraiseType::Union(types)) => types.iter().any(|t| other.is_compatible_with(t)),
 
             (BraiseType::Optional(inner), other) => inner.is_compatible_with(other),
             (other, BraiseType::Optional(inner)) => other.is_compatible_with(inner),
@@ -90,10 +90,7 @@ impl BraiseType {
             (other, BraiseType::Optional(inner)) => {
                 other.can_convert_from(inner) || other == &BraiseType::Any
             }
-            w => {
-                dbg!(&w);
-                false
-            }
+            w => false,
         }
     }
 
@@ -626,7 +623,8 @@ mod tests {
 
         assert!(union_type.is_compatible_with(&BraiseType::String));
         assert!(union_type.is_compatible_with(&BraiseType::Number));
-        assert!(!union_type.is_compatible_with(&BraiseType::Bool));
+        assert!(union_type.is_compatible_with(&BraiseType::Bool));
+        assert!(!union_type.is_compatible_with(&BraiseType::Array(Box::new(BraiseType::String))));
     }
 
     #[test]

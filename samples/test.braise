@@ -20,11 +20,10 @@ recipe "infoo" {
     print "CPU cores: ${cpu.count()}"
     if cpu.count() > 4 {
         print "You have a powerful CPU!"
-    } else {
+        } else {
         print "Your CPU is not very powerful."
     }
     print "Home: ${env.HOME}"
-
 
     for file in ["package.json", "Cargo.toml", "README.md"] {
         if fs.exists(file) {
@@ -37,7 +36,7 @@ recipe "infoo" {
 
 recipe "flexible" {
     param input: number | string = 11
-    param count: number | ["123", "456"] = "asdf"
+    param count: number | ["123", "456"] = "123"
 
     let value: string = match input {
         n if n > 10 => "large: ${n}",

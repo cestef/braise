@@ -485,69 +485,6 @@ impl TypeValidator {
             _ => None,
         }
     }
-
-    /// Check exhaustiveness of match patterns
-    pub fn check_match_exhaustiveness(
-        expr_type: &BraiseType,
-        patterns: &[MatchPattern],
-    ) -> Result<(), RuntimeError> {
-        match expr_type {
-            BraiseType::Bool => {
-                let has_true = patterns
-                    .iter()
-                    .any(|p| matches!(p, MatchPattern::Bool(true)));
-                let has_false = patterns
-                    .iter()
-                    .any(|p| matches!(p, MatchPattern::Bool(false)));
-                let has_wildcard = patterns
-                    .iter()
-                    .any(|p| matches!(p, MatchPattern::Wildcard | MatchPattern::Variable(_)));
-
-                if !(has_wildcard || (has_true && has_false)) {
-                    return Err(RuntimeError::Other(
-                        "Non-exhaustive match: missing patterns for boolean values".to_string(),
-                    )
-                    .into());
-                }
-            }
-
-            BraiseType::Enum(variants) => {
-                let has_wildcard = patterns
-                    .iter()
-                    .any(|p| matches!(p, MatchPattern::Wildcard | MatchPattern::Variable(_)));
-
-                if !has_wildcard {
-                    for variant in variants {
-                        let is_covered = patterns
-                            .iter()
-                            .any(|p| matches!(p, MatchPattern::String(s) if s == variant));
-                        if !is_covered {
-                            return Err(RuntimeError::Other(format!(
-                                "Non-exhaustive match: missing pattern for variant '{}'",
-                                variant
-                            ))
-                            .into());
-                        }
-                    }
-                }
-            }
-
-            _ => {
-                let has_wildcard = patterns
-                    .iter()
-                    .any(|p| matches!(p, MatchPattern::Wildcard | MatchPattern::Variable(_)));
-
-                if !has_wildcard {
-                    return Err(RuntimeError::Other(
-                        "Non-exhaustive match: consider adding a wildcard pattern '_'".to_string(),
-                    )
-                    .into());
-                }
-            }
-        }
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -672,23 +609,6 @@ mod tests {
 
         let result =
             TypeValidator::validate_usage(&BraiseType::Number, &BraiseType::Bool, "test context");
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_match_exhaustiveness() {
-        let bool_patterns = vec![MatchPattern::Bool(true), MatchPattern::Bool(false)];
-        let result = TypeValidator::check_match_exhaustiveness(&BraiseType::Bool, &bool_patterns);
-        assert!(result.is_ok());
-
-        let incomplete_patterns = vec![MatchPattern::Bool(true)];
-        let result =
-            TypeValidator::check_match_exhaustiveness(&BraiseType::Bool, &incomplete_patterns);
-        assert!(result.is_err());
-
-        let enum_type = BraiseType::Enum(vec!["a".to_string(), "b".to_string()]);
-        let wildcard_patterns = vec![MatchPattern::Wildcard];
-        let result = TypeValidator::check_match_exhaustiveness(&enum_type, &wildcard_patterns);
         assert!(result.is_ok());
     }
 }

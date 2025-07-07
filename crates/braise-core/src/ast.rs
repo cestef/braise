@@ -78,13 +78,22 @@ impl Parameter {
         self
     }
 
-    /// Get the effective type (wrap in Optional if needed)
     pub fn effective_type(&self) -> BraiseType {
-        if self.optional && !matches!(self.param_type, BraiseType::Optional(_)) {
-            BraiseType::Optional(Box::new(self.param_type.clone()))
-        } else {
-            self.param_type.clone()
+        match (&self.param_type, self.has_default()) {
+            // If already optional, don't double-wrap
+            (BraiseType::Optional(_), _) => self.param_type.clone(),
+            // If has default but not explicitly optional, wrap in Optional
+            (inner_type, true) if !self.optional => {
+                BraiseType::Optional(Box::new(inner_type.clone()))
+            }
+            // Otherwise use as-is
+            _ => self.param_type.clone(),
         }
+    }
+
+    /// Check if this parameter has a default value
+    pub fn has_default(&self) -> bool {
+        self.default.is_some()
     }
 }
 
