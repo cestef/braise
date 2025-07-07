@@ -60,6 +60,8 @@ pub enum Token {
     Call,
     #[token("shell")]
     Shell,
+    #[token("cache")]
+    Cache,
 
     // Type keywords
     #[token("string")]

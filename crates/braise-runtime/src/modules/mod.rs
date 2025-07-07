@@ -158,9 +158,13 @@ use cpu::CpuModule;
 mod fs;
 use fs::FsModule;
 
+mod os;
+use os::OsModule;
+
 register_modules! {
     "git" => GitModule,
     "env" => EnvModule,
     "cpu" => CpuModule,
     "fs" => FsModule,
+    "os" => OsModule,
 }

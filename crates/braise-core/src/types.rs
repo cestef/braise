@@ -90,7 +90,7 @@ impl BraiseType {
             (other, BraiseType::Optional(inner)) => {
                 other.can_convert_from(inner) || other == &BraiseType::Any
             }
-            w => false,
+            _ => false,
         }
     }
 

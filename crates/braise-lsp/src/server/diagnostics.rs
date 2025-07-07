@@ -210,13 +210,14 @@ impl DiagnosticsProvider {
             } else {
                 param_names.insert(name.clone(), param.span.clone());
             }
-
+            let param_inner_type = if let BraiseType::Optional(inner_type) = &param.value.param_type
+            {
+                inner_type.clone()
+            } else {
+                Box::new(param.value.param_type.clone())
+            };
             if let Some(ref default_expr) = param.value.default
-                && !self.is_expression_compatible_with_type(
-                    doc,
-                    default_expr,
-                    &param.value.param_type,
-                )
+                && !self.is_expression_compatible_with_type(doc, default_expr, &param_inner_type)
             {
                 diagnostics.push(Diagnostic {
                     range: span_to_range(&default_expr.span),

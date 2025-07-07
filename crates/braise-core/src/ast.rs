@@ -44,6 +44,7 @@ pub struct Recipe {
     pub dependencies: Vec<String>,
     pub parameters: Vec<SpannedNode<Parameter>>,
     pub body: Vec<SpannedNode<Statement>>,
+    pub cache: Vec<String>,
 }
 
 #[derive(Debug, Clone)]

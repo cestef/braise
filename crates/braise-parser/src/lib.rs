@@ -66,10 +66,26 @@ impl Parser {
 
         let mut parameters = Vec::new();
         let mut body = Vec::new();
+        let mut cache = Vec::new();
 
         while !self.check(&Token::RightBrace) && !self.is_at_end() {
             if self.check(&Token::Param) {
                 parameters.push(self.parse_parameter()?);
+            } else if self.check(&Token::Cache) {
+                self.consume_token(Token::Cache)?;
+                if self.match_token(&Token::LeftBracket) {
+                    let mut keys = Vec::new();
+                    if !self.check(&Token::RightBracket) {
+                        loop {
+                            keys.push(self.parse_string()?);
+                            if !self.match_token(&Token::Comma) {
+                                break;
+                            }
+                        }
+                    }
+                    self.consume_token(Token::RightBracket)?;
+                    cache = keys;
+                }
             } else {
                 body.push(self.parse_statement()?);
             }
@@ -83,6 +99,7 @@ impl Parser {
             dependencies,
             parameters,
             body,
+            cache,
         };
 
         let span = self.span_from_token_range(start_token, end_token);

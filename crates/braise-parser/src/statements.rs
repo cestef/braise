@@ -349,23 +349,6 @@ impl Parser {
 
         Ok(())
     }
-
-    /// Check if a match statement is exhaustive
-    pub fn validate_match_exhaustiveness(
-        &self,
-        expr_type: &BraiseType,
-        arms: &[SpannedNode<MatchArm>],
-    ) -> Result<()> {
-        if !self.enable_type_checking {
-            return Ok(());
-        }
-
-        let patterns: Vec<MatchPattern> =
-            arms.iter().map(|arm| arm.value.pattern.clone()).collect();
-
-        core::TypeValidator::check_match_exhaustiveness(expr_type, &patterns)
-            .map_err(|_| self.create_error("match exhaustiveness".to_string(), Token::Match))
-    }
 }
 
 #[cfg(test)]
