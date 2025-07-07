@@ -184,6 +184,7 @@ impl SymbolProvider {
                 name,
                 value,
                 param_type,
+                ..
             } => {
                 let value_preview = value
                     .as_ref()

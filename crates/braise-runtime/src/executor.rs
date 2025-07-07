@@ -75,7 +75,6 @@ pub struct StringExecutor {
 
 impl Executor for StringExecutor {
     fn run(&self, input: &str, shell: Option<&String>) -> Result<()> {
-        // pipe cmd outptu to a string
         if self.dry_run {
             let mut output = self.output.lock().unwrap();
             output.push_str(&format!("Dry run: {input}\n"));

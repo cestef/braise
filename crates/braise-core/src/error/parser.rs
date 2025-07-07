@@ -15,7 +15,8 @@ pub enum ParseError {
         span: SourceSpan,
     },
 
-    #[error("Invalid expression")]
+    #[error("Invalid expression: {expression}")]
+    #[diagnostic(code(braise::parser::invalid_expression))]
     InvalidExpression {
         expression: String,
         #[source_code]
@@ -25,6 +26,7 @@ pub enum ParseError {
     },
 
     #[error("Error: {0}")]
+    #[diagnostic(code(braise::parser::other))]
     Other(String),
 }
 

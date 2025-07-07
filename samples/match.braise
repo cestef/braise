@@ -1,12 +1,9 @@
-// Enhanced Match Pattern Examples for Braisé
-
-// 1. Basic Literal Patterns
 recipe "basic" {
     param status: ["success", "error", "pending"] = "success"
     param count: number = 5
     param enabled: bool = true
 
-    // String matching
+
     match status {
         "success" => print "✅ Operation completed successfully!",
         "error" => print "❌ Operation failed!",
@@ -14,7 +11,7 @@ recipe "basic" {
         _ => print "❓ Unknown status"
     }
 
-    // Number matching
+
     match count {
         0 => print "No items",
         1 => print "Single item",
@@ -22,7 +19,7 @@ recipe "basic" {
         _ => print "Multiple items"
     }
 
-    // Boolean matching
+
     match enabled {
         true => print "Feature is enabled",
         false => print "Feature is disabled"

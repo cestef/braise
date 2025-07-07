@@ -189,7 +189,7 @@ export class BraiseCommandManager {
 			});
 
 			if (value === undefined) {
-				return null; // User cancelled
+				return null;
 			}
 
 			collected[param.name] = value;

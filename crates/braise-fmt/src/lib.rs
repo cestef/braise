@@ -24,7 +24,7 @@ impl Default for FormatterConfig {
 #[derive(Debug)]
 struct ParsedLine<'a> {
     code: Cow<'a, str>,
-    comment_start: Option<usize>, // Position where comment starts in original line
+    comment_start: Option<usize>,
     is_full_line_comment: bool,
     indent_delta: i8, // -1 for closing brace, +1 for opening brace, 0 for no change
 }
@@ -65,7 +65,6 @@ impl Formatter {
 
     /// Main entry point for formatting Braise code
     pub fn format_text(&self, text: &str) -> String {
-        // Pre-allocate with a reasonable estimate
         let mut output = String::with_capacity(text.len() + (text.len() >> 3)); // +12.5% capacity
 
         let lines: Vec<&str> = text.lines().collect();
@@ -73,13 +72,10 @@ impl Formatter {
             return String::new();
         }
 
-        // Parse all lines with minimal allocations
         let parsed_lines = self.parse_lines(&lines);
 
-        // Calculate final indentation levels
         let indent_levels = self.calculate_indent_levels(&parsed_lines);
 
-        // Format and write directly to output buffer
         self.write_formatted_lines(&mut output, &lines, &parsed_lines, &indent_levels);
 
         output
@@ -106,7 +102,6 @@ impl Formatter {
             };
         }
 
-        // Check if it's a full-line comment
         if trimmed.starts_with("//") {
             return ParsedLine {
                 code: self.clean_spaces_cow(trimmed),
@@ -116,7 +111,6 @@ impl Formatter {
             };
         }
 
-        // Find comment position in the original line (not trimmed)
         let comment_pos = self.find_comment_position(line);
 
         let (code_part, indent_delta) = if let Some(pos) = comment_pos {
@@ -144,18 +138,16 @@ impl Formatter {
             (true, true) => 0,   // }{ - closes one, opens one
             (true, false) => -1, // } - closes one
             (false, true) => 1,  // { - opens one
-            (false, false) => 0, // no braces
+            (false, false) => 0,
         }
     }
 
     /// Clean spaces with copy-on-write optimization
     fn clean_spaces_cow<'a>(&self, text: &'a str) -> Cow<'a, str> {
-        // Fast path: check if cleaning is needed
         if !self.needs_space_cleaning(text) {
             return Cow::Borrowed(text);
         }
 
-        // Slow path: clean spaces
         let mut result = String::with_capacity(text.len());
         let chars = text.chars();
         let mut in_string = false;
@@ -208,7 +200,7 @@ impl Formatter {
                 '"' => in_string = !in_string,
                 ' ' if !in_string => {
                     if last_was_space {
-                        return true; // Found duplicate spaces
+                        return true;
                     }
                     last_was_space = true;
                 }
@@ -249,14 +241,12 @@ impl Formatter {
         let mut current_level = 0u16;
 
         for line in parsed_lines {
-            // Apply closing brace reduction first
             if line.indent_delta < 0 && !line.is_full_line_comment {
                 current_level = current_level.saturating_sub(1);
             }
 
             levels.push(current_level);
 
-            // Apply opening brace increase after
             if line.indent_delta > 0 && !line.is_full_line_comment {
                 current_level += 1;
             }
@@ -299,7 +289,6 @@ impl Formatter {
         while i < parsed_lines.len() {
             let line = &parsed_lines[i];
 
-            // Handle empty lines
             if line.code.is_empty() {
                 consecutive_empty += 1;
                 if consecutive_empty <= self.config.max_consecutive_blank_lines {
@@ -311,18 +300,15 @@ impl Formatter {
 
             consecutive_empty = 0;
 
-            // Skip full-line comments and lines without inline comments
             if line.is_full_line_comment || line.comment_start.is_none() {
                 self.write_single_line(output, original_lines[i], line, indent_levels[i]);
                 i += 1;
                 continue;
             }
 
-            // Find consecutive lines with inline comments to align
             let group_end = self.find_comment_group_end(parsed_lines, i);
 
             if group_end - i >= 2 {
-                // Align this group of comments
                 self.write_aligned_comment_group(
                     output,
                     original_lines,
@@ -333,13 +319,11 @@ impl Formatter {
                 );
                 i = group_end;
             } else {
-                // Single line, format normally
                 self.write_single_line(output, original_lines[i], line, indent_levels[i]);
                 i += 1;
             }
         }
 
-        // Remove trailing newlines
         while output.ends_with('\n') {
             output.pop();
         }
@@ -368,7 +352,6 @@ impl Formatter {
             self.write_single_line(output, original_lines[i], line, indent_levels[i]);
         }
 
-        // Remove trailing newlines
         while output.ends_with('\n') {
             output.pop();
         }
@@ -400,7 +383,6 @@ impl Formatter {
         start: usize,
         end: usize,
     ) {
-        // Calculate max code length for this group
         let max_code_len = (start..end)
             .map(|i| {
                 let indent = (indent_levels[i] as usize) * (self.config.indent_size as usize);
@@ -411,21 +393,17 @@ impl Formatter {
 
         let comment_start = max_code_len + (self.config.min_comment_spacing as usize);
 
-        // Write each line in the group
         for i in start..end {
             let line = &parsed_lines[i];
             let original = original_lines[i];
             let indent = (indent_levels[i] as usize) * (self.config.indent_size as usize);
 
-            // Write indentation
             for _ in 0..indent {
                 output.push(' ');
             }
 
-            // Write code
             output.push_str(&line.code);
 
-            // Write aligned comment
             if let Some(comment_pos) = line.comment_start {
                 let current_pos = indent + line.code.len();
                 let spaces_needed = comment_start.saturating_sub(current_pos);
@@ -454,19 +432,16 @@ impl Formatter {
             return;
         }
 
-        // Write indentation
         let indent = (indent_level as usize) * (self.config.indent_size as usize);
         for _ in 0..indent {
             output.push(' ');
         }
 
-        // Write code
         output.push_str(&parsed_line.code);
 
-        // Write comment if present
         if let Some(comment_pos) = parsed_line.comment_start {
             output.push_str("  ");
-            // Make sure we're getting the comment from the right position in the original line
+
             let comment_part = &original_line[comment_pos..];
             output.push_str(comment_part);
         }
@@ -523,7 +498,7 @@ run "echo hello"
 }"#;
 
         let result = Formatter::format(input);
-        // Should align comments efficiently
+
         assert!(result.contains("// Parameter name"));
         assert!(result.contains("// User age"));
     }

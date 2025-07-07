@@ -14,18 +14,35 @@ recipe "recipe2" {
     run "echo recipe2 ${message}"
 }
 
-recipe "info" {
+recipe "infoo" {
     print "Branch: ${git.branch()}"
     print "Commit: ${git.commit_hash_short()}"
     print "CPU cores: ${cpu.count()}"
+    if cpu.count() > 4 {
+        print "You have a powerful CPU!"
+    } else {
+        print "Your CPU is not very powerful."
+    }
     print "Home: ${env.HOME}"
 
 
     for file in ["package.json", "Cargo.toml", "README.md"] {
         if fs.exists(file) {
             print "${file} exists"
-        } else {
+            } else {
             print "${file} does not exist"
         }
     }
+}
+
+recipe "flexible" {
+    param input: number | string = 11
+    param count: number | ["123", "456"] = "asdf"
+
+    let value: string = match input {
+        n if n > 10 => "large: ${n}",
+        s => "value: ${s}"
+    }
+
+    print value
 }

@@ -12,11 +12,11 @@ recipe "test" {
 }
 
 recipe "deploy" {
-    param env: ["dev", "prod"] = "dev"  // enum
-    param version: string               // required
-    param force: bool = false           // boolean
-    param replicas: number = 3          // number
-    param services: [string] = []       // array
+    param env: ["dev", "prod"] = "dev"
+    param version: string
+    param force: bool = false
+    param replicas: number = 3
+    param services: [string] = []
 
     print "Deploying version ${version} to ${env} environment with ${replicas} replicas."
     if force {

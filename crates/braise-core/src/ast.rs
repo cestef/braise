@@ -1,6 +1,5 @@
+use crate::{BraiseType, Span, Spanned};
 use std::collections::HashMap;
-
-use crate::{Span, Spanned};
 
 pub type SpannedNode<T> = Spanned<T>;
 
@@ -9,6 +8,34 @@ pub struct Config {
     pub recipes: Vec<SpannedNode<Recipe>>,
     pub shell: Option<String>,
     pub span: Span,
+}
+
+impl std::fmt::Display for Config {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for recipe in &self.recipes {
+            writeln!(f, "Recipe: {}", recipe.value.name)?;
+            if !recipe.value.dependencies.is_empty() {
+                writeln!(f, "  Dependencies: {:?}", recipe.value.dependencies)?;
+            }
+            for param in &recipe.value.parameters {
+                writeln!(
+                    f,
+                    "  Parameter: {} ({})",
+                    param.value.name, param.value.param_type
+                )?;
+                if let Some(default) = &param.value.default {
+                    writeln!(f, "    Default: {}", default.value)?;
+                }
+            }
+            for stmt in &recipe.value.body {
+                writeln!(f, "  Statement: {:#?}", stmt.value)?;
+            }
+        }
+        if let Some(shell) = &self.shell {
+            writeln!(f, "Shell: {}", shell)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -22,67 +49,41 @@ pub struct Recipe {
 #[derive(Debug, Clone)]
 pub struct Parameter {
     pub name: String,
-    pub param_type: ParamType,
+    pub param_type: BraiseType,
     pub default: Option<SpannedNode<Expression>>,
+    pub optional: bool,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ParamType {
-    String,
-    Number,
-    Bool,
-    Array(Box<ParamType>),
-    Enum(Vec<String>),
-    Recipe,
-    // TODO: more types ?
-}
-
-impl ParamType {
-    /// Check if a type is compatible with another (for validation)
-    pub fn is_compatible_with(&self, other: &ParamType) -> bool {
-        match (self, other) {
-            (ParamType::String, ParamType::String) => true,
-            (ParamType::Number, ParamType::Number) => true,
-            (ParamType::Bool, ParamType::Bool) => true,
-            (ParamType::Array(a), ParamType::Array(b)) => a.is_compatible_with(b),
-            (ParamType::Enum(a), ParamType::Enum(b)) => a == b,
-            (ParamType::Number, ParamType::String) => true,
-            (ParamType::Bool, ParamType::String) => true,
-            _ => false,
+impl Parameter {
+    /// Create a new parameter
+    pub fn new(name: String, param_type: BraiseType) -> Self {
+        Self {
+            name,
+            param_type,
+            default: None,
+            optional: false,
         }
     }
 
-    /// Get the default value for this type
-    pub fn default_value(&self) -> Expression {
-        match self {
-            ParamType::String => Expression::String(String::new()),
-            ParamType::Number => Expression::Number(0.0),
-            ParamType::Bool => Expression::Bool(false),
-            ParamType::Array(_) => Expression::Array(Vec::new()),
-            ParamType::Enum(variants) => {
-                if let Some(first) = variants.first() {
-                    Expression::String(first.clone())
-                } else {
-                    Expression::String(String::new())
-                }
-            }
-            ParamType::Recipe => Expression::RecipeRef {
-                recipe: String::new(),
-                args: HashMap::new(),
-            },
-        }
+    /// Make this parameter optional
+    pub fn optional(mut self) -> Self {
+        self.optional = true;
+        self
     }
-}
 
-impl std::fmt::Display for ParamType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParamType::String => write!(f, "string"),
-            ParamType::Number => write!(f, "number"),
-            ParamType::Bool => write!(f, "bool"),
-            ParamType::Array(element_type) => write!(f, "array[{element_type}]"),
-            ParamType::Enum(variants) => write!(f, "enum[{}]", variants.join(", ")),
-            ParamType::Recipe => write!(f, "recipe"),
+    /// Set a default value
+    pub fn with_default(mut self, default: SpannedNode<Expression>) -> Self {
+        self.default = Some(default);
+        self.optional = true;
+        self
+    }
+
+    /// Get the effective type (wrap in Optional if needed)
+    pub fn effective_type(&self) -> BraiseType {
+        if self.optional && !matches!(self.param_type, BraiseType::Optional(_)) {
+            BraiseType::Optional(Box::new(self.param_type.clone()))
+        } else {
+            self.param_type.clone()
         }
     }
 }
@@ -110,7 +111,8 @@ pub enum Statement {
     Let {
         name: String,
         value: Option<SpannedNode<Expression>>,
-        param_type: ParamType,
+        param_type: BraiseType,
+        inferred_type: Option<BraiseType>,
     },
     Assign {
         name: String,
@@ -126,155 +128,6 @@ pub enum Statement {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum MatchPattern {
-    // Literal patterns
-    String(String),
-    Number(f64),
-    Bool(bool),
-
-    // Wildcard pattern
-    Wildcard,
-
-    // Variable binding pattern (captures the value)
-    Variable(String),
-
-    // Or pattern (multiple alternatives)
-    Or(Vec<SpannedNode<MatchPattern>>),
-
-    // Range patterns
-    Range {
-        start: Option<f64>, // None means unbounded
-        end: Option<f64>,   // None means unbounded
-        inclusive: bool,    // true for ..=, false for ..
-    },
-
-    // Array patterns
-    Array {
-        elements: Vec<SpannedNode<ArrayPatternElement>>,
-        rest: Option<String>, // Variable to capture remaining elements
-    },
-
-    // Guard pattern (pattern with condition)
-    Guard {
-        pattern: Box<SpannedNode<MatchPattern>>,
-        condition: SpannedNode<Expression>,
-    },
-
-    // Type checking pattern
-    Type(ParamType),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ArrayPatternElement {
-    // Exact element pattern
-    Pattern(MatchPattern),
-    // Wildcard element
-    Wildcard,
-    // Rest pattern (captures remaining elements)
-    Rest(Option<String>), // None for .._, Some(name) for ..name
-}
-
-// Enhanced match arm to support variable bindings
-#[derive(Debug, Clone)]
-pub struct MatchArm {
-    pub pattern: MatchPattern,
-    pub guard: Option<SpannedNode<Expression>>, // Additional guard condition
-    pub body: Vec<SpannedNode<Statement>>,
-    pub bindings: HashMap<String, String>, // Maps pattern variables to their types
-}
-
-// For expression matches
-#[derive(Debug, Clone, PartialEq)]
-pub struct MatchExpressionArm {
-    pub pattern: MatchPattern,
-    pub guard: Option<SpannedNode<Expression>>,
-    pub expr: SpannedNode<Expression>,
-    pub bindings: HashMap<String, String>,
-}
-
-// Helper for pattern matching in runtime
-#[derive(Debug, Clone)]
-pub struct PatternMatch<T> {
-    pub matched: bool,
-    pub bindings: HashMap<String, T>,
-}
-
-impl MatchPattern {
-    /// Check if this pattern can match the given value type
-    pub fn can_match_type(&self, value_type: &ParamType) -> bool {
-        match (self, value_type) {
-            (MatchPattern::String(_), ParamType::String) => true,
-            (MatchPattern::Number(_), ParamType::Number) => true,
-            (MatchPattern::Bool(_), ParamType::Bool) => true,
-            (MatchPattern::Array { .. }, ParamType::Array(_)) => true,
-            (MatchPattern::Type(pattern_type), _) => pattern_type == value_type,
-            (MatchPattern::Wildcard, _) => true,
-            (MatchPattern::Variable(_), _) => true,
-            (MatchPattern::Or(patterns), _) => {
-                patterns.iter().any(|p| p.value.can_match_type(value_type))
-            }
-            (MatchPattern::Range { .. }, ParamType::Number) => true,
-            (MatchPattern::Guard { pattern, .. }, _) => pattern.value.can_match_type(value_type),
-            _ => false,
-        }
-    }
-
-    /// Get all variable bindings in this pattern
-    pub fn get_bindings(&self) -> Vec<String> {
-        let mut bindings = Vec::new();
-        self.collect_bindings(&mut bindings);
-        bindings
-    }
-
-    fn collect_bindings(&self, bindings: &mut Vec<String>) {
-        match self {
-            MatchPattern::Variable(name) => bindings.push(name.clone()),
-            MatchPattern::Or(patterns) => {
-                for pattern in patterns {
-                    pattern.value.collect_bindings(bindings);
-                }
-            }
-            MatchPattern::Array { elements, rest } => {
-                for element in elements {
-                    match &element.value {
-                        ArrayPatternElement::Pattern(pattern) => {
-                            pattern.collect_bindings(bindings);
-                        }
-                        ArrayPatternElement::Rest(Some(name)) => {
-                            bindings.push(name.clone());
-                        }
-                        _ => {}
-                    }
-                }
-                if let Some(rest_name) = rest {
-                    bindings.push(rest_name.clone());
-                }
-            }
-            MatchPattern::Guard { pattern, .. } => {
-                pattern.value.collect_bindings(bindings);
-            }
-            _ => {}
-        }
-    }
-
-    /// Check if this pattern is exhaustive for the given type
-    pub fn is_exhaustive_for_type(&self, value_type: &ParamType) -> bool {
-        match self {
-            MatchPattern::Wildcard | MatchPattern::Variable(_) => true,
-            MatchPattern::Type(pattern_type) => pattern_type == value_type,
-            MatchPattern::Or(patterns) => {
-                // This is simplified - true exhaustiveness checking is complex
-                patterns.len() > 1
-                    && patterns
-                        .iter()
-                        .any(|p| p.value.is_exhaustive_for_type(value_type))
-            }
-            _ => false,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     String(String),
     Number(f64),
@@ -284,10 +137,12 @@ pub enum Expression {
         module: String,
         function: String,
         args: Vec<SpannedNode<Expression>>,
+        return_type: Option<BraiseType>,
     },
     ModuleAccess {
         module: String,
         field: String,
+        field_type: Option<BraiseType>,
     },
     Interpolation(Vec<InterpolationPart>),
     Array(Vec<SpannedNode<Expression>>),
@@ -295,15 +150,18 @@ pub enum Expression {
         left: Box<SpannedNode<Expression>>,
         op: BinaryOperator,
         right: Box<SpannedNode<Expression>>,
+        result_type: Option<BraiseType>,
     },
     UnaryOp {
         op: UnaryOperator,
         expr: Box<SpannedNode<Expression>>,
+        result_type: Option<BraiseType>,
     },
     Conditional {
         condition: Box<SpannedNode<Expression>>,
         then_expr: Box<SpannedNode<Expression>>,
         else_expr: Box<SpannedNode<Expression>>,
+        result_type: Option<BraiseType>,
     },
     RecipeRef {
         recipe: String,
@@ -312,7 +170,198 @@ pub enum Expression {
     Match {
         expr: Box<SpannedNode<Expression>>,
         arms: Vec<SpannedNode<MatchExpressionArm>>,
+        result_type: Option<BraiseType>,
     },
+}
+
+impl Expression {
+    /// Get the type of this expression (if known)
+    pub fn get_type(&self) -> BraiseType {
+        match self {
+            Expression::String(_) => BraiseType::String,
+            Expression::Number(_) => BraiseType::Number,
+            Expression::Bool(_) => BraiseType::Bool,
+            Expression::Variable(_) => BraiseType::Any,
+            Expression::Array(_) => BraiseType::Array(Box::new(BraiseType::Any)),
+            Expression::FunctionCall { return_type, .. } => {
+                return_type.clone().unwrap_or(BraiseType::Any)
+            }
+            Expression::ModuleAccess { field_type, .. } => {
+                field_type.clone().unwrap_or(BraiseType::Any)
+            }
+            Expression::BinaryOp { result_type, .. } => {
+                result_type.clone().unwrap_or(BraiseType::Any)
+            }
+            Expression::UnaryOp { result_type, .. } => {
+                result_type.clone().unwrap_or(BraiseType::Any)
+            }
+            Expression::Conditional { result_type, .. } => {
+                result_type.clone().unwrap_or(BraiseType::Any)
+            }
+            Expression::Match { result_type, .. } => result_type.clone().unwrap_or(BraiseType::Any),
+            Expression::Interpolation(_) => BraiseType::String,
+            Expression::RecipeRef { .. } => BraiseType::Recipe,
+        }
+    }
+
+    /// Set the type information for this expression
+    pub fn with_type(mut self, expr_type: BraiseType) -> Self {
+        match &mut self {
+            Expression::FunctionCall { return_type, .. } => *return_type = Some(expr_type),
+            Expression::ModuleAccess { field_type, .. } => *field_type = Some(expr_type),
+            Expression::BinaryOp { result_type, .. } => *result_type = Some(expr_type),
+            Expression::UnaryOp { result_type, .. } => *result_type = Some(expr_type),
+            Expression::Conditional { result_type, .. } => *result_type = Some(expr_type),
+            Expression::Match { result_type, .. } => *result_type = Some(expr_type),
+            _ => {}
+        }
+        self
+    }
+}
+
+impl std::fmt::Display for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Expression::String(s) => write!(f, "\"{}\"", s),
+            Expression::Number(n) => write!(f, "{}", n),
+            Expression::Bool(b) => write!(f, "{}", b),
+            Expression::Variable(name) => write!(f, "{}", name),
+            Expression::FunctionCall {
+                module,
+                function,
+                args,
+                ..
+            } => {
+                let args_str: Vec<String> = args.iter().map(|a| a.value.to_string()).collect();
+                write!(f, "{}.{}({})", module, function, args_str.join(", "))
+            }
+            Expression::ModuleAccess { module, field, .. } => write!(f, "{}.{}", module, field),
+            Expression::Interpolation(parts) => {
+                let parts_str: Vec<String> = parts
+                    .iter()
+                    .map(|part| match part {
+                        InterpolationPart::String(s) => s.clone(),
+                        InterpolationPart::Expression(expr) => format!("${{{}}}", expr.value),
+                    })
+                    .collect();
+                write!(f, "\"{}\"", parts_str.join(""))
+            }
+            Expression::Array(elements) => {
+                let elems_str: Vec<String> = elements.iter().map(|e| e.value.to_string()).collect();
+                write!(f, "[{}]", elems_str.join(", "))
+            }
+            Expression::BinaryOp {
+                left, op, right, ..
+            } => {
+                write!(f, "({} {:?} {})", left.value, op, right.value)
+            }
+            Expression::UnaryOp { op, expr, .. } => write!(f, "{:?}({})", op, expr.value),
+            Expression::Conditional {
+                condition,
+                then_expr,
+                else_expr,
+                ..
+            } => {
+                write!(
+                    f,
+                    "if {} then {} else {}",
+                    condition.value, then_expr.value, else_expr.value
+                )
+            }
+            Expression::RecipeRef { recipe, args } => {
+                let args_str: Vec<String> = args
+                    .iter()
+                    .map(|(k, v)| format!("{}: {}", k, v.value))
+                    .collect();
+                write!(f, "{}({})", recipe, args_str.join(", "))
+            }
+            Expression::Match {
+                expr,
+                arms,
+                result_type,
+            } => {
+                let arms_str: Vec<String> = arms
+                    .iter()
+                    .map(|arm| {
+                        let guard = if let Some(guard) = &arm.value.guard {
+                            format!(" if {}", guard.value)
+                        } else {
+                            String::new()
+                        };
+                        format!(
+                            "case {:?}{} => {}",
+                            arm.value.pattern, guard, arm.value.expr.value
+                        )
+                    })
+                    .collect();
+                let result_type_str = if let Some(rt) = result_type {
+                    format!(": {}", rt)
+                } else {
+                    String::new()
+                };
+                write!(
+                    f,
+                    "match {} {{\n{}\n}}{}",
+                    expr.value,
+                    arms_str.join("\n"),
+                    result_type_str
+                )
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MatchPattern {
+    String(String),
+    Number(f64),
+    Bool(bool),
+    Wildcard,
+    Variable(String),
+    Or(Vec<SpannedNode<MatchPattern>>),
+    Range {
+        start: Option<f64>,
+        end: Option<f64>,
+        inclusive: bool,
+    },
+    Array {
+        elements: Vec<SpannedNode<ArrayPatternElement>>,
+        rest: Option<String>,
+    },
+    Guard {
+        pattern: Box<SpannedNode<MatchPattern>>,
+        condition: SpannedNode<Expression>,
+    },
+    Type(BraiseType),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ArrayPatternElement {
+    Pattern(MatchPattern),
+    Wildcard,
+    Rest(Option<String>),
+}
+
+#[derive(Debug, Clone)]
+pub struct MatchArm {
+    pub pattern: MatchPattern,
+    pub guard: Option<SpannedNode<Expression>>,
+    pub body: Vec<SpannedNode<Statement>>,
+    pub bindings: HashMap<String, BraiseType>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchExpressionArm {
+    pub pattern: MatchPattern,
+    pub guard: Option<SpannedNode<Expression>>,
+    pub expr: SpannedNode<Expression>,
+    pub bindings: HashMap<String, BraiseType>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PatternMatch<T> {
+    pub matched: bool,
+    pub bindings: HashMap<String, T>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -333,7 +382,32 @@ pub enum BinaryOperator {
     Or,
 }
 
+impl BinaryOperator {
+    /// Get the result type of this binary operation
+    pub fn result_type(&self, _left_type: &BraiseType, _right_type: &BraiseType) -> BraiseType {
+        match self {
+            BinaryOperator::Equal
+            | BinaryOperator::NotEqual
+            | BinaryOperator::Less
+            | BinaryOperator::LessEqual
+            | BinaryOperator::Greater
+            | BinaryOperator::GreaterEqual
+            | BinaryOperator::And
+            | BinaryOperator::Or => BraiseType::Bool,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOperator {
     Not,
+}
+
+impl UnaryOperator {
+    /// Get the result type of this unary operation
+    pub fn result_type(&self, _operand_type: &BraiseType) -> BraiseType {
+        match self {
+            UnaryOperator::Not => BraiseType::Bool,
+        }
+    }
 }

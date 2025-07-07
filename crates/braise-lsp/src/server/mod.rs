@@ -64,7 +64,7 @@ impl Document {
 
         let tokens = tokenize(&text)?;
 
-        let mut parser = Parser::new(tokens.clone(), text, self.uri.to_string());
+        let mut parser = Parser::new(tokens.clone(), text.into(), self.uri.to_string());
         let ast = parser.parse()?;
 
         self.tokens = Some(tokens);
@@ -221,7 +221,6 @@ impl LanguageServer for BraiseLspServer {
         let mut documents = self.documents.write().await;
         documents.remove(&params.text_document.uri);
 
-        // Clear diagnostics
         self.diagnostics_provider
             .clear_diagnostics(&params.text_document.uri)
             .await;

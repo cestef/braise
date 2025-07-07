@@ -66,17 +66,14 @@ mod tests {
         let file_id = FileId(1);
         let source_map = SourceMap::new(source, file_id);
 
-        // Test position at start
         let pos_start = source_map.position_at_offset(0);
         assert_eq!(pos_start.line, 1);
         assert_eq!(pos_start.column, 1);
 
-        // Test position at start of second line
-        let pos_line2 = source_map.position_at_offset(6); // After "line1\n"
+        let pos_line2 = source_map.position_at_offset(6);
         assert_eq!(pos_line2.line, 2);
         assert_eq!(pos_line2.column, 1);
 
-        // Test position in middle of second line
         let pos_middle = source_map.position_at_offset(8); // "li" in "line2"
         assert_eq!(pos_middle.line, 2);
         assert_eq!(pos_middle.column, 3);
@@ -97,22 +94,19 @@ mod tests {
 
     #[test]
     fn test_param_type_compatibility() {
-        // Basic types
-        assert!(ParamType::String.is_compatible_with(&ParamType::String));
-        assert!(ParamType::Number.is_compatible_with(&ParamType::String)); // number -> string
-        assert!(ParamType::Bool.is_compatible_with(&ParamType::String)); // bool -> string
-        assert!(!ParamType::String.is_compatible_with(&ParamType::Number));
+        assert!(BraiseType::String.is_compatible_with(&BraiseType::String));
+        assert!(BraiseType::Number.is_compatible_with(&BraiseType::String));
+        assert!(BraiseType::Bool.is_compatible_with(&BraiseType::String));
+        assert!(!BraiseType::String.is_compatible_with(&BraiseType::Number));
 
-        // Array types
-        let string_array = ParamType::Array(Box::new(ParamType::String));
-        let number_array = ParamType::Array(Box::new(ParamType::Number));
+        let string_array = BraiseType::Array(Box::new(BraiseType::String));
+        let number_array = BraiseType::Array(Box::new(BraiseType::Number));
         assert!(string_array.is_compatible_with(&string_array));
         assert!(!string_array.is_compatible_with(&number_array));
 
-        // Enum types
-        let enum1 = ParamType::Enum(vec!["a".to_string(), "b".to_string()]);
-        let enum2 = ParamType::Enum(vec!["a".to_string(), "b".to_string()]);
-        let enum3 = ParamType::Enum(vec!["c".to_string(), "d".to_string()]);
+        let enum1 = BraiseType::Enum(vec!["a".to_string(), "b".to_string()]);
+        let enum2 = BraiseType::Enum(vec!["a".to_string(), "b".to_string()]);
+        let enum3 = BraiseType::Enum(vec!["c".to_string(), "d".to_string()]);
         assert!(enum1.is_compatible_with(&enum2));
         assert!(!enum1.is_compatible_with(&enum3));
     }
@@ -120,52 +114,51 @@ mod tests {
     #[test]
     fn test_param_type_default_values() {
         assert!(matches!(
-            ParamType::String.default_value(),
-            Expression::String(s) if s.is_empty()
+            BraiseType::String.default_value(),
+            TypedValue { value, value_type } if matches!(&value, ValueData::String(s) if s == "") && value_type == BraiseType::String
         ));
 
         assert!(matches!(
-            ParamType::Number.default_value(),
-            Expression::Number(n) if n == 0.0
+            BraiseType::Number.default_value(),
+            TypedValue { value, value_type } if matches!(value, ValueData::Number(n) if n == 0.0) && value_type == BraiseType::Number
         ));
 
         assert!(matches!(
-            ParamType::Bool.default_value(),
-            Expression::Bool(false)
+            BraiseType::Bool.default_value(),
+            TypedValue { value, value_type } if matches!(value, ValueData::Bool(b) if !b) && value_type == BraiseType::Bool
         ));
 
         assert!(matches!(
-            ParamType::Array(Box::new(ParamType::String)).default_value(),
-            Expression::Array(arr) if arr.is_empty()
+            BraiseType::Array(Box::new(BraiseType::String)).default_value(),
+            TypedValue { value, value_type } if matches!(&value, ValueData::Array(arr) if arr.is_empty() && value_type == BraiseType::Array(Box::new(BraiseType::String)))
         ));
 
-        let enum_type = ParamType::Enum(vec!["first".to_string(), "second".to_string()]);
+        let enum_type = BraiseType::Enum(vec!["first".to_string(), "second".to_string()]);
         assert!(matches!(
             enum_type.default_value(),
-            Expression::String(s) if s == "first"
+            TypedValue { value, value_type } if matches!(&value, ValueData::String(s) if s == "first") && value_type == BraiseType::Enum(vec!["first".to_string(), "second".to_string()])
         ));
     }
 
     #[test]
     fn test_param_type_display() {
-        assert_eq!(ParamType::String.to_string(), "string");
-        assert_eq!(ParamType::Number.to_string(), "number");
-        assert_eq!(ParamType::Bool.to_string(), "bool");
+        assert_eq!(BraiseType::String.to_string(), "string");
+        assert_eq!(BraiseType::Number.to_string(), "number");
+        assert_eq!(BraiseType::Bool.to_string(), "bool");
 
-        let array_type = ParamType::Array(Box::new(ParamType::String));
-        assert_eq!(array_type.to_string(), "array[string]");
+        let array_type = BraiseType::Array(Box::new(BraiseType::String));
+        assert_eq!(array_type.to_string(), "[string]");
 
-        let enum_type = ParamType::Enum(vec!["dev".to_string(), "prod".to_string()]);
-        assert_eq!(enum_type.to_string(), "enum[dev, prod]");
+        let enum_type = BraiseType::Enum(vec!["dev".to_string(), "prod".to_string()]);
+        assert_eq!(enum_type.to_string(), "{dev | prod}");
 
-        assert_eq!(ParamType::Recipe.to_string(), "recipe");
+        assert_eq!(BraiseType::Recipe.to_string(), "recipe");
     }
 
     #[test]
     fn test_symbol_table() {
         let mut table = SymbolTable::new();
 
-        // Test scoping
         table.push_scope();
 
         let symbol1 = Symbol {
@@ -178,10 +171,8 @@ mod tests {
         assert!(table.define(symbol1.clone()).is_ok());
         assert!(table.lookup("test").is_some());
 
-        // Test duplicate definition in same scope
         assert!(table.define(symbol1).is_err());
 
-        // Test inner scope
         table.push_scope();
         let symbol2 = Symbol {
             name: "inner".to_string(),
@@ -192,9 +183,8 @@ mod tests {
 
         assert!(table.define(symbol2).is_ok());
         assert!(table.lookup("inner").is_some());
-        assert!(table.lookup("test").is_some()); // Should find in outer scope
+        assert!(table.lookup("test").is_some());
 
-        // Pop inner scope
         table.pop_scope();
         assert!(table.lookup("inner").is_none());
         assert!(table.lookup("test").is_some());

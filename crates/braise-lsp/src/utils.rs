@@ -30,7 +30,7 @@ pub fn get_expression_preview(expr: &Expression) -> String {
         } => {
             format!("{module}.{function}()")
         }
-        Expression::ModuleAccess { module, field } => {
+        Expression::ModuleAccess { module, field, .. } => {
             format!("{module}.{field}")
         }
         Expression::Interpolation(parts) => {
@@ -61,7 +61,9 @@ pub fn get_expression_preview(expr: &Expression) -> String {
                 format!("[{}, ...]", get_expression_preview(&elements[0].value))
             }
         }
-        Expression::BinaryOp { left, op, right } => {
+        Expression::BinaryOp {
+            left, op, right, ..
+        } => {
             let op_str = match op {
                 BinaryOperator::Equal => "==",
                 BinaryOperator::NotEqual => "!=",
@@ -79,7 +81,7 @@ pub fn get_expression_preview(expr: &Expression) -> String {
                 get_expression_preview(&right.value)
             )
         }
-        Expression::UnaryOp { op, expr } => {
+        Expression::UnaryOp { op, expr, .. } => {
             let op_str = match op {
                 UnaryOperator::Not => "!",
             };
@@ -99,7 +101,7 @@ pub fn get_expression_preview(expr: &Expression) -> String {
                 format!("@{}({})", recipe, args_preview.join(", "))
             }
         }
-        Expression::Match { expr, arms } => {
+        Expression::Match { expr, arms, .. } => {
             let expr_preview = get_expression_preview(&expr.value);
             let arms_count = arms.len();
             if arms_count == 0 {

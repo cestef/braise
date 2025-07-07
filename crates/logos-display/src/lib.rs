@@ -130,7 +130,6 @@ fn logos_display_derive(
         let mut alias = None;
         let mut token_values = Vec::new();
 
-        // First pass: collect all attribute values
         for attr in variant.attrs.into_iter() {
             if let syn::Meta::List(l) = attr.meta {
                 if l.path.is_ident("display_override") {
@@ -171,13 +170,11 @@ fn logos_display_derive(
             }
         }
 
-        // Apply priority: display_override > alias > token/regex > variant name
         if let Some(override_string) = display_override {
             repr = override_string.into_token_stream();
         } else if let Some(alias_string) = alias {
             repr = alias_string.into_token_stream();
         } else if !token_values.is_empty() {
-            // Concatenate token values if there are multiple
             let combined = if token_values.len() == 1 {
                 token_values[0].clone()
             } else if let Some(ref conc) = concat {

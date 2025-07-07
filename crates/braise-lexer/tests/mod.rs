@@ -119,7 +119,7 @@ mod tests {
     #[test]
     fn test_comments_are_skipped() -> miette::Result<()> {
         let input = r#"
-            recipe "test" { // line comment
+            recipe "test" {
                 /* block comment */ run "echo hi"
                 /*
                 Another block comment
@@ -127,7 +127,7 @@ mod tests {
             }
         "#;
         let tokens = tokenize(&input)?;
-        // Comments should be skipped, so we should only see the recipe tokens
+
         assert_eq!(tokens[0].token, Token::Recipe);
         assert_eq!(tokens[1].token, Token::String("test".to_string()));
         assert_eq!(tokens[2].token, Token::LeftBrace);
@@ -141,11 +141,10 @@ mod tests {
     fn test_position_tracking() -> miette::Result<()> {
         let input = "recipe\n\"test\"";
         let tokens = tokenize(&input)?;
-        // First token should be on line 1
+
         assert_eq!(tokens[0].span.start.line, 1);
         assert_eq!(tokens[0].span.start.column, 1);
 
-        // Second token should be on line 2
         assert_eq!(tokens[1].span.start.line, 2);
         assert_eq!(tokens[1].span.start.column, 1);
         Ok(())

@@ -54,7 +54,6 @@ impl SymbolTable {
     }
 
     pub fn lookup(&self, name: &str) -> Option<&Symbol> {
-        // Look in scopes from innermost to outermost
         for scope in self.scopes.iter().rev() {
             if let Some(symbol) = scope.get(name) {
                 return Some(symbol);

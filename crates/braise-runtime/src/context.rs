@@ -1,10 +1,9 @@
+use core::TypedValue;
 use std::collections::HashMap;
-
-use super::value::Value;
 
 #[derive(Debug, Clone)]
 pub struct ExecutionContext {
-    pub variables: HashMap<String, Value>,
+    pub variables: HashMap<String, TypedValue>,
     pub shell: Option<String>,
 }
 
@@ -16,11 +15,11 @@ impl ExecutionContext {
         }
     }
 
-    pub fn set(&mut self, name: String, value: Value) {
+    pub fn set(&mut self, name: String, value: TypedValue) {
         self.variables.insert(name, value);
     }
 
-    pub fn get(&self, name: &str) -> Option<&Value> {
+    pub fn get(&self, name: &str) -> Option<&TypedValue> {
         self.variables.get(name)
     }
 

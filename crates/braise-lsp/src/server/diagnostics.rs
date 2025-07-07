@@ -2,6 +2,7 @@ use crate::server::text_document::TextDocumentProvider;
 use crate::utils::span_to_range;
 
 use super::Document;
+use braise_core::BraiseType;
 use braise_core::parser::ParseError;
 use braise_core::{ast::*, error::BraiseError};
 use miette::SourceSpan;
@@ -39,7 +40,6 @@ impl DiagnosticsProvider {
     pub fn validate_ast(&self, ast: &Config, doc: &Document) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
-        // Check for duplicate recipe names
         let mut recipe_names = HashMap::new();
         for recipe in &ast.recipes {
             let name = &recipe.value.name;
@@ -81,15 +81,14 @@ impl DiagnosticsProvider {
         diagnostics
     }
 
-    pub fn check_match_exhaustiveness(patterns: &[MatchPattern], value_type: &ParamType) -> bool {
-        for pattern in patterns {
-            if pattern.is_exhaustive_for_type(value_type) {
-                return true;
-            }
+    #[allow(dead_code)]
+    pub fn check_match_exhaustiveness(patterns: &[MatchPattern], value_type: &BraiseType) -> bool {
+        for _pattern in patterns {
+            // TODO: check for pattern exhaustiveness
         }
 
         match value_type {
-            ParamType::Bool => {
+            BraiseType::Bool => {
                 let has_true = patterns
                     .iter()
                     .any(|p| matches!(p, MatchPattern::Bool(true)));
@@ -99,7 +98,7 @@ impl DiagnosticsProvider {
                 has_true && has_false
             }
 
-            ParamType::Enum(variants) => {
+            BraiseType::Enum(variants) => {
                 for variant in variants {
                     let covered = patterns
                         .iter()
@@ -212,7 +211,6 @@ impl DiagnosticsProvider {
                 param_names.insert(name.clone(), param.span.clone());
             }
 
-            // Validate default value type compatibility
             if let Some(ref default_expr) = param.value.default
                 && !self.is_expression_compatible_with_type(
                     doc,
@@ -390,7 +388,7 @@ impl DiagnosticsProvider {
         false
     }
 
-    pub fn get_variable_type(name: &str, recipe: &Recipe) -> Option<ParamType> {
+    pub fn get_variable_type(name: &str, recipe: &Recipe) -> Option<BraiseType> {
         for param in &recipe.parameters {
             if param.value.name == name {
                 return Some(param.value.param_type.clone());
@@ -422,6 +420,7 @@ impl DiagnosticsProvider {
                 module,
                 function,
                 args,
+                ..
             } => {
                 if !self.is_valid_builtin_function(module, function) {
                     diagnostics.push(Diagnostic {
@@ -441,7 +440,7 @@ impl DiagnosticsProvider {
                     self.validate_expression(arg, diagnostics);
                 }
             }
-            Expression::ModuleAccess { module, field } => {
+            Expression::ModuleAccess { module, field, .. } => {
                 if !self.is_valid_builtin_field(module, field) {
                     // TODO: need spans for module fields
                 }
@@ -457,6 +456,7 @@ impl DiagnosticsProvider {
                 condition,
                 then_expr,
                 else_expr,
+                ..
             } => {
                 self.validate_expression(condition, diagnostics);
                 self.validate_expression(then_expr, diagnostics);
@@ -474,7 +474,7 @@ impl DiagnosticsProvider {
                     }
                 }
             }
-            _ => {} // Other expressions are fine
+            _ => {}
         }
     }
 
@@ -482,25 +482,26 @@ impl DiagnosticsProvider {
         &self,
         doc: &Document,
         expr: &SpannedNode<Expression>,
-        param_type: &ParamType,
+        param_type: &BraiseType,
     ) -> bool {
         match (&expr.value, param_type) {
-            (Expression::String(_), ParamType::String) => true,
-            (Expression::Number(_), ParamType::Number) => true,
-            (Expression::Bool(_), ParamType::Bool) => true,
-            (Expression::Array(elements), ParamType::Array(element_type)) => elements
+            (Expression::String(_), BraiseType::String) => true,
+            (Expression::Number(_), BraiseType::Number) => true,
+            (Expression::Bool(_), BraiseType::Bool) => true,
+            (Expression::Array(elements), BraiseType::Array(element_type)) => elements
                 .iter()
                 .all(|elem| self.is_expression_compatible_with_type(doc, elem, element_type)),
-            (Expression::String(s), ParamType::Enum(variants)) => variants.contains(s),
+            (Expression::String(s), BraiseType::Enum(variants)) => variants.contains(s),
             (
                 Expression::Conditional {
                     condition,
                     then_expr,
                     else_expr,
+                    ..
                 },
                 e,
             ) => {
-                self.is_expression_compatible_with_type(doc, condition, &ParamType::Bool)
+                self.is_expression_compatible_with_type(doc, condition, &BraiseType::Bool)
                     && self.is_expression_compatible_with_type(doc, then_expr, e)
                     && self.is_expression_compatible_with_type(doc, else_expr, e)
             }
@@ -510,7 +511,7 @@ impl DiagnosticsProvider {
                 },
                 _,
             ) => self.is_valid_builtin_function(module, function),
-            (Expression::ModuleAccess { module, field }, _) => {
+            (Expression::ModuleAccess { module, field, .. }, _) => {
                 self.is_valid_builtin_field(module, field)
             }
             (Expression::Variable(name), e) => {
@@ -523,7 +524,7 @@ impl DiagnosticsProvider {
                         },
                     )
                 {
-                    if let Some(param_type) = Self::get_variable_type(name, &recipe.value) {
+                    if let Some(param_type) = Self::get_variable_type(&name, &recipe.value) {
                         return param_type.is_compatible_with(e);
                     } else {
                         return false;
@@ -531,7 +532,7 @@ impl DiagnosticsProvider {
                 }
                 false
             }
-            (Expression::RecipeRef { .. }, ParamType::Recipe) => true,
+            (Expression::RecipeRef { .. }, BraiseType::Recipe) => true,
             (Expression::Match { arms, .. }, e) => arms
                 .iter()
                 .all(|arm| self.is_expression_compatible_with_type(doc, &arm.value.expr, e)),

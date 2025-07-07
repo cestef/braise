@@ -3,6 +3,7 @@ use core::{cli::CliError, constants::DEFAULT_FILES};
 use lexer::tokenize;
 use parser::Parser as BraiseParser;
 use runtime::Runtime;
+use std::sync::Arc;
 
 mod utils;
 
@@ -50,6 +51,14 @@ enum Commands {
 }
 
 fn main() -> miette::Result<()> {
+    miette::set_hook(Box::new(|_| {
+        Box::new(miette::MietteHandlerOpts::new().build())
+    }))?;
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_writer(std::io::stderr)
+        .init();
+    tracing::info!("Braise CLI started");
     let cli = Cli::parse();
 
     let file = if let Some(file) = cli.file {
@@ -69,11 +78,9 @@ fn main() -> miette::Result<()> {
         Some(Commands::Lsp) => start_lsp()?,
         Some(Commands::Info { recipe }) => show_recipe_info(&contents, &file, &recipe)?,
         None => {
-            // Default behavior: run a recipe
             if let Some(recipe_name) = cli.recipe {
                 run_recipe(&contents, &file, &recipe_name, &cli.args, cli.dry)?;
             } else {
-                // No recipe specified, show available recipes
                 list_recipes(&contents, &file)?;
             }
         }
@@ -90,10 +97,11 @@ fn run_recipe(
     dry_run: bool,
 ) -> core::Result<()> {
     let tokens = tokenize(contents)?;
-    let mut parser = BraiseParser::new(tokens, contents.to_string(), file.to_string());
+    let source = Arc::new(contents.to_string());
+    let mut parser = BraiseParser::new(tokens, source.clone(), file.to_string());
     let ast = parser.parse()?;
 
-    let mut runtime = Runtime::new(ast);
+    let mut runtime = Runtime::new(ast, source);
     if dry_run {
         runtime = runtime.with_dry_run();
     }
@@ -106,7 +114,7 @@ fn run_recipe(
 
 fn list_recipes(contents: &str, file: &str) -> core::Result<()> {
     let tokens = tokenize(contents)?;
-    let mut parser = BraiseParser::new(tokens, contents.to_string(), file.to_string());
+    let mut parser = BraiseParser::new(tokens, contents.to_string().into(), file.to_string());
     let ast = parser.parse()?;
 
     if ast.recipes.is_empty() {
@@ -162,14 +170,12 @@ fn format_recipe(contents: &str, file: &str, stdout: bool) -> core::Result<()> {
 }
 
 fn start_lsp() -> core::Result<()> {
-    println!("🚀 Starting Braise Language Server...");
-    // LSP implementation would go here
     Ok(())
 }
 
 fn show_recipe_info(contents: &str, file: &str, recipe_name: &str) -> core::Result<()> {
     let tokens = tokenize(contents)?;
-    let mut parser = BraiseParser::new(tokens, contents.to_string(), file.to_string());
+    let mut parser = BraiseParser::new(tokens, contents.to_string().into(), file.to_string());
     let ast = parser.parse()?;
 
     let recipe = ast
@@ -216,7 +222,7 @@ fn format_expression_preview(expr: &core::ast::Expression) -> String {
         } => {
             format!("{module}.{function}()")
         }
-        Expression::ModuleAccess { module, field } => {
+        Expression::ModuleAccess { module, field, .. } => {
             format!("{module}.{field}")
         }
         Expression::Array(elements) => {

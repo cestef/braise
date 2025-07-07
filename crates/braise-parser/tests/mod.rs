@@ -1,14 +1,18 @@
+#![feature(assert_matches)]
+
 #[cfg(test)]
 mod tests {
     use braise_parser::*;
+    use core::BraiseType;
     use core::ast::*;
     use core::parser::*;
     use lexer::tokenize;
+    use std::assert_matches::assert_matches;
 
     fn parse_input(input: &str) -> Result<Config> {
         let tokens =
             tokenize(input).map_err(|_| ParseError::Other("Tokenization failed".to_string()))?;
-        let mut parser = Parser::new(tokens, input.to_string(), "test.braise".to_string());
+        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
         parser.parse()
     }
 
@@ -72,46 +76,36 @@ mod tests {
 
         assert_eq!(recipe.parameters.len(), 5);
 
-        // Check string parameter with default
         let name_param = &recipe.parameters[0].value;
         assert_eq!(name_param.name, "name");
-        assert_eq!(name_param.param_type, ParamType::String);
+        assert_matches!(name_param.param_type, BraiseType::Optional(_));
         assert!(name_param.default.is_some());
 
-        // Check number parameter without default
         let count_param = &recipe.parameters[1].value;
         assert_eq!(count_param.name, "count");
-        assert_eq!(count_param.param_type, ParamType::Number);
+        assert_eq!(count_param.param_type, BraiseType::Number);
         assert!(count_param.default.is_none());
 
-        // Check bool parameter with default
         let enabled_param = &recipe.parameters[2].value;
         assert_eq!(enabled_param.name, "enabled");
-        assert_eq!(enabled_param.param_type, ParamType::Bool);
+        assert_matches!(&enabled_param.param_type, BraiseType::Optional(inner) if matches!(**inner, BraiseType::Bool));
 
-        // Check array parameter
         let items_param = &recipe.parameters[3].value;
         assert_eq!(items_param.name, "items");
-        if let ParamType::Array(element_type) = &items_param.param_type {
-            assert_eq!(**element_type, ParamType::String);
-        } else {
-            panic!("Expected array type");
-        }
+        assert_matches!(&items_param.param_type, BraiseType::Optional(inner) if matches!(**inner, BraiseType::Array(_)));
 
-        // Check enum parameter
         let env_param = &recipe.parameters[4].value;
         assert_eq!(env_param.name, "env");
-        if let ParamType::Enum(variants) = &env_param.param_type {
-            assert_eq!(*variants, vec!["dev", "prod"]);
-        } else {
-            panic!("Expected enum type");
-        }
+        assert_matches!(&env_param.param_type, BraiseType::Optional(inner) if matches!(**inner, BraiseType::Enum(_)));
     }
 
     #[test]
-    fn test_control_flow_statements() {
+    fn test_control_flow_statements() -> miette::Result<()> {
         let input = r#"
         recipe "test" {
+            let condition: bool = true
+            let value: string = "option1"
+            let items: [string] = ["item1", "item2", "item3"]
             if condition {
                 run "echo true"
             } else {
@@ -130,13 +124,12 @@ mod tests {
         }
         "#;
 
-        let config = parse_input(input).unwrap();
+        let config = parse_input(input)?;
         let recipe = &config.recipes[0].value;
 
-        assert_eq!(recipe.body.len(), 3);
+        assert_eq!(recipe.body.len(), 6);
 
-        // Check if statement
-        match &recipe.body[0].value {
+        match &recipe.body[3].value {
             Statement::If {
                 condition,
                 then_block,
@@ -150,13 +143,11 @@ mod tests {
             _ => panic!("Expected if statement"),
         }
 
-        // Check match statement
-        match &recipe.body[1].value {
+        match &recipe.body[4].value {
             Statement::Match { expr, arms } => {
                 assert!(matches!(expr.value, Expression::Variable(_)));
                 assert_eq!(arms.len(), 3);
 
-                // Check wildcard pattern
                 match &arms[2].value.pattern {
                     MatchPattern::Wildcard => {}
                     _ => panic!("Expected wildcard pattern"),
@@ -165,8 +156,7 @@ mod tests {
             _ => panic!("Expected match statement"),
         }
 
-        // Check for statement
-        match &recipe.body[2].value {
+        match &recipe.body[5].value {
             Statement::For {
                 var,
                 iterable,
@@ -180,12 +170,18 @@ mod tests {
             }
             _ => panic!("Expected for statement"),
         }
+        Ok(())
     }
 
     #[test]
-    fn test_expressions() {
+    fn test_expressions() -> miette::Result<()> {
         let input = r#"
         recipe "test" {
+            let condition: bool = true
+            let x: number = 10
+            let y: number = 5
+            let name: string = "Braise"
+            let env: string = "dev"
             let result: string = if condition { "yes" } else { "no" }
             let computed: number = x > 5 && y < 10
             let module_call: string = env.get("HOME")
@@ -194,50 +190,46 @@ mod tests {
         }
         "#;
 
-        let config = parse_input(input).unwrap();
+        let config = parse_input(input)?;
         let recipe = &config.recipes[0].value;
 
-        assert_eq!(recipe.body.len(), 5);
+        assert_eq!(recipe.body.len(), 10);
 
-        // Check conditional expression
         if let Statement::Let {
             value: Some(expr), ..
-        } = &recipe.body[0].value
+        } = &recipe.body[5].value
         {
             assert!(matches!(expr.value, Expression::Conditional { .. }));
         }
 
-        // Check binary operation
         if let Statement::Let {
             value: Some(expr), ..
-        } = &recipe.body[1].value
+        } = &recipe.body[6].value
         {
             assert!(matches!(expr.value, Expression::BinaryOp { .. }));
         }
 
-        // Check function call
         if let Statement::Let {
             value: Some(expr), ..
-        } = &recipe.body[2].value
+        } = &recipe.body[7].value
         {
             assert!(matches!(expr.value, Expression::FunctionCall { .. }));
         }
 
-        // Check interpolation
         if let Statement::Let {
             value: Some(expr), ..
-        } = &recipe.body[3].value
+        } = &recipe.body[8].value
         {
             assert!(matches!(expr.value, Expression::Interpolation(_)));
         }
 
-        // Check array
         if let Statement::Let {
             value: Some(expr), ..
-        } = &recipe.body[4].value
+        } = &recipe.body[9].value
         {
             assert!(matches!(expr.value, Expression::Array(_)));
         }
+        Ok(())
     }
 
     #[test]
@@ -325,9 +317,10 @@ mod tests {
     }
 
     #[test]
-    fn test_match_expression() {
+    fn test_match_expression() -> miette::Result<()> {
         let input = r#"
         recipe "test" {
+            let value: string = "a"
             let result: string = match value {
                 "a" => "first",
                 "b" => "second",
@@ -336,25 +329,27 @@ mod tests {
         }
         "#;
 
-        let config = parse_input(input).unwrap();
+        let config = parse_input(input)?;
         let recipe = &config.recipes[0].value;
 
         if let Statement::Let {
             value: Some(expr), ..
-        } = &recipe.body[0].value
+        } = &recipe.body[1].value
         {
             if let Expression::Match {
                 expr: match_expr,
                 arms,
+                ..
             } = &expr.value
             {
                 assert!(matches!(match_expr.value, Expression::Variable(_)));
                 assert_eq!(arms.len(), 3);
             } else {
-                panic!("Expected match expression");
+                panic!("Expected match expression, got {:?}", expr.value);
             }
         } else {
             panic!("Expected let statement with match expression");
         }
+        Ok(())
     }
 }

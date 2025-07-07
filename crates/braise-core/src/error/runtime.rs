@@ -3,6 +3,8 @@ use std::collections::HashSet;
 use miette::Diagnostic;
 use owo_colors::OwoColorize;
 
+use crate::error::types::TypeError;
+
 #[derive(Debug, thiserror::Error, Diagnostic, Clone)]
 pub enum RuntimeError {
     #[error("Undefined variable: {0}")]
@@ -13,16 +15,14 @@ pub enum RuntimeError {
     #[diagnostic(code(braise::runtime::undefined_recipe))]
     UndefinedRecipe(String),
 
-    #[error("Type error: expected {expected}, got {got} (context: {context})",
-        expected = .expected.bold().green(),
-        got = .got.bold().red(),
-        context = .context.dimmed()
-    )]
+    #[error("Type error")]
     #[diagnostic(code(braise::runtime::type_error))]
     TypeError {
-        expected: String,
-        got: String,
-        context: String,
+        source: TypeError,
+        #[source_code]
+        code: Option<String>,
+        #[label("right here")]
+        span: Option<miette::SourceSpan>,
     },
 
     #[error("Command failed: {command} (exit code: {exit_code})", command = .command.bold().green(), exit_code = .exit_code)]
@@ -74,4 +74,4 @@ pub enum RuntimeError {
     MatchNoArm { value: String },
 }
 
-pub type Result<T> = std::result::Result<T, RuntimeError>;
+pub type Result<T, E = RuntimeError> = std::result::Result<T, E>;

@@ -1,4 +1,5 @@
-use crate::{Result, RuntimeError, Value};
+use crate::{BraiseType, Result, RuntimeError};
+use core::TypedValue;
 use std::env;
 
 pub struct EnvModule;
@@ -8,31 +9,38 @@ impl EnvModule {
         Self
     }
 
-    fn get(&self, var_name: String) -> Result<Value> {
-        let value = env::var(&var_name).unwrap_or_default();
-        Ok(Value::String(value))
+    fn get(&self, var_name: TypedValue) -> Result<TypedValue> {
+        let value = env::var(&var_name.to_string()).unwrap_or_default();
+        Ok(TypedValue::new(value, BraiseType::String))
     }
 
-    fn has(&self, var_name: String) -> Result<Value> {
-        Ok(Value::Bool(env::var(&var_name).is_ok()))
+    fn has(&self, var_name: TypedValue) -> Result<TypedValue> {
+        Ok(TypedValue::new(
+            env::var(&var_name.to_string()).is_ok(),
+            BraiseType::Bool,
+        ))
     }
 
-    fn ci(&self) -> Result<Value> {
-        Ok(Value::Bool(env::var("CI").is_ok()))
+    fn ci(&self) -> Result<TypedValue> {
+        Ok(TypedValue::new(env::var("CI").is_ok(), BraiseType::Bool))
     }
 
-    fn home(&self) -> Result<Value> {
-        Ok(Value::String(env::var("HOME").unwrap_or_default()))
+    fn home(&self) -> Result<TypedValue> {
+        Ok(TypedValue::new(
+            env::var("HOME").unwrap_or_default(),
+            BraiseType::String,
+        ))
     }
 
-    fn pwd(&self) -> Result<Value> {
-        Ok(Value::String(
+    fn pwd(&self) -> Result<TypedValue> {
+        Ok(TypedValue::new(
             env::current_dir()
                 .map_err(|e| {
                     RuntimeError::BuiltinError(format!("Failed to get current directory: {e}"))
                 })?
                 .to_string_lossy()
                 .to_string(),
+            BraiseType::String,
         ))
     }
 }
@@ -40,8 +48,8 @@ impl EnvModule {
 builtin_module! {
     EnvModule {
         functions: {
-            "get" => get(String),
-            "has" => has(String),
+            "get" => get(BraiseType::String),
+            "has" => has(BraiseType::String),
         },
         fields: {
             "HOME" => home,

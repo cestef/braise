@@ -264,10 +264,10 @@ impl TextDocumentProvider {
                     .iter()
                     .map(|&x| SemanticToken {
                         delta_line: x,
-                        delta_start: 0, // No delta start for now
-                        length: 0,      // Length is handled in the next token
+                        delta_start: 0,
+                        length: 0,
                         token_type: x,
-                        token_modifiers_bitset: 0, // No modifiers for now
+                        token_modifiers_bitset: 0,
                     })
                     .collect(),
             })
@@ -282,7 +282,7 @@ impl TextDocumentProvider {
         }
 
         let chars: Vec<char> = line.chars().collect();
-        // Check if we're inside a string
+
         let mut in_string = false;
         let mut in_interpolation = false;
         let mut escape_next = false;
@@ -304,7 +304,6 @@ impl TextDocumentProvider {
             }
         }
 
-        // If inside a string but not in interpolation, don't provide hover
         if in_string && !in_interpolation {
             return None;
         }
@@ -312,12 +311,10 @@ impl TextDocumentProvider {
         let mut start = char_pos;
         let mut end = char_pos;
 
-        // Find start of word
         while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {
             start -= 1;
         }
 
-        // Find end of word
         while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_') {
             end += 1;
         }
@@ -334,12 +331,10 @@ impl TextDocumentProvider {
         let mut start = char_pos;
         let mut end = char_pos;
 
-        // Find start of word
         while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {
             start -= 1;
         }
 
-        // Find end of word
         while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_') {
             end += 1;
         }
@@ -431,7 +426,6 @@ impl TextDocumentProvider {
             Token::String(_) => 1, // STRING
             Token::Number(_) => 2, // NUMBER
             Token::Identifier(_) => {
-                // Could be function, variable, or parameter depending on context
                 3 // FUNCTION (default)
             }
             Token::Bool(_) => 2, // NUMBER (treating bool as number type)
@@ -461,7 +455,6 @@ impl TextDocumentProvider {
                 character: recipe.span.end.column.saturating_sub(1),
             };
 
-            // Check if position is within this recipe's span
             if Self::is_position_in_range(position, recipe_start, recipe_end) {
                 return Some(recipe);
             }

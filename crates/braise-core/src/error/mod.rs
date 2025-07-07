@@ -1,6 +1,7 @@
 pub mod cli;
 pub mod parser;
 pub mod runtime;
+pub mod types;
 
 use crate::{cli::CliError, parser::ParseError, runtime::RuntimeError};
 use miette::{Diagnostic, SourceSpan};

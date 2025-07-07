@@ -1,12 +1,10 @@
-use core::ast::*;
 use core::error::runtime::*;
+use core::error::types::TypeError;
+use core::{BraiseType, Spanned, TypedValue, ValueData, ast::*};
 use owo_colors::OwoColorize;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
-
-mod value;
-pub use value::*;
 
 mod context;
 use context::*;
@@ -22,15 +20,17 @@ pub struct Runtime {
     builtins: BuiltinModules,
     pub executor: Box<dyn Executor>,
     dry_run: bool,
+    source: Arc<String>,
 }
 
 impl Runtime {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config, source: Arc<String>) -> Self {
         Self {
             config,
             builtins: BuiltinModules::new(),
             executor: Box::new(executor::DefaultExecutor::new(false)),
             dry_run: false,
+            source,
         }
     }
 
@@ -45,7 +45,11 @@ impl Runtime {
         self
     }
 
-    pub fn execute_recipe(&self, name: &str, user_params: HashMap<String, Value>) -> Result<()> {
+    pub fn execute_recipe(
+        &self,
+        name: &str,
+        user_params: HashMap<String, TypedValue>,
+    ) -> Result<()> {
         let mut stack = HashSet::new();
         self._execute_recipe(name, user_params, &mut stack)
     }
@@ -53,7 +57,7 @@ impl Runtime {
     fn _execute_recipe(
         &self,
         name: &str,
-        user_params: HashMap<String, Value>,
+        user_params: HashMap<String, TypedValue>,
         stack: &mut HashSet<String>,
     ) -> Result<()> {
         if !stack.insert(name.to_string()) {
@@ -73,7 +77,6 @@ impl Runtime {
         for dep in &recipe.value.dependencies {
             self._execute_recipe(dep, HashMap::new(), stack)?; // TODO: maybe pass args to deps ?
         }
-
         let mut context = self.resolve_parameters(&recipe.value, user_params)?;
 
         if self.dry_run {
@@ -83,7 +86,7 @@ impl Runtime {
         }
 
         for statement in &recipe.value.body {
-            self.execute_statement(&statement.value, &mut context)?;
+            self.execute_statement(&statement, &mut context)?;
         }
 
         Ok(())
@@ -92,7 +95,7 @@ impl Runtime {
     fn resolve_parameters(
         &self,
         recipe: &Recipe,
-        user_params: HashMap<String, Value>,
+        user_params: HashMap<String, TypedValue>,
     ) -> Result<ExecutionContext> {
         let mut context = ExecutionContext::new();
         let mut provided_params = user_params.clone();
@@ -101,19 +104,22 @@ impl Runtime {
             let value = if let Some(user_value) = provided_params.remove(&param.value.name) {
                 user_value
             } else if let Some(default_expr) = &param.value.default {
-                self.evaluate_expression(&default_expr.value, &context)?
+                let evaluated = self.evaluate_expression(&default_expr, &context)?;
+
+                evaluated.convert_to(&param.value.param_type).map_err(|e| {
+                    RuntimeError::TypeError {
+                        source: e,
+                        code: Some(self.source.to_string()),
+                        span: Some((&default_expr.span).into()),
+                    }
+                })?
+            } else if param.value.optional {
+                param.value.param_type.default_value()
             } else {
                 return Err(RuntimeError::MissingRequiredParameter {
                     name: param.value.name.clone(),
                     expected_type: param.value.param_type.to_string(),
                 });
-            };
-
-            let value = match value {
-                Value::String(s) => {
-                    Value::from_str(&s, &param.value.name, &param.value.param_type)?
-                }
-                e => e,
             };
 
             context.set(param.value.name.clone(), value);
@@ -142,23 +148,22 @@ impl Runtime {
 
     fn try_match_type(
         &self,
-        value: &Value,
-        expected_type: &ParamType,
-        param_name: &str,
-    ) -> Result<Value> {
-        let converted_value = value.convert_to_type(expected_type, param_name)?;
+        value: &TypedValue,
+        expected_type: &BraiseType,
+    ) -> Result<TypedValue, TypeError> {
+        let converted_value = value.convert_to(expected_type)?;
 
         Ok(converted_value)
     }
 
     fn execute_statement(
         &self,
-        statement: &Statement,
+        statement: &Spanned<Statement>,
         context: &mut ExecutionContext,
     ) -> Result<()> {
-        match statement {
+        match &statement.value {
             Statement::Run(expr) => {
-                let value = self.evaluate_expression(&expr.value, context)?;
+                let value = self.evaluate_expression(&expr, context)?;
                 let command_str = value.to_string();
                 if self.dry_run {
                     self.show_command(&command_str);
@@ -174,14 +179,14 @@ impl Runtime {
                 then_block,
                 else_block,
             } => {
-                let condition_value = self.evaluate_expression(&condition.value, context)?;
+                let condition_value = self.evaluate_expression(&condition, context)?;
                 if condition_value.to_bool() {
                     for stmt in then_block {
-                        self.execute_statement(&stmt.value, context)?;
+                        self.execute_statement(&stmt, context)?;
                     }
                 } else if let Some(else_stmts) = else_block {
                     for stmt in else_stmts {
-                        self.execute_statement(&stmt.value, context)?;
+                        self.execute_statement(&stmt, context)?;
                     }
                 }
             }
@@ -194,9 +199,9 @@ impl Runtime {
                 body,
                 is_async,
             } => {
-                let iterable_value = self.evaluate_expression(&iterable.value, context)?;
+                let iterable_value = self.evaluate_expression(&iterable, context)?;
 
-                if let Value::Array(items) = iterable_value {
+                if let ValueData::Array(items) = iterable_value.value {
                     if *is_async {
                         if self.dry_run {
                             println!("  → Would run {} iterations in parallel", items.len());
@@ -224,7 +229,7 @@ impl Runtime {
 
                             for stmt in body {
                                 if let Err(e) =
-                                    self_clone.execute_statement(&stmt.value, &mut loop_context)
+                                    self_clone.execute_statement(&stmt, &mut loop_context)
                                 {
                                     let mut errors_guard = errors_clone.lock().unwrap();
                                     errors_guard.push(e);
@@ -241,20 +246,24 @@ impl Runtime {
                         for item in items {
                             context.set(var.clone(), item);
                             for stmt in body {
-                                self.execute_statement(&stmt.value, context)?;
+                                self.execute_statement(&stmt, context)?;
                             }
                         }
                     }
                 } else {
                     return Err(RuntimeError::TypeError {
-                        expected: "iterable".to_string(),
-                        got: iterable_value.type_name().to_string(),
-                        context: format!("For loop variable '{var}'"),
+                        source: TypeError::Mismatch {
+                            expected: "iterable".to_string(),
+                            got: iterable_value.value_type.to_string(),
+                            context: format!("For loop variable '{var}'"),
+                        },
+                        code: Some(self.source.to_string()),
+                        span: Some((&iterable.span).into()),
                     });
                 }
             }
             Statement::Print(expr) => {
-                let value = self.evaluate_expression(&expr.value, context)?;
+                let value = self.evaluate_expression(&expr, context)?;
                 if self.dry_run {
                     println!("  📣 {value}");
                 } else {
@@ -263,8 +272,16 @@ impl Runtime {
             }
             Statement::Exit(expr) => {
                 let exit_code = {
-                    let value = self.evaluate_expression(&expr.value, context)?;
-                    value.to_number()? as i32
+                    let value = self.evaluate_expression(&expr, context)?;
+                    value.to_number().map_err(|_| RuntimeError::TypeError {
+                        source: TypeError::Mismatch {
+                            expected: "number".to_string(),
+                            got: value.value_type.to_string(),
+                            context: "exit code".to_string(),
+                        },
+                        code: Some(self.source.to_string()),
+                        span: Some((&expr.span).into()),
+                    })? as i32
                 };
 
                 if self.dry_run {
@@ -275,21 +292,32 @@ impl Runtime {
             }
             Statement::Let {
                 name,
-                value,
+                value: orig_value,
                 param_type,
+                ..
             } => {
-                let value = if let Some(expr) = value {
-                    self.evaluate_expression(&expr.value, context)?
+                let value = if let Some(expr) = orig_value {
+                    self.evaluate_expression(&expr, context)?
                 } else {
-                    Value::default_for_type(param_type)
+                    TypedValue::new(ValueData::None, param_type.clone())
                 };
 
-                let value = self.try_match_type(&value, param_type, name)?;
+                let value = self.try_match_type(&value, param_type).map_err(|e| {
+                    RuntimeError::TypeError {
+                        source: e,
+                        code: Some(self.source.to_string()),
+                        span: if let Some(expr) = orig_value {
+                            Some((&expr.span).into())
+                        } else {
+                            Some((&statement.span).into())
+                        },
+                    }
+                })?;
 
                 context.set(name.clone(), value);
             }
             Statement::Assign { name, value } => {
-                let value = self.evaluate_expression(&value.value, context)?;
+                let value = self.evaluate_expression(&value, context)?;
                 // TODO: validate type against existing variable type
                 if !context.contains(name) {
                     return Err(RuntimeError::UndefinedVariable(name.clone()));
@@ -297,11 +325,11 @@ impl Runtime {
                 context.set(name.clone(), value);
             }
             Statement::Call { recipe, args } => {
-                let recipe_value = self.evaluate_expression(&recipe.value, context)?;
+                let recipe_value = self.evaluate_expression(&recipe, context)?;
                 let mut resolved_args = HashMap::new();
 
-                let recipe_name = match &recipe_value {
-                    Value::Recipe(name, predefined_args) => {
+                let recipe_name = match &recipe_value.value {
+                    ValueData::Recipe(name, predefined_args) => {
                         if !predefined_args.is_empty() {
                             resolved_args = predefined_args.clone();
                         }
@@ -312,7 +340,7 @@ impl Runtime {
 
                 if resolved_args.is_empty() {
                     for (arg_name, arg_expr) in args {
-                        let value = self.evaluate_expression(&arg_expr.value, context)?;
+                        let value = self.evaluate_expression(&arg_expr, context)?;
                         resolved_args.insert(arg_name.clone(), value);
                     }
                 }
@@ -329,15 +357,17 @@ impl Runtime {
         }
         Ok(())
     }
+
     fn execute_match_statement(
         &self,
         expr: &SpannedNode<Expression>,
         arms: &[SpannedNode<MatchArm>],
         context: &mut ExecutionContext,
     ) -> Result<()> {
-        let match_value = self.evaluate_expression(&expr.value, context)?;
+        let match_value = self.evaluate_expression(&expr, context)?;
 
         for arm in arms {
+            dbg!(&arm);
             let pattern_match = self.match_pattern(&arm.value.pattern, &match_value, context)?;
 
             if pattern_match.matched {
@@ -347,7 +377,7 @@ impl Runtime {
                         guard_context.set(name.clone(), value.clone());
                     }
 
-                    let guard_result = self.evaluate_expression(&guard.value, &guard_context)?;
+                    let guard_result = self.evaluate_expression(&guard, &guard_context)?;
                     if !guard_result.to_bool() {
                         continue;
                     }
@@ -358,7 +388,7 @@ impl Runtime {
                 }
 
                 for stmt in &arm.value.body {
-                    self.execute_statement(&stmt.value, context)?;
+                    self.execute_statement(&stmt, context)?;
                 }
                 return Ok(());
             }
@@ -374,23 +404,21 @@ impl Runtime {
         expr: &SpannedNode<Expression>,
         arms: &[SpannedNode<MatchExpressionArm>],
         context: &ExecutionContext,
-    ) -> Result<Value> {
-        let match_value = self.evaluate_expression(&expr.value, context)?;
+    ) -> Result<TypedValue> {
+        let match_value = self.evaluate_expression(&expr, context)?;
 
         for arm in arms {
             let pattern_match = self.match_pattern(&arm.value.pattern, &match_value, context)?;
             if pattern_match.matched {
-                // Check guard condition if present
                 if let Some(ref guard) = arm.value.guard {
-                    // Create temporary context with pattern bindings
                     let mut guard_context = context.clone();
                     for (name, value) in &pattern_match.bindings {
                         guard_context.set(name.clone(), value.clone());
                     }
 
-                    let guard_result = self.evaluate_expression(&guard.value, &guard_context)?;
+                    let guard_result = self.evaluate_expression(&guard, &guard_context)?;
                     if !guard_result.to_bool() {
-                        continue; // Guard failed, try next arm
+                        continue;
                     }
                 }
 
@@ -399,11 +427,10 @@ impl Runtime {
                     expr_context.set(name, value);
                 }
 
-                return self.evaluate_expression(&arm.value.expr.value, &expr_context);
+                return self.evaluate_expression(&arm.value.expr, &expr_context);
             }
         }
 
-        // No pattern matched
         Err(RuntimeError::MatchNoArm {
             value: match_value.to_string(),
         })
@@ -413,9 +440,9 @@ impl Runtime {
     fn match_pattern(
         &self,
         pattern: &MatchPattern,
-        value: &Value,
+        value: &TypedValue,
         context: &ExecutionContext,
-    ) -> Result<PatternMatch<Value>> {
+    ) -> Result<PatternMatch<TypedValue>> {
         match pattern {
             MatchPattern::String(s) => Ok(PatternMatch {
                 matched: value.to_string() == *s,
@@ -497,8 +524,8 @@ impl Runtime {
             },
 
             MatchPattern::Array { elements, rest } => {
-                if let Value::Array(array_values) = value {
-                    self.match_array_pattern(elements, rest.as_ref(), array_values, context)
+                if let ValueData::Array(ref array_values) = value.value {
+                    self.match_array_pattern(elements, rest.as_ref(), &array_values, context)
                 } else {
                     Ok(PatternMatch {
                         matched: false,
@@ -513,13 +540,12 @@ impl Runtime {
                     return Ok(base_match);
                 }
 
-                // Create context with pattern bindings for guard evaluation
                 let mut guard_context = context.clone();
                 for (name, binding_value) in &base_match.bindings {
                     guard_context.set(name.clone(), binding_value.clone());
                 }
 
-                let guard_result = self.evaluate_expression(&condition.value, &guard_context)?;
+                let guard_result = self.evaluate_expression(&condition, &guard_context)?;
                 Ok(PatternMatch {
                     matched: guard_result.to_bool(),
                     bindings: base_match.bindings,
@@ -527,14 +553,7 @@ impl Runtime {
             }
 
             MatchPattern::Type(param_type) => {
-                let matched = matches!(
-                    (param_type, value),
-                    (ParamType::String, Value::String(_))
-                        | (ParamType::Number, Value::Number(_))
-                        | (ParamType::Bool, Value::Bool(_))
-                        | (ParamType::Array(_), Value::Array(_))
-                        | (ParamType::Recipe, Value::Recipe(_, _))
-                );
+                let matched = param_type.is_compatible_with(&value.value_type);
 
                 Ok(PatternMatch {
                     matched,
@@ -549,9 +568,9 @@ impl Runtime {
         &self,
         elements: &[SpannedNode<ArrayPatternElement>],
         rest: Option<&String>,
-        array_values: &[Value],
+        array_values: &[TypedValue],
         context: &ExecutionContext,
-    ) -> Result<PatternMatch<Value>> {
+    ) -> Result<PatternMatch<TypedValue>> {
         let mut bindings = HashMap::new();
         let mut array_index = 0;
         let mut matched = true;
@@ -586,10 +605,16 @@ impl Runtime {
                 }
 
                 ArrayPatternElement::Rest(rest_name) => {
-                    let remaining: Vec<Value> = array_values[array_index..].to_vec();
+                    let remaining: Vec<TypedValue> = array_values[array_index..].to_vec();
 
                     if let Some(name) = rest_name {
-                        bindings.insert(name.clone(), Value::Array(remaining));
+                        bindings.insert(
+                            name.clone(),
+                            TypedValue::new(
+                                remaining,
+                                BraiseType::Array(Box::new(BraiseType::Any)),
+                            ),
+                        );
                     }
 
                     array_index = array_values.len();
@@ -603,18 +628,25 @@ impl Runtime {
         }
 
         if let Some(rest_name) = rest {
-            let remaining: Vec<Value> = array_values[array_index..].to_vec();
-            bindings.insert(rest_name.clone(), Value::Array(remaining));
+            let remaining: Vec<TypedValue> = array_values[array_index..].to_vec();
+            bindings.insert(
+                rest_name.clone(),
+                TypedValue::new(remaining, BraiseType::Array(Box::new(BraiseType::Any))),
+            );
         }
 
         Ok(PatternMatch { matched, bindings })
     }
 
-    fn evaluate_expression(&self, expr: &Expression, context: &ExecutionContext) -> Result<Value> {
-        match expr {
-            Expression::String(s) => Ok(Value::String(s.clone())),
-            Expression::Number(n) => Ok(Value::Number(*n)),
-            Expression::Bool(b) => Ok(Value::Bool(*b)),
+    fn evaluate_expression(
+        &self,
+        expr: &Spanned<Expression>,
+        context: &ExecutionContext,
+    ) -> Result<TypedValue> {
+        match &expr.value {
+            Expression::String(s) => Ok(TypedValue::new(s.clone(), BraiseType::String)),
+            Expression::Number(n) => Ok(TypedValue::new(*n, BraiseType::Number)),
+            Expression::Bool(b) => Ok(TypedValue::new(*b, BraiseType::Bool)),
             Expression::Variable(name) => context
                 .get(name)
                 .cloned()
@@ -623,123 +655,156 @@ impl Runtime {
                 module,
                 function,
                 args,
+                ..
             } => {
-                let arg_values: Result<Vec<Value>> = args
+                let arg_values: Result<Vec<TypedValue>> = args
                     .iter()
-                    .map(|arg| self.evaluate_expression(&arg.value, context))
+                    .map(|arg| self.evaluate_expression(&arg, context))
                     .collect();
                 let arg_values = arg_values?;
 
                 self.builtins.call_function(module, function, arg_values)
             }
-            Expression::ModuleAccess { module, field } => self.builtins.get_field(module, field),
+            Expression::ModuleAccess { module, field, .. } => {
+                self.builtins.get_field(module, field)
+            }
             Expression::Interpolation(parts) => {
                 let mut result = String::new();
                 for part in parts {
                     match part {
                         InterpolationPart::String(s) => result.push_str(s),
                         InterpolationPart::Expression(expr) => {
-                            let value = self.evaluate_expression(&expr.value, context)?;
+                            let value = self.evaluate_expression(&expr, context)?;
                             result.push_str(&value.to_string());
                         }
                     }
                 }
-                Ok(Value::String(result))
+                Ok(TypedValue::new(result, BraiseType::String))
             }
             Expression::Array(elements) => {
-                let values: Result<Vec<Value>> = elements
+                let values: Result<Vec<TypedValue>> = elements
                     .iter()
-                    .map(|elem| self.evaluate_expression(&elem.value, context))
+                    .map(|elem| self.evaluate_expression(&elem, context))
                     .collect();
-                Ok(Value::Array(values?))
+                Ok(TypedValue::new(
+                    values?,
+                    BraiseType::Array(Box::new(BraiseType::Any)), // TODO: infer actual type if possible?
+                ))
             }
-            Expression::BinaryOp { left, op, right } => {
-                let left_val = self.evaluate_expression(&left.value, context)?;
-                let right_val = self.evaluate_expression(&right.value, context)?;
+            Expression::BinaryOp {
+                left, op, right, ..
+            } => {
+                let left_val = self.evaluate_expression(&left, context)?;
+                let right_val = self.evaluate_expression(&right, context)?;
                 self.evaluate_binary_op(&left_val, op, &right_val)
+                    .map_err(|e| RuntimeError::TypeError {
+                        source: e,
+                        code: Some(self.source.to_string()),
+                        span: Some((&expr.span).into()),
+                    })
             }
-            Expression::UnaryOp { op, expr } => {
-                let value = self.evaluate_expression(&expr.value, context)?;
+            Expression::UnaryOp { op, expr, .. } => {
+                let value = self.evaluate_expression(&expr, context)?;
                 match op {
-                    UnaryOperator::Not => Ok(Value::Bool(!value.to_bool())),
+                    UnaryOperator::Not => Ok(TypedValue::new(!value.to_bool(), BraiseType::Bool)),
                 }
             }
             Expression::Conditional {
                 condition,
                 then_expr,
                 else_expr,
+                ..
             } => {
-                let condition_value = self.evaluate_expression(&condition.value, context)?;
+                let condition_value = self.evaluate_expression(&condition, context)?;
                 if condition_value.to_bool() {
-                    self.evaluate_expression(&then_expr.value, context)
+                    self.evaluate_expression(&then_expr, context)
                 } else {
-                    self.evaluate_expression(&else_expr.value, context)
+                    self.evaluate_expression(&else_expr, context)
                 }
             }
             Expression::RecipeRef { recipe, args } => {
                 let mut arg_values = HashMap::new();
                 for (k, arg) in args {
-                    let value = self.evaluate_expression(&arg.value, context)?;
+                    let value = self.evaluate_expression(&arg, context)?;
                     arg_values.insert(k.clone(), value);
                 }
 
-                Ok(Value::Recipe(recipe.clone(), arg_values))
+                Ok(TypedValue::new(
+                    (recipe.clone(), arg_values),
+                    BraiseType::Recipe,
+                ))
             }
-            Expression::Match { expr, arms } => self.evaluate_match_expression(expr, arms, context),
+            Expression::Match { expr, arms, .. } => {
+                self.evaluate_match_expression(expr, arms, context)
+            }
         }
     }
 
     fn evaluate_binary_op(
         &self,
-        left: &Value,
+        left: &TypedValue,
         op: &BinaryOperator,
-        right: &Value,
-    ) -> Result<Value> {
+        right: &TypedValue,
+    ) -> Result<TypedValue, TypeError> {
         match op {
-            BinaryOperator::Equal => Ok(Value::Bool(Self::values_equal(left, right))),
-            BinaryOperator::NotEqual => Ok(Value::Bool(!Self::values_equal(left, right))),
+            BinaryOperator::Equal => Ok(TypedValue::new(
+                Self::values_equal(left, right),
+                BraiseType::Bool,
+            )),
+            BinaryOperator::NotEqual => Ok(TypedValue::new(
+                !Self::values_equal(left, right),
+                BraiseType::Bool,
+            )),
             BinaryOperator::Less => {
                 let left_num = left.to_number()?;
                 let right_num = right.to_number()?;
-                Ok(Value::Bool(left_num < right_num))
+                Ok(TypedValue::new(left_num < right_num, BraiseType::Bool))
             }
             BinaryOperator::LessEqual => {
                 let left_num = left.to_number()?;
                 let right_num = right.to_number()?;
-                Ok(Value::Bool(left_num <= right_num))
+                Ok(TypedValue::new(left_num <= right_num, BraiseType::Bool))
             }
             BinaryOperator::Greater => {
                 let left_num = left.to_number()?;
                 let right_num = right.to_number()?;
-                Ok(Value::Bool(left_num > right_num))
+                Ok(TypedValue::new(left_num > right_num, BraiseType::Bool))
             }
             BinaryOperator::GreaterEqual => {
                 let left_num = left.to_number()?;
                 let right_num = right.to_number()?;
-                Ok(Value::Bool(left_num >= right_num))
+                Ok(TypedValue::new(left_num >= right_num, BraiseType::Bool))
             }
-            BinaryOperator::And => Ok(Value::Bool(left.to_bool() && right.to_bool())),
-            BinaryOperator::Or => Ok(Value::Bool(left.to_bool() || right.to_bool())),
+            BinaryOperator::And => Ok(TypedValue::new(
+                left.to_bool() && right.to_bool(),
+                BraiseType::Bool,
+            )),
+            BinaryOperator::Or => Ok(TypedValue::new(
+                left.to_bool() || right.to_bool(),
+                BraiseType::Bool,
+            )),
         }
     }
 
-    fn values_equal(left: &Value, right: &Value) -> bool {
-        match (left, right) {
-            (Value::String(a), Value::String(b)) => a == b,
-            (Value::Number(a), Value::Number(b)) => a == b,
-            (Value::Bool(a), Value::Bool(b)) => a == b,
-            (Value::Array(a), Value::Array(b)) => {
-                a.len() == b.len()
-                    && a.iter()
-                        .zip(b.iter())
-                        .all(|(x, y)| Self::values_equal(x, y))
-            }
-            // mixed
-            (Value::String(s), Value::Number(n)) | (Value::Number(n), Value::String(s)) => {
-                s.parse::<f64>().map(|parsed| parsed == *n).unwrap_or(false)
-            }
-            _ => false,
+    fn values_equal(left: &TypedValue, right: &TypedValue) -> bool {
+        if left.value_type == right.value_type {
+            return left.value == right.value;
         }
+        if matches!(
+            (&left.value_type, &right.value_type),
+            (BraiseType::String, BraiseType::Number) | (BraiseType::Number, BraiseType::String)
+        ) {
+            if let Ok(left_num) = left.to_number() {
+                if let Ok(right_num) = right.to_number() {
+                    return left_num == right_num;
+                }
+            }
+            let left_str = left.to_string();
+            if let Ok(right_num) = right.to_number() {
+                return left_str.parse::<f64>().map_or(false, |n| n == right_num);
+            }
+        }
+        false
     }
 
     fn show_command(&self, command: &str) {

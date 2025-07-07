@@ -122,6 +122,10 @@ pub enum Token {
     // Custom operators
     #[token("@")]
     At,
+    #[token("|")]
+    Pipe,
+    #[token("?")]
+    QuestionMark,
 
     // Delimiters
     #[token("{")]

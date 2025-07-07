@@ -55,10 +55,10 @@ impl Parser {
 
             Token::Number(n) => {
                 self.advance();
-                // Check for range pattern
+
                 if self.check(&Token::Dot) && self.peek_ahead(1) == Some(&Token::Dot) {
-                    self.advance(); // first dot
-                    self.advance(); // second dot
+                    self.advance();
+                    self.advance();
 
                     let inclusive = self.match_token(&Token::Equals);
 
@@ -89,17 +89,16 @@ impl Parser {
             Token::Identifier(name) => {
                 self.advance();
 
-                // Check for wildcard
                 if name == "_" {
                     return Ok(MatchPattern::Wildcard);
                 }
 
-                // Check if it's a type pattern
                 if self.match_token(&Token::LeftParen) {
                     let param_type = match name.as_str() {
-                        "string" => ParamType::String,
-                        "number" => ParamType::Number,
-                        "bool" => ParamType::Bool,
+                        "string" => BraiseType::String,
+                        "number" => BraiseType::Number,
+                        "bool" => BraiseType::Bool,
+                        "any" => BraiseType::Any,
                         _ => {
                             return Err(self.create_error(
                                 "valid type name".to_string(),
@@ -111,7 +110,6 @@ impl Parser {
                     self.consume_token(Token::RightParen)?;
                     Ok(MatchPattern::Type(param_type))
                 } else {
-                    // Variable binding
                     Ok(MatchPattern::Variable(name))
                 }
             }
@@ -132,15 +130,14 @@ impl Parser {
     }
 
     fn parse_array_pattern(&mut self) -> Result<MatchPattern> {
-        self.advance(); // consume '['
+        self.advance();
         let mut elements = Vec::new();
         let mut rest = None;
 
         if !self.check(&Token::RightBracket) {
             loop {
-                // Check for rest pattern (..)
                 if self.match_token(&Token::Dot) {
-                    self.consume_token(Token::Dot)?; // second dot
+                    self.consume_token(Token::Dot)?;
 
                     if self.check_wildcard() {
                         self.advance();
@@ -160,7 +157,7 @@ impl Parser {
                             self.peek().clone(),
                         ));
                     }
-                    break; // Rest pattern must be last
+                    break;
                 } else if self.check_wildcard() {
                     self.advance();
                     elements.push(SpannedNode::new(
@@ -192,8 +189,8 @@ impl Parser {
     }
 
     fn parse_range_pattern_from_dot(&mut self) -> Result<MatchPattern> {
-        self.advance(); // consume first dot
-        self.consume_token(Token::Dot)?; // second dot
+        self.advance();
+        self.consume_token(Token::Dot)?;
 
         let inclusive = self.match_token(&Token::Equals);
 

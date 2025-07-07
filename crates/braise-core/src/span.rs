@@ -172,7 +172,6 @@ impl SourceMap {
 
     /// Convert a byte offset to a Position
     pub fn position_at_offset(&self, offset: usize) -> Position {
-        // Binary search to find the line
         let line_index = match self.line_starts.binary_search(&offset) {
             Ok(index) => index,
             Err(index) => index.saturating_sub(1),
@@ -200,5 +199,11 @@ impl SourceMap {
     /// Get the file ID
     pub fn file_id(&self) -> FileId {
         self.file_id
+    }
+}
+
+impl From<&Span> for miette::SourceSpan {
+    fn from(span: &Span) -> Self {
+        miette::SourceSpan::new(span.start.offset.into(), span.len())
     }
 }

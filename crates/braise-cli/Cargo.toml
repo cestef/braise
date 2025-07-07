@@ -6,9 +6,13 @@ authors.workspace = true
 
 [dependencies]
 clap = { version = "4.5.40", features = ["cargo", "derive"] }
+syntect = { version = "5" }
+
 miette.workspace = true
 thiserror.workspace = true
 logos.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 core = { path = "../braise-core", package = "braise-core" }
 parser = { path = "../braise-parser", package = "braise-parser" }

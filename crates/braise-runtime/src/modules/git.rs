@@ -1,4 +1,4 @@
-use crate::{Result, RuntimeError, Value};
+use crate::{BraiseType, Result, RuntimeError, TypedValue};
 use std::process::Command;
 
 pub struct GitModule;
@@ -8,50 +8,51 @@ impl GitModule {
         Self
     }
 
-    fn is_dirty(&self) -> Result<Value> {
+    fn is_dirty(&self) -> Result<TypedValue> {
         let output = Command::new("git")
             .args(["status", "--porcelain"])
             .output()
             .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {e}")))?;
 
-        Ok(Value::Bool(!output.stdout.is_empty()))
+        Ok(TypedValue::new(!output.stdout.is_empty(), BraiseType::Bool))
     }
 
-    fn is_clean(&self) -> Result<Value> {
-        self.is_dirty().map(|v| Value::Bool(!v.to_bool()))
+    fn is_clean(&self) -> Result<TypedValue> {
+        self.is_dirty()
+            .map(|v| TypedValue::new(!v.to_bool(), BraiseType::Bool))
     }
 
-    fn branch(&self) -> Result<Value> {
+    fn branch(&self) -> Result<TypedValue> {
         let output = Command::new("git")
             .args(["rev-parse", "--abbrev-ref", "HEAD"])
             .output()
             .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {e}")))?;
 
         let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        Ok(Value::String(branch))
+        Ok(TypedValue::new(branch, BraiseType::String))
     }
 
-    fn commit_hash(&self) -> Result<Value> {
+    fn commit_hash(&self) -> Result<TypedValue> {
         let output = Command::new("git")
             .args(["rev-parse", "HEAD"])
             .output()
             .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {e}")))?;
 
         let hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        Ok(Value::String(hash))
+        Ok(TypedValue::new(hash, BraiseType::String))
     }
 
-    fn commit_hash_short(&self) -> Result<Value> {
+    fn commit_hash_short(&self) -> Result<TypedValue> {
         let output = Command::new("git")
             .args(["rev-parse", "--short", "HEAD"])
             .output()
             .map_err(|e| RuntimeError::BuiltinError(format!("Git command failed: {e}")))?;
 
         let hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        Ok(Value::String(hash))
+        Ok(TypedValue::new(hash, BraiseType::String))
     }
 
-    fn tag(&self) -> Result<Value> {
+    fn tag(&self) -> Result<TypedValue> {
         let output = Command::new("git")
             .args(["describe", "--tags", "--exact-match"])
             .output()
@@ -59,9 +60,9 @@ impl GitModule {
 
         if output.status.success() {
             let tag = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            Ok(Value::String(tag))
+            Ok(TypedValue::new(tag, BraiseType::String))
         } else {
-            Ok(Value::String(String::new())) // No tag on current commit
+            Ok(TypedValue::new(String::new(), BraiseType::String))
         }
     }
 }

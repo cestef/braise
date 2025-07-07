@@ -1,12 +1,11 @@
+use core::TypedValue;
 use std::collections::HashMap;
-
-use crate::Value;
 
 use super::{Result, RuntimeError};
 
 pub trait BuiltinModule: Send + Sync {
-    fn call_function(&self, function: &str, args: Vec<Value>) -> Result<Value>;
-    fn get_field(&self, field: &str) -> Result<Value> {
+    fn call_function(&self, function: &str, args: Vec<TypedValue>) -> Result<TypedValue>;
+    fn get_field(&self, field: &str) -> Result<TypedValue> {
         Err(RuntimeError::BuiltinError(format!(
             "Field '{field}' not supported by this module"
         )))
@@ -18,7 +17,7 @@ macro_rules! builtin_module {
         $module_name:ident {
             functions: {
                 $(
-                    $func_name:literal => $func_method:ident $( ( $($arg_type:ty),+ ) )?
+                    $func_name:literal => $func_method:ident $( ( $arg_type:expr ) )?
                 ),* $(,)?
             }
             $(,fields: {
@@ -29,11 +28,11 @@ macro_rules! builtin_module {
         }
     ) => {
         impl crate::modules::BuiltinModule for $module_name {
-            fn call_function(&self, function: &str, args: Vec<crate::Value>) -> crate::Result<crate::Value> {
+            fn call_function(&self, function: &str, args: Vec<crate::TypedValue>) -> crate::Result<crate::TypedValue> {
                 match function {
                     $(
                         $func_name => {
-                            builtin_module!(@call_function self, $func_method, args $(, $($arg_type),+)?)
+                            builtin_module!(@call_function self, $func_method, args $(, $arg_type)?)
                         }
                     )*
                     _ => Err(crate::RuntimeError::BuiltinError(format!(
@@ -45,7 +44,7 @@ macro_rules! builtin_module {
             }
 
             $(
-                fn get_field(&self, field: &str) -> crate::Result<crate::Value> {
+                fn get_field(&self, field: &str) -> crate::Result<crate::TypedValue> {
                     match field {
                         $(
                             $field_name => self.$field_method(),
@@ -74,7 +73,7 @@ macro_rules! builtin_module {
         }
     };
 
-    (@call_function $self:expr, $func_method:ident, $args:ident, $($arg_type:ty),+) => {
+    (@call_function $self:expr, $func_method:ident, $args:ident, $arg_type:expr) => {
         {
             if $args.len() != 1 {
                 return Err(crate::RuntimeError::BuiltinError(format!(
@@ -84,15 +83,15 @@ macro_rules! builtin_module {
                 )));
             }
             let arg = $args.into_iter().next().unwrap();
-            if !arg.is::<$($arg_type),+>() {
+            if !arg.value_type.can_convert_from(&$arg_type) {
                 return Err(crate::RuntimeError::BuiltinError(format!(
                     "Function '{}' expected argument of type {}, got {}",
                     stringify!($func_method),
-                    stringify!($($arg_type),+),
-                    arg.type_name()
+                    stringify!($arg_type),
+                    arg.value_type
                 )));
             }
-            $self.$func_method(arg.into())
+            $self.$func_method(arg)
         }
     };
 }
@@ -123,7 +122,12 @@ impl BuiltinModules {
 }
 
 impl BuiltinModules {
-    pub fn call_function(&self, module: &str, function: &str, args: Vec<Value>) -> Result<Value> {
+    pub fn call_function(
+        &self,
+        module: &str,
+        function: &str,
+        args: Vec<TypedValue>,
+    ) -> Result<TypedValue> {
         match MODULES.get(module) {
             Some(m) => m.call_function(function, args),
             None => Err(RuntimeError::BuiltinError(format!(
@@ -132,7 +136,7 @@ impl BuiltinModules {
         }
     }
 
-    pub fn get_field(&self, module: &str, field: &str) -> Result<Value> {
+    pub fn get_field(&self, module: &str, field: &str) -> Result<TypedValue> {
         match MODULES.get(module) {
             Some(m) => m.get_field(field),
             None => Err(RuntimeError::BuiltinError(format!(

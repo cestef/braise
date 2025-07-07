@@ -1,4 +1,4 @@
-use crate::{Result, Value};
+use crate::{Result, TypedValue};
 use std::env;
 
 pub struct CpuModule;
@@ -8,16 +8,25 @@ impl CpuModule {
         Self
     }
 
-    fn count(&self) -> Result<Value> {
-        Ok(Value::Number(num_cpus::get() as f64))
+    fn count(&self) -> Result<TypedValue> {
+        Ok(TypedValue::new(
+            num_cpus::get() as f64,
+            core::BraiseType::Number,
+        ))
     }
 
-    fn physical_count(&self) -> Result<Value> {
-        Ok(Value::Number(num_cpus::get_physical() as f64))
+    fn physical_count(&self) -> Result<TypedValue> {
+        Ok(TypedValue::new(
+            num_cpus::get_physical() as f64,
+            core::BraiseType::Number,
+        ))
     }
 
-    fn arch(&self) -> Result<Value> {
-        Ok(Value::String(env::consts::ARCH.to_string()))
+    fn arch(&self) -> Result<TypedValue> {
+        Ok(TypedValue::new(
+            env::consts::ARCH.to_string(),
+            core::BraiseType::String,
+        ))
     }
 }
 

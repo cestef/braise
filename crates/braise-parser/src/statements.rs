@@ -1,5 +1,5 @@
 use ::lexer::Token;
-use core::{error::parser::Result, *};
+use core::{BraiseType, ast::*, error::parser::Result};
 use std::collections::HashMap;
 
 use crate::Parser;
@@ -59,7 +59,7 @@ impl Parser {
     }
 
     fn parse_assign_statement(&mut self, name: String) -> Result<Statement> {
-        self.advance(); // consume identifier
+        self.advance();
 
         if self.match_token(&Token::Equals) {
             let value = self.parse_expression()?;
@@ -69,21 +69,55 @@ impl Parser {
         }
     }
 
+    /// Parse let statement with enhanced type support
     fn parse_let_statement(&mut self) -> Result<Statement> {
         self.consume_token(Token::Let)?;
         let name = self.parse_identifier()?;
-        self.consume_token(Token::Colon)?;
-        let param_type = self.parse_param_type()?;
+
+        let declared_type = self.parse_type_annotation()?.unwrap_or(BraiseType::Any);
+
         let mut value = None;
+        let mut inferred_type = None;
 
         if self.match_token(&Token::Equals) {
-            value = Some(self.parse_expression()?);
+            let value_expr = self.parse_expression()?;
+
+            if self.enable_type_checking {
+                let expr_type = self.infer_expression_type(&value_expr.value);
+
+                if !matches!(declared_type, BraiseType::Any) {
+                    if !expr_type.is_compatible_with(&declared_type) {
+                        return Err(self.create_type_error(
+                            declared_type.to_string(),
+                            expr_type.to_string(),
+                            format!("let statement for variable '{}'", name),
+                            &value_expr.span,
+                        ));
+                    }
+                }
+
+                inferred_type = Some(expr_type);
+            }
+
+            value = Some(value_expr);
+        } else if matches!(declared_type, BraiseType::Any) {
+            return Err(self.create_error(
+                "type annotation or initial value".to_string(),
+                self.peek().clone(),
+            ));
         }
+
+        let final_type = if !matches!(declared_type, BraiseType::Any) {
+            declared_type
+        } else {
+            inferred_type.clone().unwrap_or(BraiseType::Any)
+        };
 
         Ok(Statement::Let {
             name,
             value,
-            param_type,
+            param_type: final_type,
+            inferred_type,
         })
     }
 
@@ -166,6 +200,7 @@ impl Parser {
         })
     }
 
+    /// Parse match statement with enhanced pattern support
     pub fn parse_match_statement(&mut self) -> Result<Statement> {
         self.consume_token(Token::Match)?;
         let expr = self.parse_expression()?;
@@ -178,7 +213,6 @@ impl Parser {
 
             let pattern = self.parse_match_pattern()?;
 
-            // Optional guard condition
             let guard = if self.match_token(&Token::If) {
                 Some(self.parse_expression()?)
             } else {
@@ -197,11 +231,13 @@ impl Parser {
             let arm_end = self.current;
             let arm_span = self.span_from_token_range(arm_start, arm_end);
 
+            let bindings = self.extract_pattern_bindings(&pattern)?;
+
             let arm = MatchArm {
                 pattern,
                 guard,
                 body,
-                bindings: HashMap::new(),
+                bindings,
             };
             arms.push(SpannedNode::new(arm, arm_span));
 
@@ -213,5 +249,339 @@ impl Parser {
         self.consume_token(Token::RightBrace)?;
 
         Ok(Statement::Match { expr, arms })
+    }
+
+    /// Extract variable bindings from a match pattern with their types
+    fn extract_pattern_bindings(
+        &mut self,
+        pattern: &MatchPattern,
+    ) -> Result<HashMap<String, BraiseType>> {
+        let mut bindings = HashMap::new();
+
+        match pattern {
+            MatchPattern::Variable(name) => {
+                bindings.insert(name.clone(), BraiseType::Any);
+            }
+            MatchPattern::Array { elements, rest } => {
+                for element in elements {
+                    match &element.value {
+                        ArrayPatternElement::Pattern(inner_pattern) => {
+                            let inner_bindings = self.extract_pattern_bindings(inner_pattern)?;
+                            bindings.extend(inner_bindings);
+                        }
+                        ArrayPatternElement::Rest(Some(name)) => {
+                            bindings
+                                .insert(name.clone(), BraiseType::Array(Box::new(BraiseType::Any)));
+                        }
+                        _ => {}
+                    }
+                }
+                if let Some(rest_name) = rest {
+                    bindings.insert(
+                        rest_name.clone(),
+                        BraiseType::Array(Box::new(BraiseType::Any)),
+                    );
+                }
+            }
+            MatchPattern::Or(patterns) => {
+                for pattern_node in patterns {
+                    let inner_bindings = self.extract_pattern_bindings(&pattern_node.value)?;
+                    bindings.extend(inner_bindings);
+                }
+            }
+            MatchPattern::Guard { pattern, .. } => {
+                let inner_bindings = self.extract_pattern_bindings(&pattern.value)?;
+                bindings.extend(inner_bindings);
+            }
+            _ => {}
+        }
+
+        Ok(bindings)
+    }
+
+    /// Validate statement in current type context
+    pub fn validate_statement_types(&mut self, statement: &mut Statement) -> Result<()> {
+        if !self.enable_type_checking {
+            return Ok(());
+        }
+
+        match statement {
+            Statement::Let {
+                name,
+                value,
+                param_type,
+                inferred_type,
+            } => {
+                if let Some(value_expr) = value {
+                    let expr_type = self.infer_expression_type(&value_expr.value);
+
+                    if !expr_type.is_compatible_with(param_type) {
+                        return Err(self.create_type_error(
+                            param_type.to_string(),
+                            expr_type.to_string(),
+                            format!("variable declaration '{}'", name),
+                            &value_expr.span,
+                        ));
+                    }
+
+                    *inferred_type = Some(expr_type);
+                }
+            }
+            Statement::Assign { name, value } => {
+                if let Some(var_type) = self.type_engine.get_variable_type(name) {
+                    let var_type_clone = var_type.clone();
+                    let expr_type = self.infer_expression_type(&value.value);
+
+                    if !expr_type.is_compatible_with(&var_type_clone) {
+                        return Err(self.create_type_error(
+                            var_type_clone.to_string(),
+                            expr_type.to_string(),
+                            format!("assignment to variable '{}'", name),
+                            &value.span,
+                        ));
+                    }
+                } else {
+                    return Err(self.create_undefined_variable_error(name, &value.span));
+                }
+            }
+            _ => {}
+        }
+
+        Ok(())
+    }
+
+    /// Check if a match statement is exhaustive
+    pub fn validate_match_exhaustiveness(
+        &self,
+        expr_type: &BraiseType,
+        arms: &[SpannedNode<MatchArm>],
+    ) -> Result<()> {
+        if !self.enable_type_checking {
+            return Ok(());
+        }
+
+        let patterns: Vec<MatchPattern> =
+            arms.iter().map(|arm| arm.value.pattern.clone()).collect();
+
+        core::TypeValidator::check_match_exhaustiveness(expr_type, &patterns)
+            .map_err(|_| self.create_error("match exhaustiveness".to_string(), Token::Match))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use core::Result;
+    use std::assert_matches::assert_matches;
+
+    use super::*;
+    use lexer::tokenize;
+
+    fn parse_statement_string(input: &str) -> Result<Statement> {
+        let tokens = tokenize(input).unwrap();
+        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
+        let stmt = parser.parse_statement()?;
+        Ok(stmt.value)
+    }
+
+    #[test]
+    fn test_let_with_type_annotation() {
+        let stmt = parse_statement_string("let name: string = \"hello\"").unwrap();
+
+        if let Statement::Let {
+            name,
+            param_type,
+            value,
+            ..
+        } = stmt
+        {
+            assert_eq!(name, "name");
+            assert_eq!(param_type, BraiseType::String);
+            assert!(value.is_some());
+        } else {
+            panic!("Expected let statement");
+        }
+    }
+
+    #[test]
+    fn test_let_with_type_inference() {
+        let stmt = parse_statement_string("let count = 42").unwrap();
+
+        if let Statement::Let {
+            name, param_type, ..
+        } = stmt
+        {
+            assert_eq!(name, "count");
+            assert_eq!(param_type, BraiseType::Number);
+        } else {
+            panic!("Expected let statement");
+        }
+    }
+
+    #[test]
+    fn test_let_with_union_type() {
+        let stmt = parse_statement_string("let value: string | number = \"hello\"").unwrap();
+
+        if let Statement::Let {
+            name, param_type, ..
+        } = stmt
+        {
+            assert_eq!(name, "value");
+            if let BraiseType::Union(types) = param_type {
+                assert!(types.contains(&BraiseType::String));
+                assert!(types.contains(&BraiseType::Number));
+            } else {
+                panic!("Expected union type");
+            }
+        } else {
+            panic!("Expected let statement");
+        }
+    }
+
+    #[test]
+    fn test_let_with_optional_type() {
+        let stmt = parse_statement_string("let maybe: string?").unwrap();
+
+        if let Statement::Let {
+            name, param_type, ..
+        } = stmt
+        {
+            assert_eq!(name, "maybe");
+            if let BraiseType::Optional(inner) = param_type {
+                assert_eq!(*inner, BraiseType::String);
+            } else {
+                panic!("Expected optional type");
+            }
+        } else {
+            panic!("Expected let statement");
+        }
+    }
+
+    #[test]
+    fn test_assignment_statement() {
+        let stmt = parse_statement_string("existing = \"new value\"").unwrap();
+
+        if let Statement::Assign { name, value } = stmt {
+            assert_eq!(name, "existing");
+            assert!(matches!(value.value, Expression::String(_)));
+        } else {
+            panic!("Expected assignment statement");
+        }
+    }
+
+    #[test]
+    fn test_match_statement_with_patterns() {
+        let input = r#"
+        match value {
+            "option1" => { print "one" },
+            "option2" => { print "two" },
+            x if x > 10 => { print "large" },
+            _ => { print "default" }
+        }
+        "#;
+
+        let tokens = tokenize(input).unwrap();
+        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
+        let stmt = parser.parse_statement().unwrap();
+
+        if let Statement::Match { arms, .. } = stmt.value {
+            assert_eq!(arms.len(), 4);
+
+            assert!(matches!(arms[0].value.pattern, MatchPattern::String(_)));
+            assert!(matches!(arms[1].value.pattern, MatchPattern::String(_)));
+            assert!(matches!(arms[2].value.pattern, MatchPattern::Guard { .. }));
+            assert!(matches!(arms[3].value.pattern, MatchPattern::Wildcard));
+        } else {
+            panic!("Expected match statement");
+        }
+    }
+
+    #[test]
+    fn test_for_statement() {
+        let stmt = parse_statement_string(r#"for item in items { print item }"#).unwrap();
+
+        if let Statement::For {
+            var,
+            iterable,
+            body,
+            is_async,
+        } = stmt
+        {
+            assert_eq!(var, "item");
+            assert!(matches!(iterable.value, Expression::Variable(_)));
+            assert_eq!(body.len(), 1);
+            assert!(!is_async);
+        } else {
+            panic!("Expected for statement");
+        }
+    }
+
+    #[test]
+    fn test_if_statement() {
+        let stmt =
+            parse_statement_string(r#"if condition { print "true" } else { print "false" }"#)
+                .unwrap();
+
+        if let Statement::If {
+            condition,
+            then_block,
+            else_block,
+        } = stmt
+        {
+            assert!(matches!(condition.value, Expression::Variable(_)));
+            assert_eq!(then_block.len(), 1);
+            assert!(else_block.is_some());
+            assert_eq!(else_block.unwrap().len(), 1);
+        } else {
+            panic!("Expected if statement");
+        }
+    }
+
+    #[test]
+    fn test_complete_recipe_with_types() -> miette::Result<()> {
+        let input = r#"
+        recipe "typed_example" {
+            param name: string | number = "default"
+            param count: number?
+            param items: [string] = ["a", "b"]
+            
+            let message: string = match name {
+                n if n > 10 => "large: ${n}",
+                s => "value: ${s}"
+            }
+            
+            for item in items {
+                print "${item}: ${message}"
+            }
+            
+            if count {
+                print "Count is ${count}"
+            }
+        }
+        "#;
+
+        let tokens = tokenize(input)?;
+        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
+        let config = parser.parse();
+
+        let config = config?;
+        assert_eq!(config.recipes.len(), 1);
+
+        let recipe = &config.recipes[0].value;
+
+        assert_eq!(recipe.parameters.len(), 3);
+
+        assert_matches!(&recipe.parameters[0].value.param_type,
+            BraiseType::Optional(inner) if matches!(&**inner, BraiseType::Union(types) if types.contains(&BraiseType::String) && types.contains(&BraiseType::Number)
+        ));
+
+        assert!(recipe.parameters[1].value.optional);
+
+        assert_matches!(
+            &recipe.parameters[2].value.param_type,
+            BraiseType::Optional(arr) if matches!(&**arr, BraiseType::Array(inner) if matches!(&**inner, BraiseType::String)
+        ));
+
+        assert_eq!(recipe.body.len(), 3); // let, for, if
+        Ok(())
     }
 }
