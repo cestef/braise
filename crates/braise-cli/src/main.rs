@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
-use core::{cli::CliError, constants::DEFAULT_FILES};
+use core::{constants::DEFAULT_FILES};
+use braise_errors::{CliError, RuntimeError};
 use lexer::tokenize;
 use owo_colors::OwoColorize;
 use parser::Parser as BraiseParser;
@@ -65,10 +66,7 @@ async fn main() -> miette::Result<()> {
         utils::find_first_existing_file(DEFAULT_FILES).ok_or(CliError::NoRecipeFileFound)?
     };
 
-    let contents = std::fs::read_to_string(&file).map_err(|e| CliError::ReadRecipeError {
-        src: Box::new(e),
-        file: file.clone(),
-    })?;
+    let contents = std::fs::read_to_string(&file).map_err(|e| CliError::read_recipe_error(e, file.clone()))?;
 
     match cli.command {
         Some(Commands::List) => list_recipes(&contents, &file)?,
@@ -166,10 +164,7 @@ fn format_recipe(contents: &str, file: &str, stdout: bool) -> core::Result<()> {
     if stdout {
         print!("{formatted}");
     } else {
-        std::fs::write(file, formatted).map_err(|e| CliError::ReadRecipeError {
-            src: Box::new(e),
-            file: file.to_string(),
-        })?;
+        std::fs::write(file, formatted).map_err(|e| CliError::read_recipe_error(e, file.to_string()))?;
         println!("✨ Formatted {}", file.bold());
     }
 
@@ -189,7 +184,7 @@ fn show_recipe_info(contents: &str, file: &str, recipe_name: &str) -> core::Resu
         .recipes
         .iter()
         .find(|r| r.value.name == recipe_name)
-        .ok_or_else(|| core::runtime::RuntimeError::UndefinedRecipe(recipe_name.to_string()))?;
+        .ok_or_else(|| RuntimeError::undefined_recipe(recipe_name.to_string()))?;
 
     println!("{}", recipe.value.name.bold().underline());
 

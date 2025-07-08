@@ -3,8 +3,8 @@ use crate::utils::span_to_range;
 
 use super::Document;
 use braise_core::BraiseType;
-use braise_core::parser::ParseError;
-use braise_core::{ast::*, error::BraiseError};
+use braise_core::{ast::*};
+use braise_errors::{BraiseError, ParserError};
 use miette::SourceSpan;
 use std::collections::HashMap;
 use tower_lsp::Client;
@@ -610,16 +610,16 @@ impl DiagnosticsProvider {
 
     fn error_to_diagnostic(&self, error: &BraiseError) -> Diagnostic {
         match error {
-            BraiseError::LexerError { span, code } => Diagnostic {
+            BraiseError::Lexer { span, code, message } => Diagnostic {
                 range: self.source_span_to_range(span, code),
                 severity: Some(DiagnosticSeverity::ERROR),
                 code: Some(NumberOrString::String("lexer_error".to_string())),
-                message: "Unexpected token".to_string(),
+                message: message.clone(),
                 source: Some("braise".to_string()),
                 ..Default::default()
             },
-            BraiseError::ParserError(parse_error) => match parse_error {
-                ParseError::UnexpectedToken {
+            BraiseError::Parser(parse_error) => match parse_error {
+                ParserError::UnexpectedToken {
                     expected,
                     found,
                     code,
@@ -632,7 +632,7 @@ impl DiagnosticsProvider {
                     source: Some("braise".to_string()),
                     ..Default::default()
                 },
-                ParseError::InvalidExpression {
+                ParserError::InvalidExpression {
                     reason: expression,
                     code,
                     span,
@@ -644,30 +644,34 @@ impl DiagnosticsProvider {
                     source: Some("braise".to_string()),
                     ..Default::default()
                 },
-                ParseError::Other(e) => Diagnostic {
-                    range: Range {
-                        start: Position {
-                            line: 0,
-                            character: 0,
-                        },
-                        end: Position {
-                            line: 0,
-                            character: 0,
-                        },
+                ParserError::Other { message, code, span } => Diagnostic {
+                    range: if let (Some(code), Some(span)) = (code, span) {
+                        self.source_span_to_range(span, code)
+                    } else {
+                        Range {
+                            start: Position {
+                                line: 0,
+                                character: 0,
+                            },
+                            end: Position {
+                                line: 0,
+                                character: 0,
+                            },
+                        }
                     },
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("parse_error".to_string())),
-                    message: self.strip_colors(&e.to_string()),
+                    message: self.strip_colors(message),
                     source: Some("braise".to_string()),
                     ..Default::default()
                 },
-                ParseError::NonExhaustiveMatch {
+                ParserError::NonExhaustiveMatch {
                     code,
                     span,
                     missing,
                 } => Diagnostic {
                     range: self.source_span_to_range(span, code),
-                    severity: Some(DiagnosticSeverity::ERROR),
+                    severity: Some(DiagnosticSeverity::WARNING),
                     code: Some(NumberOrString::String("non_exhaustive_match".to_string())),
                     message: format!(
                         "Non-exhaustive match: {}",
@@ -675,6 +679,38 @@ impl DiagnosticsProvider {
                             .as_deref()
                             .unwrap_or("consider adding a wildcard pattern '_'")
                     ),
+                    source: Some("braise".to_string()),
+                    ..Default::default()
+                },
+                ParserError::InvalidFunctionSignature { reason, code, span } => Diagnostic {
+                    range: self.source_span_to_range(span, code),
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("invalid_function_signature".to_string())),
+                    message: format!("Invalid function signature: {reason}"),
+                    source: Some("braise".to_string()),
+                    ..Default::default()
+                },
+                ParserError::InvalidTypeAnnotation { reason, code, span } => Diagnostic {
+                    range: self.source_span_to_range(span, code),
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("invalid_type_annotation".to_string())),
+                    message: format!("Invalid type annotation: {reason}"),
+                    source: Some("braise".to_string()),
+                    ..Default::default()
+                },
+                ParserError::DuplicateParameter { name, code, span, .. } => Diagnostic {
+                    range: self.source_span_to_range(span, code),
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("duplicate_parameter".to_string())),
+                    message: format!("Duplicate parameter name: '{name}'"),
+                    source: Some("braise".to_string()),
+                    ..Default::default()
+                },
+                ParserError::InvalidDependency { reason, code, span } => Diagnostic {
+                    range: self.source_span_to_range(span, code),
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("invalid_dependency".to_string())),
+                    message: format!("Invalid recipe dependency: {reason}"),
                     source: Some("braise".to_string()),
                     ..Default::default()
                 },

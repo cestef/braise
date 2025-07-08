@@ -22,6 +22,7 @@ lexer = { path = "../braise-lexer", package = "braise-lexer" }
 runtime = { path = "../braise-runtime", package = "braise-runtime" }
 fmt = { path = "../braise-fmt", package = "braise-fmt" }
 lsp = { path = "../braise-lsp", package = "braise-lsp" }
+braise-errors = { path = "../braise-errors" }
 
 [[bin]]
 name = "braise"

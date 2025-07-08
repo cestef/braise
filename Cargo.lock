@@ -176,6 +176,7 @@ name = "braise-cli"
 version = "0.1.0"
 dependencies = [
  "braise-core",
+ "braise-errors",
  "braise-fmt",
  "braise-lexer",
  "braise-lsp",
@@ -196,6 +197,18 @@ dependencies = [
 name = "braise-core"
 version = "0.1.0"
 dependencies = [
+ "braise-errors",
+ "braise-types",
+ "miette",
+ "owo-colors",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "braise-errors"
+version = "0.1.0"
+dependencies = [
+ "braise-types",
  "miette",
  "owo-colors",
  "thiserror 2.0.12",
@@ -220,6 +233,7 @@ name = "braise-lsp"
 version = "0.1.0"
 dependencies = [
  "braise-core",
+ "braise-errors",
  "braise-fmt",
  "braise-lexer",
  "braise-parser",
@@ -241,6 +255,7 @@ name = "braise-parser"
 version = "0.1.0"
 dependencies = [
  "braise-core",
+ "braise-errors",
  "braise-lexer",
  "miette",
  "thiserror 2.0.12",
@@ -252,13 +267,24 @@ name = "braise-runtime"
 version = "0.1.0"
 dependencies = [
  "braise-core",
+ "braise-errors",
  "braise-lexer",
  "braise-parser",
+ "braise-types",
  "miette",
  "num_cpus",
  "once_cell",
  "owo-colors",
  "rayon",
+]
+
+[[package]]
+name = "braise-types"
+version = "0.1.0"
+dependencies = [
+ "miette",
+ "owo-colors",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -676,6 +702,16 @@ checksum = "fe4cd85333e22411419a0bcae1297d25e58c9443848b11dc6a86fefe8c78a661"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.4",
+]
+
+[[package]]
+name = "integration-tests"
+version = "0.1.0"
+dependencies = [
+ "braise-core",
+ "braise-lexer",
+ "braise-parser",
+ "braise-runtime",
 ]
 
 [[package]]

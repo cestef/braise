@@ -1,11 +1,10 @@
 [package]
-name = "braise-core"
-edition.workspace = true
+name = "braise-errors"
 version.workspace = true
+edition.workspace = true
 authors.workspace = true
 
 [dependencies]
-braise-errors = { path = "../braise-errors" }
 braise-types = { path = "../braise-types" }
 miette.workspace = true
 thiserror.workspace = true

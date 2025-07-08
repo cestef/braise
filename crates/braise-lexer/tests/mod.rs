@@ -157,8 +157,8 @@ mod tests {
 
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(matches!(err, BraiseError::LexerError { .. }));
-        if let BraiseError::LexerError { code, span } = err {
+        assert!(matches!(err, BraiseError::Lexer { .. }));
+        if let BraiseError::Lexer { code, span, .. } = err {
             assert_eq!(code, input.to_string());
             assert_eq!(span.offset(), 14);
             assert_eq!(span.len(), 1);

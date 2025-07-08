@@ -1,7 +1,7 @@
 #![feature(assert_matches)]
 
 use ::lexer::{SpannedToken, Token};
-use core::{ast::*, error::parser::Result, parser::ParseError, *};
+use core::{ast::*, error::parser::Result, error::parser::ParseError, *};
 use std::sync::Arc;
 
 mod expressions;
@@ -522,7 +522,7 @@ impl Parser {
 
                 self.check_match_exhaustiveness(&expr_type, &patterns, &expression.span)?;
 
-                let mut original_engine = self.type_engine.clone();
+                let original_engine = self.type_engine.clone();
 
                 let new_scope = self.type_engine.enter_scope();
                 self.type_engine = new_scope;
@@ -569,11 +569,11 @@ impl Parser {
                     .any(|p| matches!(p, MatchPattern::Wildcard | MatchPattern::Variable(_)));
 
                 if !(has_wildcard || (has_true && has_false)) {
-                    return Err(ParseError::NonExhaustiveMatch {
-                        code: self.source.to_string(),
-                        span: span.into(),
-                        missing: Some("patterns for both true and false".to_string()),
-                    });
+                    return Err(ParseError::non_exhaustive_match(
+                        self.source.to_string(),
+                        span.into(),
+                        Some("patterns for both true and false".to_string()),
+                    ));
                 }
             }
 
@@ -588,11 +588,11 @@ impl Parser {
                             .iter()
                             .any(|p| matches!(p, MatchPattern::String(s) if s == variant));
                         if !is_covered {
-                            return Err(ParseError::NonExhaustiveMatch {
-                                code: self.source.to_string(),
-                                span: span.into(),
-                                missing: Some(format!("pattern for enum variant '{}'", variant)),
-                            });
+                            return Err(ParseError::non_exhaustive_match(
+                                self.source.to_string(),
+                                span.into(),
+                                Some(format!("pattern for enum variant '{}'", variant)),
+                            ));
                         }
                     }
                 }
@@ -604,11 +604,11 @@ impl Parser {
                     .any(|p| matches!(p, MatchPattern::Wildcard | MatchPattern::Variable(_)));
 
                 if !has_wildcard {
-                    return Err(ParseError::NonExhaustiveMatch {
-                        code: self.source.to_string(),
-                        span: span.into(),
-                        missing: Some(format!("patterns for type '{}'", e.to_string())),
-                    });
+                    return Err(ParseError::non_exhaustive_match(
+                        self.source.to_string(),
+                        span.into(),
+                        Some(format!("patterns for type '{}'", e.to_string())),
+                    ));
                 }
             }
         }
@@ -664,19 +664,15 @@ impl Parser {
             message.push_str(&format!(". {}", suggestion));
         }
 
-        ParseError::InvalidExpression {
-            reason: message,
-            code: self.source.as_ref().clone(),
-            span: span.into(),
-        }
+        ParseError::invalid_expression(message, self.source.as_ref().clone(), span.into())
     }
 
     fn create_undefined_variable_error(&self, name: &str, span: &Span) -> ParseError {
-        ParseError::InvalidExpression {
-            reason: format!("Undefined variable: '{}'", name),
-            code: self.source.as_ref().clone(),
-            span: span.into(),
-        }
+        ParseError::invalid_expression(
+            format!("Undefined variable: '{}'", name),
+            self.source.as_ref().clone(),
+            span.into(),
+        )
     }
 
     /// Suggest type conversion fixes

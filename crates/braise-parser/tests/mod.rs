@@ -3,15 +3,14 @@
 #[cfg(test)]
 mod tests {
     use braise_parser::*;
-    use core::BraiseType;
-    use core::ast::*;
-    use core::parser::*;
+    use core::{BraiseType, ast::*};
+    use braise_errors::{ParserError, Result};
     use lexer::tokenize;
     use std::assert_matches::assert_matches;
 
-    fn parse_input(input: &str) -> Result<Config> {
+    fn parse_input(input: &str) -> Result<Config, ParserError> {
         let tokens =
-            tokenize(input).map_err(|_| ParseError::Other("Tokenization failed".to_string()))?;
+            tokenize(input).map_err(|_| ParserError::other("Tokenization failed"))?;
         let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
         parser.parse()
     }
@@ -88,15 +87,15 @@ mod tests {
 
         let enabled_param = &recipe.parameters[2].value;
         assert_eq!(enabled_param.name, "enabled");
-        assert_matches!(&enabled_param.param_type, BraiseType::Optional(inner) if matches!(**inner, BraiseType::Bool));
+        assert_matches!(&enabled_param.param_type, BraiseType::Optional(inner) if matches!(inner.as_ref(), BraiseType::Bool));
 
         let items_param = &recipe.parameters[3].value;
         assert_eq!(items_param.name, "items");
-        assert_matches!(&items_param.param_type, BraiseType::Optional(inner) if matches!(**inner, BraiseType::Array(_)));
+        assert_matches!(&items_param.param_type, BraiseType::Optional(inner) if matches!(inner.as_ref(), BraiseType::Array(_)));
 
         let env_param = &recipe.parameters[4].value;
         assert_eq!(env_param.name, "env");
-        assert_matches!(&env_param.param_type, BraiseType::Optional(inner) if matches!(**inner, BraiseType::Enum(_)));
+        assert_matches!(&env_param.param_type, BraiseType::Optional(inner) if matches!(inner.as_ref(), BraiseType::Enum(_)));
     }
 
     #[test]

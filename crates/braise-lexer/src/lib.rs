@@ -167,9 +167,12 @@ pub fn create_lexer<'a>(source: &'a str) -> logos::Lexer<'a, Token> {
 
 /// Tokenize source code and return a vector of spanned tokens
 pub fn tokenize(source: &str) -> Result<Vec<SpannedToken>, BraiseError> {
-    _tokenize(source).map_err(|error_span| BraiseError::LexerError {
-        code: source.to_string(),
-        span: miette::SourceSpan::new(error_span.start.into(), error_span.len()),
+    _tokenize(source).map_err(|error_span| {
+        BraiseError::lexer(
+            "Unrecognized token".to_string(),
+            source.to_string(),
+            miette::SourceSpan::new(error_span.start.into(), error_span.len()),
+        )
     })
 }
 

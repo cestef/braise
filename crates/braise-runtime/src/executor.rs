@@ -33,15 +33,15 @@ impl Executor for DefaultExecutor {
         let mut child = cmd
             .arg(input)
             .spawn()
-            .map_err(|e| RuntimeError::Other(e.to_string()))?;
+            .map_err(|e| RuntimeError::other(e.to_string()))?;
         let status = child
             .wait()
-            .map_err(|e| RuntimeError::Other(e.to_string()))?;
+            .map_err(|e| RuntimeError::other(e.to_string()))?;
         if !status.success() {
-            return Err(RuntimeError::CommandFailed {
-                command: input.to_string(),
-                exit_code: status.code().unwrap_or(-1),
-            });
+            return Err(RuntimeError::command_failed(
+                input.to_string(),
+                status.code().unwrap_or(-1),
+            ));
         }
 
         Ok(())
@@ -85,12 +85,12 @@ impl Executor for StringExecutor {
         let output = command
             .arg(input)
             .output()
-            .map_err(|e| RuntimeError::Other(e.to_string()))?;
+            .map_err(|e| RuntimeError::other(e.to_string()))?;
         if !output.status.success() {
-            return Err(RuntimeError::CommandFailed {
-                command: input.to_string(),
-                exit_code: output.status.code().unwrap_or(-1),
-            });
+            return Err(RuntimeError::command_failed(
+                input.to_string(),
+                output.status.code().unwrap_or(-1),
+            ));
         }
 
         let mut out = self.output.lock().unwrap();

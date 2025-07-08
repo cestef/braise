@@ -21,12 +21,7 @@ impl Parser {
             )
         };
 
-        ParseError::UnexpectedToken {
-            expected,
-            found: found.to_string(),
-            code,
-            span,
-        }
+        ParseError::unexpected_token(expected, found.to_string(), code, span)
     }
 
     pub fn get_current_span(&self) -> Span {

@@ -6,12 +6,15 @@ resolver = "3"
 
 members = [
     "crates/braise-core",
+    "crates/braise-errors",
+    "crates/braise-types",
     "crates/braise-parser",
     "crates/braise-lexer",
     "crates/braise-runtime",
     "crates/braise-cli",
     "crates/braise-lsp",
     "crates/braise-fmt",
+    "crates/integration-tests",
     "crates/logos-display",
 ]
 

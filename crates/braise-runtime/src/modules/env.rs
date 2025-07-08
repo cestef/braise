@@ -36,7 +36,7 @@ impl EnvModule {
         Ok(TypedValue::new(
             env::current_dir()
                 .map_err(|e| {
-                    RuntimeError::BuiltinError(format!("Failed to get current directory: {e}"))
+                    RuntimeError::builtin_error(format!("Failed to get current directory: {e}"), "env")
                 })?
                 .to_string_lossy()
                 .to_string(),

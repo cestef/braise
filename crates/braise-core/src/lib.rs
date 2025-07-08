@@ -2,16 +2,18 @@ pub mod ast;
 pub mod constants;
 pub mod diagnostic;
 pub mod error;
-pub mod inference;
 pub mod span;
 pub mod symbol;
-pub mod types;
 
+// Re-export types from braise-types (excluding types that conflict with braise-errors)
+pub use braise_types::{BraiseType, TypeInferenceEngine, TypedValue, ValueData};
+
+// Re-export the unified error system
+pub use error::{BraiseError, Result, ErrorSeverity};
+
+// Re-export other core modules
 pub use ast::*;
 pub use constants::*;
 pub use diagnostic::*;
-pub use error::*;
-pub use inference::*;
 pub use span::*;
 pub use symbol::*;
-pub use types::*;

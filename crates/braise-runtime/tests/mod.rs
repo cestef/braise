@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
+    use braise_errors::RuntimeError;
     use braise_runtime::{Runtime, StringExecutor};
-    use core::{BraiseType, TypedValue, runtime::RuntimeError};
+    use core::{BraiseType, TypedValue};
     use lexer::tokenize;
     use miette::Result;
     use parser::Parser;
@@ -34,7 +35,7 @@ mod tests {
         assert!(result.is_err());
 
         match result.unwrap_err() {
-            RuntimeError::CircularDependency { recipe, stack } => {
+            RuntimeError::CircularDependency { recipe, stack, .. } => {
                 assert_eq!(recipe, "a");
                 assert!(stack.contains("a"));
                 assert!(stack.contains("b"));
@@ -71,7 +72,7 @@ mod tests {
         let result = runtime.execute_recipe("undefined_recipe", HashMap::new());
         assert!(result.is_err());
         match result.unwrap_err() {
-            RuntimeError::UndefinedRecipe(name) => {
+            RuntimeError::UndefinedRecipe { name, .. } => {
                 assert_eq!(name, "undefined_recipe");
             }
             _ => panic!("Expected undefined recipe error"),
@@ -134,15 +135,23 @@ mod tests {
         let result = runtime.execute_recipe("greet", params);
         assert!(result.is_ok());
         assert!(runtime.executor.output().unwrap().contains("Hello, Alice!"));
-
+        let runtime = create_runtime(input)?;
         let result = runtime.execute_recipe("greet", HashMap::new());
         assert!(result.is_err());
 
         match result.unwrap_err() {
-            RuntimeError::MissingRequiredParameter { name, .. } => {
+            RuntimeError::MissingRequiredParameter {
+                name,
+                expected_type,
+                ..
+            } => {
                 assert_eq!(name, "name");
+                assert_eq!(expected_type, "string");
             }
-            e => panic!("Expected missing parameter error, got {:?}", e),
+            e => panic!(
+                "Expected missing parameter or circular dependency error, got {:?}",
+                e
+            ),
         }
         Ok(())
     }

@@ -1,0 +1,10 @@
+[package]
+name = "braise-types"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+miette.workspace = true
+thiserror.workspace = true
+owo-colors.workspace = true
