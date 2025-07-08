@@ -173,7 +173,7 @@ checksum = "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
 
 [[package]]
 name = "braise-cli"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "braise-core",
  "braise-errors",
@@ -195,7 +195,7 @@ dependencies = [
 
 [[package]]
 name = "braise-core"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "braise-errors",
  "braise-types",
@@ -206,7 +206,7 @@ dependencies = [
 
 [[package]]
 name = "braise-errors"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "braise-types",
  "miette",
@@ -216,11 +216,11 @@ dependencies = [
 
 [[package]]
 name = "braise-fmt"
-version = "0.1.0"
+version = "0.3.0"
 
 [[package]]
 name = "braise-lexer"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "braise-core",
  "logos",
@@ -230,7 +230,7 @@ dependencies = [
 
 [[package]]
 name = "braise-lsp"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "braise-core",
  "braise-errors",
@@ -252,7 +252,7 @@ dependencies = [
 
 [[package]]
 name = "braise-parser"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "braise-core",
  "braise-errors",
@@ -264,7 +264,7 @@ dependencies = [
 
 [[package]]
 name = "braise-runtime"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "braise-core",
  "braise-errors",
@@ -280,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "braise-types"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "miette",
  "owo-colors",
@@ -706,7 +706,7 @@ dependencies = [
 
 [[package]]
 name = "integration-tests"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "braise-core",
  "braise-lexer",
@@ -822,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "logos-display"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "assert-tokenstreams-eq",
  "proc-macro2",
