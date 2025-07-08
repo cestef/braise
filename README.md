@@ -20,7 +20,7 @@ Yet another task runner, because apparently the world needed one more. But hey, 
 - **Actual types** (revolutionary, I know)
 - **Dependencies that work**
 - **Parallel execution**
-- **Built-in modules** (`env`, `git`, `fs` and `cpu` - the essentials)
+- **Built-in modules** (`input`, `env`, `git`, `fs` and `cpu` - the essentials)
 - **LSP support**
 - **Dry run mode** (for the commitment-phobic)
 
@@ -29,18 +29,36 @@ Yet another task runner, because apparently the world needed one more. But hey, 
 Install it:
 
 <details>
-<summary>with <code>install.sh</code></summary>
+<summary>with <a href="./install.sh"><code>install.sh</code></a></summary>
+
+<p>
+
+```bash
+curl -sSL https://raw.githubusercontent.com/cestef/braise/dev/install.sh | INCLUDE_DEV=true bash
+```
+</p>
 </details>
+
 <details>
 <summary>with <code>cargo</code></summary>
+
+<p>
 
 ```bash
 cargo install --git https://github.com/cestef/braise --branch dev --bins
 ```
-
+</p>
 </details>
+
 <details>
 <summary>with <code>brew</code></summary>
+
+<p>
+
+```bash
+brew install cestef/tap/braise
+```
+</p>
 </details>
 
 Create a `Braisefile`:
@@ -50,86 +68,12 @@ recipe "hello" {
     param name: string = "World"
     print "Hello, ${name}!"
 }
-
-recipe "build" -> ["test"] {
-    run "cargo build --release"
-}
-
-recipe "test" {
-    run "cargo test"
-}
 ```
 
 Run it:
 
 ```bash
 braise hello --name "Chef"
-braise build
-```
-
-## Language Basics
-
-### Parameters (with actual types!)
-```
-recipe "deploy" {
-    param env: ["dev", "prod"] = "dev"    # enum
-    param version: string                  # required
-    param force: bool = false             # boolean
-    param replicas: number = 3            # number
-    param services: [string] = []         # array
-}
-```
-
-### Control Flow
-```
-recipe "smart-build" {
-    if git.is_dirty() {
-        print "⚠️  Uncommitted changes detected"
-        exit 1
-    }
-    
-    match env.get("CI") {
-        "true" => run "cargo build --release",
-        _ => run "cargo build"
-    }
-    
-    for service in ["api", "web", "worker"] {
-        run "docker build -t ${service} ."
-    }
-}
-```
-
-### Built-in Modules
-```
-recipe "info" {
-    print "Branch: ${git.branch()}"
-    print "Commit: ${git.commit_hash_short()}"
-    print "CPU cores: ${cpu.count()}"
-    print "Home: ${env.HOME}"
-    
-    if fs.exists("package.json") {
-        run "npm install"
-    }
-}
-```
-
-## CLI Usage
-
-```bash
-# Basic usage
-braise <recipe-name>
-
-# With parameters
-braise deploy --env prod --version v1.0.0 --force
-
-# With key=value parameters
-braise deploy env=prod version=v1.0.0 force
-
-# Dry run (see what would happen)
-braise --dry deploy
-
-# Custom file
-braise -f my-recipes.braise build
 ```
 
 ## Why Not Just Use...?
@@ -137,7 +81,7 @@ braise -f my-recipes.braise build
 - **Make**: 1976 is calling
 - **npm scripts**: JSON isn't a programming language
 - **Bash scripts**: Good luck debugging that
-- **Justfile**: Actually good, no complaints
+- **Justfile**: Not that bad, not "batteries included" (missing LSP, built-in modules, etc.)
 
 ## Contributing
 
