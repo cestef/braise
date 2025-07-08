@@ -226,6 +226,7 @@ dependencies = [
  "logos",
  "logos-display",
  "miette",
+ "tracing",
 ]
 
 [[package]]
@@ -276,6 +277,7 @@ dependencies = [
  "once_cell",
  "owo-colors",
  "rayon",
+ "tracing",
 ]
 
 [[package]]

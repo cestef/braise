@@ -27,6 +27,10 @@ impl ExecutionContext {
         self.variables.contains_key(name)
     }
 
+    pub fn len(&self) -> usize {
+        self.variables.len()
+    }
+
     pub fn set_shell(&mut self, shell: String) {
         self.shell = Some(shell);
     }

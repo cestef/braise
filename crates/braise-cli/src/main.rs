@@ -1,11 +1,12 @@
-use clap::{Parser, Subcommand};
-use core::{constants::DEFAULT_FILES};
 use braise_errors::{CliError, RuntimeError};
+use clap::{Parser, Subcommand};
+use core::constants::DEFAULT_FILES;
 use lexer::tokenize;
 use owo_colors::OwoColorize;
 use parser::Parser as BraiseParser;
 use runtime::Runtime;
 use std::sync::Arc;
+use tracing_subscriber::{EnvFilter, fmt as tracing_fmt, prelude::*};
 
 mod utils;
 
@@ -15,12 +16,16 @@ mod utils;
 #[command(version)]
 struct Cli {
     /// Path to the recipe file
-    #[arg(short, long, global = true)]
+    #[arg(short, long)]
     file: Option<String>,
 
     /// Dry run mode
-    #[arg(short, long, global = true)]
+    #[arg(short, long)]
     dry: bool,
+
+    /// Enable debug logging
+    #[arg(long)]
+    debug: bool,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -60,13 +65,22 @@ async fn main() -> miette::Result<()> {
 
     let cli = Cli::parse();
 
+    // Initialize tracing subscriber
+    init_tracing(cli.debug);
+
+    tracing::debug!(
+        "Starting braise CLI with args: {:?}",
+        std::env::args().collect::<Vec<_>>()
+    );
+
     let file = if let Some(file) = cli.file {
         file
     } else {
         utils::find_first_existing_file(DEFAULT_FILES).ok_or(CliError::NoRecipeFileFound)?
     };
 
-    let contents = std::fs::read_to_string(&file).map_err(|e| CliError::read_recipe_error(e, file.clone()))?;
+    let contents =
+        std::fs::read_to_string(&file).map_err(|e| CliError::read_recipe_error(e, file.clone()))?;
 
     match cli.command {
         Some(Commands::List) => list_recipes(&contents, &file)?,
@@ -164,7 +178,8 @@ fn format_recipe(contents: &str, file: &str, stdout: bool) -> core::Result<()> {
     if stdout {
         print!("{formatted}");
     } else {
-        std::fs::write(file, formatted).map_err(|e| CliError::read_recipe_error(e, file.to_string()))?;
+        std::fs::write(file, formatted)
+            .map_err(|e| CliError::read_recipe_error(e, file.to_string()))?;
         println!("✨ Formatted {}", file.bold());
     }
 
@@ -240,4 +255,28 @@ fn format_expression_preview(expr: &core::ast::Expression) -> String {
         }
         _ => "...".to_string(),
     }
+}
+
+fn init_tracing(debug: bool) {
+    let filter = if debug {
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+            EnvFilter::new(
+                "braise=debug,braise_runtime=debug,braise_parser=debug,braise_lexer=debug",
+            )
+        })
+    } else {
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("braise=info"))
+    };
+
+    tracing_subscriber::registry()
+        .with(
+            tracing_fmt::layer()
+                .with_target(false)
+                .with_thread_ids(false)
+                .with_file(false)
+                .with_line_number(false)
+                .compact(),
+        )
+        .with(filter)
+        .init();
 }

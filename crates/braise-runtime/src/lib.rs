@@ -6,6 +6,7 @@ use owo_colors::OwoColorize;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, RwLock};
+use tracing::{debug, warn, trace};
 
 mod context;
 use context::*;
@@ -53,10 +54,15 @@ impl Runtime {
         name: &str,
         user_params: HashMap<String, TypedValue>,
     ) -> Result<()> {
+        debug!("Starting execution of recipe '{}' with {} parameters", name, user_params.len());
+        trace!("Recipe parameters: {:?}", user_params);
+        
         // Check for circular dependency
         {
             let mut stack = self.stack.write().unwrap();
+            debug!("Current execution stack: {:?}", stack);
             if !stack.insert(name.to_string()) {
+                warn!("Circular dependency detected for recipe '{}'", name);
                 return Err(RuntimeError::circular_dependency(
                     name.to_string(),
                     stack.iter().cloned().collect(),
@@ -71,6 +77,12 @@ impl Runtime {
         {
             let mut stack = self.stack.write().unwrap();
             stack.remove(name);
+            debug!("Cleaned up recipe '{}' from execution stack", name);
+        }
+
+        match &result {
+            Ok(_) => debug!("Successfully completed recipe '{}'", name),
+            Err(e) => debug!("Recipe '{}' failed with error: {}", name, e),
         }
 
         result
@@ -88,14 +100,25 @@ impl Runtime {
             .find(|r| r.value.name == name)
             .ok_or_else(|| RuntimeError::undefined_recipe(name.to_string()))?;
 
+        debug!("Found recipe '{}' with {} dependencies and {} statements", 
+               name, recipe.value.dependencies.len(), recipe.value.body.len());
+
+        if !recipe.value.dependencies.is_empty() {
+            debug!("Executing dependencies: {:?}", recipe.value.dependencies);
+        }
         for dep in &recipe.value.dependencies {
+            debug!("Executing dependency: {}", dep);
             self.execute_recipe(dep, HashMap::new())?; // TODO: maybe pass args to deps ?
         }
+        
         let mut context = self.resolve_parameters(&recipe.value, user_params)?;
+        debug!("Resolved {} context variables", context.len());
 
         println!("{}\n", name.bold().underline());
 
-        for statement in &recipe.value.body {
+        debug!("Executing {} statements", recipe.value.body.len());
+        for (i, statement) in recipe.value.body.iter().enumerate() {
+            trace!("Executing statement {}: {:?}", i + 1, statement.value);
             self.execute_statement(&statement, &mut context)?;
         }
 
@@ -175,7 +198,9 @@ impl Runtime {
             Statement::Run(expr) => {
                 let value = self.evaluate_expression(&expr, context)?;
                 let command_str = value.to_string();
+                debug!("Executing command: {}", command_str);
                 if self.dry_run {
+                    debug!("Dry run mode - showing command");
                     self.show_command(&command_str);
                 } else {
                     self.run_command(
@@ -190,17 +215,21 @@ impl Runtime {
                 else_block,
             } => {
                 let condition_value = self.evaluate_expression(&condition, context)?;
+                debug!("If condition evaluated to: {}", condition_value.to_bool());
                 if condition_value.to_bool() {
+                    debug!("Executing then block with {} statements", then_block.len());
                     for stmt in then_block {
                         self.execute_statement(&stmt, context)?;
                     }
                 } else if let Some(else_stmts) = else_block {
+                    debug!("Executing else block with {} statements", else_stmts.len());
                     for stmt in else_stmts {
                         self.execute_statement(&stmt, context)?;
                     }
                 }
             }
             Statement::Match { expr, arms } => {
+                debug!("Executing match statement with {} arms", arms.len());
                 self.execute_match_statement(expr, arms, context)?;
             }
             Statement::For {
@@ -212,7 +241,9 @@ impl Runtime {
                 let iterable_value = self.evaluate_expression(&iterable, context)?;
 
                 if let ValueData::Array(items) = iterable_value.value {
+                    debug!("For loop over {} items, variable: {}, async: {}", items.len(), var, is_async);
                     if *is_async {
+                        debug!("Running parallel for loop");
                         if self.dry_run {
                             println!("  → Would run {} iterations in parallel", items.len());
                         } else {

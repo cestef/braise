@@ -1,8 +1,9 @@
 #![feature(assert_matches)]
 
 use ::lexer::{SpannedToken, Token};
-use core::{ast::*, error::parser::Result, error::parser::ParseError, *};
+use core::{ast::*, error::parser::ParseError, error::parser::Result, *};
 use std::sync::Arc;
+use tracing::debug;
 
 mod expressions;
 mod helpers;
@@ -42,6 +43,7 @@ impl Parser {
         self.consume_token(Token::Recipe)?;
 
         let name = self.parse_string()?;
+        debug!("Parsing recipe: {}", name);
 
         let dependencies = if self.match_token(&Token::Arrow) {
             self.consume_token(Token::LeftBracket)?;
@@ -124,12 +126,17 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> Result<Config> {
+        debug!(
+            "Starting to parse braise file with {} tokens",
+            self.tokens.len()
+        );
         let mut recipes = Vec::new();
         let mut shell = None;
         let start_token = self.current;
 
         while !self.is_at_end() {
             if self.match_token(&Token::Shell) {
+                debug!("Found shell configuration");
                 if shell.is_some() {
                     return Err(self.create_error(
                         "only one shell command is allowed".to_string(),
@@ -137,6 +144,7 @@ impl Parser {
                     ));
                 }
                 let s = self.parse_string()?;
+                debug!("Set shell to: {}", s);
                 shell = Some(s);
                 continue;
             }
@@ -152,10 +160,14 @@ impl Parser {
             shell,
         };
 
+        debug!("Parsed {} recipes successfully", config.recipes.len());
+
         if self.enable_type_checking {
+            debug!("Running type checking");
             self.type_check_config(&mut config)?;
         }
 
+        debug!("Successfully parsed braise configuration");
         Ok(config)
     }
 
