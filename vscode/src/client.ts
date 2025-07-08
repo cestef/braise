@@ -37,38 +37,37 @@ export class BraiseLanguageClient {
 	}
 
 	private getServerOptions(): ServerOptions {
-		// First try to find the binary in the workspace
+		// First try to find the braise binary in the workspace
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 		if (workspaceFolder) {
-			const workspaceLspPath = path.join(
+			const workspaceBraisePath = path.join(
 				workspaceFolder.uri.fsPath,
 				"target",
 				"release",
-				process.platform === "win32" ? "braise-lsp.exe" : "braise-lsp",
+				process.platform === "win32" ? "braise.exe" : "braise",
 			);
 
-			const debugLspPath = path.join(
+			const debugBraisePath = path.join(
 				workspaceFolder.uri.fsPath,
 				"target",
 				"debug",
-				process.platform === "win32" ? "braise-lsp.exe" : "braise-lsp",
+				process.platform === "win32" ? "braise.exe" : "braise",
 			);
 
 			// Check if release build exists
-			if (this.fileExists(workspaceLspPath)) {
-				return { command: workspaceLspPath };
+			if (this.fileExists(workspaceBraisePath)) {
+				return { command: workspaceBraisePath, args: ["lsp"] };
 			}
 
 			// Check if debug build exists
-			if (this.fileExists(debugLspPath)) {
-				return { command: debugLspPath };
+			if (this.fileExists(debugBraisePath)) {
+				return { command: debugBraisePath, args: ["lsp"] };
 			}
 		}
 
-		// Try to find in PATH
-		const binaryName =
-			process.platform === "win32" ? "braise-lsp.exe" : "braise-lsp";
-		return { command: binaryName };
+		// Try to find braise in PATH
+		const binaryName = process.platform === "win32" ? "braise.exe" : "braise";
+		return { command: binaryName, args: ["lsp"] };
 	}
 
 	private fileExists(filePath: string): boolean {
@@ -87,10 +86,6 @@ export class BraiseLanguageClient {
 			this.context.subscriptions.push({
 				dispose: () => this.stop(),
 			});
-
-			vscode.window.showInformationMessage(
-				"Braise Language Server started successfully!",
-			);
 		} catch (error) {
 			vscode.window.showErrorMessage(
 				`Failed to start Braise Language Server: ${error}`,
@@ -99,7 +94,7 @@ export class BraiseLanguageClient {
 			// Show instructions for building the LSP server
 			const buildAction = "Build LSP Server";
 			const choice = await vscode.window.showWarningMessage(
-				"Braise Language Server not found. Would you like to build it?",
+				"Braise CLI not found. Would you like to build it?",
 				buildAction,
 				"Cancel",
 			);
@@ -123,7 +118,7 @@ export class BraiseLanguageClient {
 		});
 
 		terminal.show();
-		terminal.sendText("cargo build --release --bin braise-lsp");
+		terminal.sendText("cargo build --release --bin braise");
 
 		vscode.window.showInformationMessage(
 			"Building Braise LSP Server... Check the terminal for progress.",

@@ -559,6 +559,7 @@ impl DiagnosticsProvider {
                 "is_dirty" | "is_clean" | "branch" | "commit_hash" | "commit_hash_short" | "tag"
             ),
             "fs" => matches!(function, "exists" | "is_file" | "is_dir"),
+            "input" => matches!(function, "text" | "num" | "confirm" | "select" | "multiselect" | "password"),
             _ => false,
         }
     }

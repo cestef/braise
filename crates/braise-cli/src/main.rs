@@ -17,32 +17,39 @@ async fn main() -> miette::Result<()> {
 
     let cli = Cli::parse();
 
-    init_tracing(cli.debug);
-
-    tracing::debug!(
-        "Starting braise CLI with args: {:?}",
-        std::env::args().collect::<Vec<_>>()
-    );
-
-    let file = if let Some(file) = cli.file {
-        file
-    } else {
-        utils::find_first_existing_file(DEFAULT_FILES).ok_or(CliError::NoRecipeFileFound)?
-    };
-
-    let contents =
-        std::fs::read_to_string(&file).map_err(|e| CliError::read_recipe_error(e, file.clone()))?;
+    // Initialize tracing subscriber (but not for LSP to avoid stdout pollution)
+    if !matches!(cli.command, Some(Commands::Lsp)) {
+        init_tracing(cli.debug);
+        tracing::debug!(
+            "Starting braise CLI with args: {:?}",
+            std::env::args().collect::<Vec<_>>()
+        );
+    }
 
     match cli.command {
-        Some(Commands::List) => list_recipes(&contents, &file)?,
-        Some(Commands::Format { stdout }) => format_recipe(&contents, &file, stdout)?,
         Some(Commands::Lsp) => start_lsp().await?,
-        Some(Commands::Info { recipe }) => show_recipe_info(&contents, &file, &recipe)?,
-        None => {
-            if let Some(recipe_name) = cli.recipe {
-                run_recipe(&contents, &file, &recipe_name, &cli.args, cli.dry)?;
+        _ => {
+            let file = if let Some(file) = cli.file {
+                file
             } else {
-                list_recipes(&contents, &file)?;
+                utils::find_first_existing_file(DEFAULT_FILES).ok_or(CliError::NoRecipeFileFound)?
+            };
+
+            let contents =
+                std::fs::read_to_string(&file).map_err(|e| CliError::read_recipe_error(e, file.clone()))?;
+
+            match cli.command {
+                Some(Commands::List) => list_recipes(&contents, &file)?,
+                Some(Commands::Format { stdout }) => format_recipe(&contents, &file, stdout)?,
+                Some(Commands::Info { recipe }) => show_recipe_info(&contents, &file, &recipe)?,
+                None => {
+                    if let Some(recipe_name) = cli.recipe {
+                        run_recipe(&contents, &file, &recipe_name, &cli.args, cli.dry)?;
+                    } else {
+                        list_recipes(&contents, &file)?;
+                    }
+                }
+                _ => unreachable!(),
             }
         }
     }

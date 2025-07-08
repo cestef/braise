@@ -353,19 +353,20 @@ impl TextDocumentProvider {
 
     fn get_builtin_hover(&self, word: &str) -> Option<String> {
         match word {
-            "env" => Some("**Environment Module**\n\nProvides access to environment variables and system information.\n\n**Functions:**\n- `get(name)` - Get environment variable\n- `has(name)` - Check if environment variable exists\n\n**Fields:**\n- `HOME` - Home directory\n- `PWD` - Current working directory\n- `CI` - Whether running in CI".to_string()),
-            "cpu" => Some("**CPU Module**\n\nProvides CPU and system information.\n\n**Functions:**\n- `count()` - Get number of CPU cores\n- `physical_count()` - Get number of physical CPU cores\n\n**Fields:**\n- `arch` - CPU architecture".to_string()),
-            "git" => Some("**Git Module**\n\nProvides Git repository information.\n\n**Functions:**\n- `branch()` - Get current branch\n- `commit_hash()` - Get current commit hash\n- `commit_hash_short()` - Get short commit hash\n- `is_clean()` - Check if working directory is clean\n- `is_dirty()` - Check if working directory is dirty\n- `tag()` - Get current tag".to_string()),
-            "fs" => Some("**File System Module**\n\nProvides file system utilities.\n\n**Functions:**\n- `exists(path)` - Check if path exists\n- `is_file(path)` - Check if path is a file\n- `is_dir(path)` - Check if path is a directory".to_string()),
-            "recipe" => Some("**recipe** keyword\n\nDefines a new recipe.\n\n**Syntax:**\n```braise\nrecipe \"name\" {\n    // recipe body\n}\n```\n\n**With dependencies:**\n```braise\nrecipe \"name\" -> [\"dep1\", \"dep2\"] {\n    // recipe body\n}\n```".to_string()),
-            "param" => Some("**param** keyword\n\nDefines a parameter for a recipe.\n\n**Syntax:**\n```braise\nparam name: type = default\n```\n\n**Types:** `string`, `number`, `bool`, `[type]` (array), `[\"opt1\", \"opt2\"]` (enum)".to_string()),
-            "run" => Some("**run** statement\n\nExecutes a shell command.\n\n**Syntax:**\n```braise\nrun \"command\"\nrun \"echo ${variable}\"\n```".to_string()),
-            "print" => Some("**print** statement\n\nPrints a message.\n\n**Syntax:**\n```braise\nprint \"message\"\nprint \"Hello ${name}\"\n```".to_string()),
-            "if" => Some("**if** statement\n\nConditional execution.\n\n**Syntax:**\n```braise\nif condition {\n    // statements\n} else {\n    // statements\n}\n```".to_string()),
-            "match" => Some("**match** statement\n\nPattern matching.\n\n**Syntax:**\n```braise\nmatch expr {\n    \"pattern1\" => { /* statements */ },\n    \"pattern2\" => { /* statements */ },\n    _ => { /* default */ }\n}\n```".to_string()),
-            "for" => Some("**for** statement\n\nLoop over an array.\n\n**Syntax:**\n```braise\nfor item in items {\n    // statements\n}\n\n// Parallel execution\nfor item in items {\n    // statements\n} async\n```".to_string()),
-            "let" => Some("**let** keyword\n\nDefines a variable.\n\n**Syntax:**\n```braise\nlet name: type = value\n```\n\n**Types:** `string`, `number`, `bool`, `[type]` (array), `[\"opt1\", \"opt2\"]` (enum)".to_string()),
-            "shell" => Some("**shell** keyword\n\nSets the shell to use for commands.\n\n**Syntax:**\n```braise\nshell \"bash\"\n```".to_string()),
+            "env" => Some(include_str!("../../docs/builtins/env.md").to_string()),
+            "cpu" => Some(include_str!("../../docs/builtins/cpu.md").to_string()),
+            "git" => Some(include_str!("../../docs/builtins/git.md").to_string()),
+            "fs" => Some(include_str!("../../docs/builtins/fs.md").to_string()),
+            "input" => Some(include_str!("../../docs/builtins/input.md").to_string()),
+            "recipe" => Some(include_str!("../../docs/keywords/recipe.md").to_string()),
+            "param" => Some(include_str!("../../docs/keywords/param.md").to_string()),
+            "run" => Some(include_str!("../../docs/keywords/run.md").to_string()),
+            "print" => Some(include_str!("../../docs/keywords/print.md").to_string()),
+            "if" => Some(include_str!("../../docs/keywords/if.md").to_string()),
+            "match" => Some(include_str!("../../docs/keywords/match.md").to_string()),
+            "for" => Some(include_str!("../../docs/keywords/for.md").to_string()),
+            "let" => Some(include_str!("../../docs/keywords/let.md").to_string()),
+            "shell" => Some(include_str!("../../docs/keywords/shell.md").to_string()),
             _ => None,
         }
     }

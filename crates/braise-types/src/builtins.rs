@@ -95,6 +95,22 @@ impl BuiltinTypeRegistry {
         };
         modules.insert("os".to_string(), os_module);
 
+        // Input module for user interaction
+        let input_module = ModuleTypes {
+            functions: {
+                let mut funcs = HashMap::new();
+                funcs.insert("text".to_string(), BraiseType::String);
+                funcs.insert("num".to_string(), BraiseType::Number);
+                funcs.insert("confirm".to_string(), BraiseType::Bool);
+                funcs.insert("select".to_string(), BraiseType::String);
+                funcs.insert("multiselect".to_string(), BraiseType::Array(Box::new(BraiseType::String)));
+                funcs.insert("password".to_string(), BraiseType::String);
+                funcs
+            },
+            fields: HashMap::new(),
+        };
+        modules.insert("input".to_string(), input_module);
+
         Self { modules }
     }
 

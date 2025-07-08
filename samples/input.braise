@@ -1,0 +1,26 @@
+recipe "test_input" {
+    let name = input.text("What is your name")
+    let age = input.num("How old are you")
+    let likes_coffee = input.confirm("Do you like coffee")
+    
+    print "Hello ${name}!"
+    print "You are ${age} years old"
+    
+    if likes_coffee {
+        print "Great! Coffee is awesome"
+    } else {
+        print "That is okay, more coffee for us!"
+    }
+}
+
+recipe "test_select" {
+    let options = ["Red", "Green", "Blue", "Yellow"]
+    let color = input.select(options)
+    print "You selected: ${color}"
+    
+    let colors = input.multiselect(options)
+    print "You selected multiple colors:"
+    for c in colors {
+        print "  - ${c}"
+    }
+}

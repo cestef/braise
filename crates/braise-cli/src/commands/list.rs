@@ -13,7 +13,7 @@ pub fn list_recipes(contents: &str, file: &str) -> Result<()> {
         return Ok(());
     }
 
-    println!("{}\n", "Available recipes".cyan().bold());
+    println!("{}", "Available recipes".cyan().bold());
     for recipe in &ast.recipes {
         let deps = if recipe.value.dependencies.is_empty() {
             String::new()

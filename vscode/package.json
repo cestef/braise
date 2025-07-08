@@ -46,30 +46,13 @@
             {
                 "language": "braise",
                 "scopeName": "source.braise",
-                "path": "./syntaxes/braise.tmLanguage.json"
+                "path": "./braise.tmLanguage.json"
             }
         ],
         "configuration": {
             "type": "object",
             "title": "Braise Language Server",
             "properties": {
-                "braise.maxNumberOfProblems": {
-                    "scope": "resource",
-                    "type": "number",
-                    "default": 100,
-                    "description": "Controls the maximum number of problems produced by the server."
-                },
-                "braise.trace.server": {
-                    "scope": "window",
-                    "type": "string",
-                    "enum": [
-                        "off",
-                        "messages",
-                        "verbose"
-                    ],
-                    "default": "off",
-                    "description": "Traces the communication between VS Code and the language server."
-                },
                 "braise.enableLSP": {
                     "scope": "window",
                     "type": "boolean",
@@ -80,15 +63,9 @@
         },
         "commands": [
             {
-                "command": "braise.runRecipe",
-                "title": "Run Recipe",
+                "command": "braise.restartLSP",
+                "title": "Restart Language Server",
                 "category": "Braise"
-            }
-        ],
-        "snippets": [
-            {
-                "language": "braise",
-                "path": "./snippets.json"
             }
         ]
     },
@@ -115,9 +92,8 @@
     },
     "files": [
         "out",
-        "syntaxes",
+        "braise.tmLanguage.json",
         "assets",
-        "snippets.json",
         "language-configuration.json",
         "package.json",
         "LICENSE"

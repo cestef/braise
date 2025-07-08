@@ -169,7 +169,7 @@
             "patterns": [
                 {
                     "name": "meta.let.braise",
-                    "begin": "\\b(let)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*:\\s*([a-zA-Z0-9_\\[\\]\"\\,\\s]+)\\s*(=)",
+                    "begin": "\\b(let)\\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*:\\s*([a-zA-Z0-9_\\[\\]\"\\,\\s]+))?\\s*(=)",
                     "beginCaptures": {
                         "1": {
                             "name": "keyword.control.braise"
@@ -730,7 +730,7 @@
             "patterns": [
                 {
                     "name": "support.function.builtin.braise",
-                    "match": "\\b(env|cpu|git|fs)\\b"
+                    "match": "\\b(env|cpu|git|fs|input)\\b"
                 }
             ]
         },

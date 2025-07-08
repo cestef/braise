@@ -1,5 +1,3 @@
-//! Display and output formatting utilities
-
 use tracing_subscriber::{EnvFilter, fmt as tracing_fmt, prelude::*};
 
 /// Initialize tracing subscriber for debug logging

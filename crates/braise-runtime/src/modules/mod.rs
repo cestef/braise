@@ -158,10 +158,14 @@ use fs::FsModule;
 mod os;
 use os::OsModule;
 
+mod input;
+use input::InputModule;
+
 register_modules! {
     "git" => GitModule,
     "env" => EnvModule,
     "cpu" => CpuModule,
     "fs" => FsModule,
     "os" => OsModule,
+    "input" => InputModule,
 }
