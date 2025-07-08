@@ -1,5 +1,5 @@
 [workspace]
-package.version = "0.3.0"
+package.version = "0.3.0-dev"
 package.edition = "2024"
 package.authors = ["cstef <hi@cstef.dev>"]
 package.homepage = "https://github.com/cestef/braise"
