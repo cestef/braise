@@ -3,7 +3,9 @@ name = "braise-cli"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
-
+homepage.workspace = true
+description.workspace = true
+repository.workspace = true
 [dependencies]
 clap = { version = "4.5.40", features = ["cargo", "derive"] }
 syntect = { version = "5" }

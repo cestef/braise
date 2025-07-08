@@ -2,8 +2,11 @@
 package.version = "0.1.0"
 package.edition = "2024"
 package.authors = ["cstef <hi@cstef.dev>"]
-resolver = "3"
+package.homepage = "https://github.com/cestef/braise"
+package.description = "Yet another task runner, because apparently the world needed one more"
+package.repository = "https://github.com/cestef/braise"
 
+resolver = "3"
 members = [
     "crates/braise-core",
     "crates/braise-errors",
@@ -26,3 +29,8 @@ logos = { git = "https://github.com/maciejhirsz/logos.git", rev = "274c7a0" }
 tracing = { version = "0.1", features = ["std"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio = { version = "1", features = ["full"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
