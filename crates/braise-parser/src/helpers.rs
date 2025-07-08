@@ -54,7 +54,6 @@ impl Parser {
         }
     }
 
-    // === Token Navigation ===
     pub fn is_at_end(&self) -> bool {
         self.current >= self.tokens.len()
     }
@@ -85,7 +84,6 @@ impl Parser {
         }
     }
 
-    // === Token Checking ===
     pub fn check(&self, token_type: &Token) -> bool {
         if self.is_at_end() {
             return false;
@@ -113,7 +111,6 @@ impl Parser {
         self.check_identifier_value("_")
     }
 
-    // === Value Getters ===
     pub fn get_identifier_value(&self) -> Option<&str> {
         match self.peek() {
             Token::Identifier(name) => Some(name),
@@ -142,7 +139,6 @@ impl Parser {
         }
     }
 
-    // === Token Matching ===
     pub fn match_token(&mut self, token_type: &Token) -> bool {
         if self.check(token_type) {
             self.advance();
@@ -196,7 +192,6 @@ impl Parser {
         }
     }
 
-    // === Parsing Utilities ===
     pub fn parse_identifier(&mut self) -> core::error::parser::Result<String> {
         match self.peek() {
             Token::Identifier(s) => {

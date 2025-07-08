@@ -210,7 +210,7 @@ mod tests {
     #[test]
     fn test_lexer_error_creation() {
         let error = LexerError::unrecognized_token("invalid token @", (13, 1).into());
-        
+
         match error {
             LexerError::UnrecognizedToken { code, span } => {
                 assert_eq!(code, "invalid token @");
@@ -237,7 +237,7 @@ mod tests {
     #[test]
     fn test_invalid_escape_error() {
         let error = LexerError::invalid_escape("\"\\q\"", (1, 2).into(), 'q');
-        
+
         match error {
             LexerError::InvalidEscape { escape, .. } => {
                 assert_eq!(escape, 'q');

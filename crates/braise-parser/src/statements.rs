@@ -148,7 +148,6 @@ impl Parser {
 
         let else_block = if self.match_token(&Token::Else) {
             if self.match_token(&Token::If) {
-                // else if => nested if
                 let else_if_condition = self.parse_expression()?;
                 self.consume_token(Token::LeftBrace)?;
                 let else_if_then = self.parse_statement_block()?;

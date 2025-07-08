@@ -3,7 +3,7 @@ use crate::utils::span_to_range;
 
 use super::Document;
 use braise_core::BraiseType;
-use braise_core::{ast::*};
+use braise_core::ast::*;
 use braise_errors::{BraiseError, ParserError};
 use miette::SourceSpan;
 use std::collections::HashMap;
@@ -83,9 +83,7 @@ impl DiagnosticsProvider {
 
     #[allow(dead_code)]
     pub fn check_match_exhaustiveness(patterns: &[MatchPattern], value_type: &BraiseType) -> bool {
-        for _pattern in patterns {
-            // TODO: check for pattern exhaustiveness
-        }
+        for _pattern in patterns {}
 
         match value_type {
             BraiseType::Bool => {
@@ -553,7 +551,6 @@ impl DiagnosticsProvider {
     }
 
     fn is_valid_builtin_function(&self, module: &str, function: &str) -> bool {
-        // TODO: can we do better?
         match module {
             "env" => matches!(function, "get" | "has"),
             "cpu" => matches!(function, "count" | "physical_count"),
@@ -567,7 +564,6 @@ impl DiagnosticsProvider {
     }
 
     fn is_valid_builtin_field(&self, module: &str, field: &str) -> bool {
-        // TODO: can we do better?
         match module {
             "env" => matches!(field, "HOME" | "PWD" | "CI"),
             "cpu" => matches!(field, "arch"),
@@ -610,7 +606,11 @@ impl DiagnosticsProvider {
 
     fn error_to_diagnostic(&self, error: &BraiseError) -> Diagnostic {
         match error {
-            BraiseError::Lexer { span, code, message } => Diagnostic {
+            BraiseError::Lexer {
+                span,
+                code,
+                message,
+            } => Diagnostic {
                 range: self.source_span_to_range(span, code),
                 severity: Some(DiagnosticSeverity::ERROR),
                 code: Some(NumberOrString::String("lexer_error".to_string())),
@@ -644,7 +644,11 @@ impl DiagnosticsProvider {
                     source: Some("braise".to_string()),
                     ..Default::default()
                 },
-                ParserError::Other { message, code, span } => Diagnostic {
+                ParserError::Other {
+                    message,
+                    code,
+                    span,
+                } => Diagnostic {
                     range: if let (Some(code), Some(span)) = (code, span) {
                         self.source_span_to_range(span, code)
                     } else {
@@ -685,7 +689,9 @@ impl DiagnosticsProvider {
                 ParserError::InvalidFunctionSignature { reason, code, span } => Diagnostic {
                     range: self.source_span_to_range(span, code),
                     severity: Some(DiagnosticSeverity::ERROR),
-                    code: Some(NumberOrString::String("invalid_function_signature".to_string())),
+                    code: Some(NumberOrString::String(
+                        "invalid_function_signature".to_string(),
+                    )),
                     message: format!("Invalid function signature: {reason}"),
                     source: Some("braise".to_string()),
                     ..Default::default()
@@ -693,12 +699,16 @@ impl DiagnosticsProvider {
                 ParserError::InvalidTypeAnnotation { reason, code, span } => Diagnostic {
                     range: self.source_span_to_range(span, code),
                     severity: Some(DiagnosticSeverity::ERROR),
-                    code: Some(NumberOrString::String("invalid_type_annotation".to_string())),
+                    code: Some(NumberOrString::String(
+                        "invalid_type_annotation".to_string(),
+                    )),
                     message: format!("Invalid type annotation: {reason}"),
                     source: Some("braise".to_string()),
                     ..Default::default()
                 },
-                ParserError::DuplicateParameter { name, code, span, .. } => Diagnostic {
+                ParserError::DuplicateParameter {
+                    name, code, span, ..
+                } => Diagnostic {
                     range: self.source_span_to_range(span, code),
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("duplicate_parameter".to_string())),

@@ -177,12 +177,12 @@ pub fn tokenize(source: &str) -> Result<Vec<SpannedToken>, BraiseError> {
             miette::SourceSpan::new(error_span.start.into(), error_span.len()),
         )
     });
-    
+
     match &result {
         Ok(tokens) => debug!("Successfully tokenized into {} tokens", tokens.len()),
         Err(_) => debug!("Tokenization failed"),
     }
-    
+
     result
 }
 

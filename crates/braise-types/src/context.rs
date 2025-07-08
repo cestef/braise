@@ -21,7 +21,7 @@ impl TypeChecker {
 
     /// Create a type checker with an initial context
     pub fn with_context(context: HashMap<String, BraiseType>) -> Self {
-        Self { 
+        Self {
             context,
             parent: None,
         }
@@ -35,14 +35,19 @@ impl TypeChecker {
     /// Get the type of a variable, checking parent scopes if needed
     pub fn get_variable_type(&self, name: &str) -> Option<&BraiseType> {
         self.context.get(name).or_else(|| {
-            self.parent.as_ref().and_then(|parent| parent.get_variable_type(name))
+            self.parent
+                .as_ref()
+                .and_then(|parent| parent.get_variable_type(name))
         })
     }
 
     /// Check if a variable is defined in current or parent scopes
     pub fn is_variable_defined(&self, name: &str) -> bool {
-        self.context.contains_key(name) || 
-        self.parent.as_ref().map_or(false, |parent| parent.is_variable_defined(name))
+        self.context.contains_key(name)
+            || self
+                .parent
+                .as_ref()
+                .map_or(false, |parent| parent.is_variable_defined(name))
     }
 
     /// Create a new scope that inherits from this one
@@ -61,15 +66,14 @@ impl TypeChecker {
     /// Get all variables including parent scopes
     pub fn get_all_variables(&self) -> HashMap<String, BraiseType> {
         let mut all_vars = HashMap::new();
-        
-        // Start with parent variables
+
         if let Some(parent) = &self.parent {
             all_vars.extend(parent.get_all_variables());
         }
-        
+
         // Override with current scope variables
         all_vars.extend(self.context.clone());
-        
+
         all_vars
     }
 
@@ -171,7 +175,8 @@ impl ExecutionContext {
 
     /// Create a type checker from current execution context
     pub fn to_type_checker(&self) -> TypeChecker {
-        let context = self.variables
+        let context = self
+            .variables
             .iter()
             .map(|(name, value)| (name.clone(), value.value_type.clone()))
             .collect();
@@ -194,14 +199,14 @@ mod tests {
     fn test_type_checker_scopes() {
         let mut root = TypeChecker::new();
         root.define_variable("x".to_string(), BraiseType::String);
-        
+
         let mut child = root.enter_scope();
         child.define_variable("y".to_string(), BraiseType::Number);
-        
+
         // Child can see both variables
         assert!(child.is_variable_defined("x"));
         assert!(child.is_variable_defined("y"));
-        
+
         // Root can only see its own variable
         assert!(root.is_variable_defined("x"));
         assert!(!root.is_variable_defined("y"));
@@ -211,10 +216,10 @@ mod tests {
     fn test_scope_depth() {
         let root = TypeChecker::new();
         assert_eq!(root.scope_depth(), 0);
-        
+
         let child = root.enter_scope();
         assert_eq!(child.scope_depth(), 1);
-        
+
         let grandchild = child.enter_scope();
         assert_eq!(grandchild.scope_depth(), 2);
     }
@@ -222,28 +227,34 @@ mod tests {
     #[test]
     fn test_execution_context() {
         let mut ctx = ExecutionContext::new();
-        
+
         let value = TypedValue::new("hello", BraiseType::String);
         ctx.set("test".to_string(), value.clone());
-        
+
         assert!(ctx.contains("test"));
         assert_eq!(ctx.get("test"), Some(&value));
-        
+
         let type_checker = ctx.to_type_checker();
-        assert_eq!(type_checker.get_variable_type("test"), Some(&BraiseType::String));
+        assert_eq!(
+            type_checker.get_variable_type("test"),
+            Some(&BraiseType::String)
+        );
     }
 
     #[test]
     fn test_context_merge() {
         let mut ctx1 = ExecutionContext::new();
-        ctx1.set("x".to_string(), TypedValue::new("hello", BraiseType::String));
-        
+        ctx1.set(
+            "x".to_string(),
+            TypedValue::new("hello", BraiseType::String),
+        );
+
         let mut ctx2 = ExecutionContext::new();
         ctx2.set("y".to_string(), TypedValue::new(42.0, BraiseType::Number));
         ctx2.set_shell("bash".to_string());
-        
+
         ctx1.merge(ctx2);
-        
+
         assert!(ctx1.contains("x"));
         assert!(ctx1.contains("y"));
         assert_eq!(ctx1.shell, Some("bash".to_string()));

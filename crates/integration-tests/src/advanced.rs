@@ -21,10 +21,10 @@ fn test_recipe_dependencies_syntax() {
     // Test that we can at least parse and execute basic recipes
     let output = execute_recipe(code, "lint", HashMap::new()).unwrap();
     assert_eq!(output, "Linting code\n");
-    
+
     let output = execute_recipe(code, "test", HashMap::new()).unwrap();
     assert_eq!(output, "Running tests\n");
-    
+
     let output = execute_recipe(code, "build", HashMap::new()).unwrap();
     assert_eq!(output, "Building project\n");
 }

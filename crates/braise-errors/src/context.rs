@@ -312,7 +312,7 @@ mod tests {
     #[test]
     fn test_breadcrumb_management() {
         let mut context = ErrorContext::new();
-        
+
         context.push_context(ContextType::Recipe, "test_recipe");
         assert_eq!(context.breadcrumbs.len(), 1);
         assert_eq!(context.current_context().unwrap().name, "test_recipe");
@@ -330,7 +330,7 @@ mod tests {
     #[test]
     fn test_offset_to_location() {
         let context = ErrorContext::for_file("test.braise", "hello\nworld\ntest");
-        
+
         // Test start of file
         let loc = context.offset_to_location(0).unwrap();
         assert_eq!(loc.line, 0);
@@ -350,12 +350,12 @@ mod tests {
     #[test]
     fn test_context_stack_formatting() {
         let mut context = ErrorContext::new();
-        
+
         assert_eq!(context.format_stack(), "at top level");
-        
+
         context.push_context(ContextType::Recipe, "main");
         context.push_context(ContextType::Function, "build");
-        
+
         let formatted = context.format_stack();
         assert!(formatted.contains("recipe 'main'"));
         assert!(formatted.contains("function 'build'"));

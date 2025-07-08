@@ -93,7 +93,6 @@ impl Span {
     }
 
     pub fn contains(&self, span: &Span) -> bool {
-        // TODO: check for file_id equality?
         self.start.offset <= span.start.offset && self.end.offset >= span.end.offset
     }
 

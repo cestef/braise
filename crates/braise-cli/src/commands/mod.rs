@@ -1,13 +1,13 @@
 use clap::{Parser, Subcommand};
 
-pub mod list;
 pub mod format;
 pub mod info;
+pub mod list;
 pub mod run;
 
-pub use list::list_recipes;
 pub use format::format_recipe;
 pub use info::show_recipe_info;
+pub use list::list_recipes;
 pub use run::run_recipe;
 
 #[derive(Parser, Debug)]

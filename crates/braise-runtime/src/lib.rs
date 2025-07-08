@@ -1,12 +1,12 @@
+use braise_types::TypeError as LegacyTypeError;
+use core::error::TypeError;
 use core::error::runtime::*;
 use core::{BraiseType, Spanned, TypedValue, ValueData, ast::*};
-use core::error::TypeError;
-use braise_types::TypeError as LegacyTypeError;
 use owo_colors::OwoColorize;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, RwLock};
-use tracing::{debug, warn, trace};
+use tracing::{debug, trace, warn};
 
 mod context;
 use context::*;
@@ -54,10 +54,13 @@ impl Runtime {
         name: &str,
         user_params: HashMap<String, TypedValue>,
     ) -> Result<()> {
-        debug!("Starting execution of recipe '{}' with {} parameters", name, user_params.len());
+        debug!(
+            "Starting execution of recipe '{}' with {} parameters",
+            name,
+            user_params.len()
+        );
         trace!("Recipe parameters: {:?}", user_params);
-        
-        // Check for circular dependency
+
         {
             let mut stack = self.stack.write().unwrap();
             debug!("Current execution stack: {:?}", stack);
@@ -70,10 +73,8 @@ impl Runtime {
             }
         }
 
-        // Ensure we clean up the stack on exit
         let result = self.execute_recipe_impl(name, user_params);
-        
-        // Remove from stack regardless of success or failure
+
         {
             let mut stack = self.stack.write().unwrap();
             stack.remove(name);
@@ -100,17 +101,21 @@ impl Runtime {
             .find(|r| r.value.name == name)
             .ok_or_else(|| RuntimeError::undefined_recipe(name.to_string()))?;
 
-        debug!("Found recipe '{}' with {} dependencies and {} statements", 
-               name, recipe.value.dependencies.len(), recipe.value.body.len());
+        debug!(
+            "Found recipe '{}' with {} dependencies and {} statements",
+            name,
+            recipe.value.dependencies.len(),
+            recipe.value.body.len()
+        );
 
         if !recipe.value.dependencies.is_empty() {
             debug!("Executing dependencies: {:?}", recipe.value.dependencies);
         }
         for dep in &recipe.value.dependencies {
             debug!("Executing dependency: {}", dep);
-            self.execute_recipe(dep, HashMap::new())?; // TODO: maybe pass args to deps ?
+            self.execute_recipe(dep, HashMap::new())?;
         }
-        
+
         let mut context = self.resolve_parameters(&recipe.value, user_params)?;
         debug!("Resolved {} context variables", context.len());
 
@@ -184,7 +189,9 @@ impl Runtime {
         value: &TypedValue,
         expected_type: &BraiseType,
     ) -> Result<TypedValue, TypeError> {
-        let converted_value = value.convert_to(expected_type).map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+        let converted_value = value
+            .convert_to(expected_type)
+            .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
 
         Ok(converted_value)
     }
@@ -241,13 +248,26 @@ impl Runtime {
                 let iterable_value = self.evaluate_expression(&iterable, context)?;
 
                 if let ValueData::Array(items) = iterable_value.value {
-                    debug!("For loop over {} items, variable: {}, async: {}", items.len(), var, is_async);
+                    debug!(
+                        "For loop over {} items, variable: {}, async: {}",
+                        items.len(),
+                        var,
+                        is_async
+                    );
                     if *is_async {
                         debug!("Running parallel for loop");
                         if self.dry_run {
-                            println!("  {} Would run {} iterations in parallel", "‖".dimmed(), items.len().to_string().dimmed());
+                            println!(
+                                "  {} Would run {} iterations in parallel",
+                                "‖".dimmed(),
+                                items.len().to_string().dimmed()
+                            );
                         } else {
-                            println!("  {} Running {} iterations in parallel", "‖".yellow(), items.len().to_string().bold());
+                            println!(
+                                "  {} Running {} iterations in parallel",
+                                "‖".yellow(),
+                                items.len().to_string().bold()
+                            );
                         }
 
                         let context_arc = Arc::new(Mutex::new(context.clone()));
@@ -314,19 +334,25 @@ impl Runtime {
             Statement::Exit(expr) => {
                 let exit_code = {
                     let value = self.evaluate_expression(&expr, context)?;
-                    value.to_number().map_err(|_| RuntimeError::type_error_with_context(
-                        TypeError::mismatch(
-                            "number",
-                            value.value_type.to_string(),
-                            "exit code",
-                        ),
-                        self.source.to_string(),
-                        (&expr.span).into(),
-                    ))? as i32
+                    value.to_number().map_err(|_| {
+                        RuntimeError::type_error_with_context(
+                            TypeError::mismatch(
+                                "number",
+                                value.value_type.to_string(),
+                                "exit code",
+                            ),
+                            self.source.to_string(),
+                            (&expr.span).into(),
+                        )
+                    })? as i32
                 };
 
                 if self.dry_run {
-                    println!("  {} {}", "exit".red().bold(), exit_code.to_string().dimmed());
+                    println!(
+                        "  {} {}",
+                        "exit".red().bold(),
+                        exit_code.to_string().dimmed()
+                    );
                 } else {
                     return Err(RuntimeError::exit(exit_code));
                 }
@@ -359,7 +385,6 @@ impl Runtime {
             }
             Statement::Assign { name, value } => {
                 let value = self.evaluate_expression(&value, context)?;
-                // TODO: validate type against existing variable type
                 if !context.contains(name) {
                     return Err(RuntimeError::undefined_variable(name.clone()));
                 }
@@ -387,7 +412,12 @@ impl Runtime {
                 }
 
                 if self.dry_run {
-                    println!("  {} {} {}", "call".purple().bold(), recipe_name.cyan(), format!("{:?}", resolved_args).dimmed());
+                    println!(
+                        "  {} {} {}",
+                        "call".purple().bold(),
+                        recipe_name.cyan(),
+                        format!("{:?}", resolved_args).dimmed()
+                    );
                 } else {
                     self.execute_recipe(&recipe_name, resolved_args)?;
                 }
@@ -735,9 +765,7 @@ impl Runtime {
 
                     BraiseType::Array(Box::new(common_type))
                 };
-                Ok(TypedValue::new(
-                    values, array_type, // TODO: infer actual type if possible?
-                ))
+                Ok(TypedValue::new(values, array_type))
             }
             Expression::BinaryOp {
                 left, op, right, ..
@@ -745,11 +773,13 @@ impl Runtime {
                 let left_val = self.evaluate_expression(&left, context)?;
                 let right_val = self.evaluate_expression(&right, context)?;
                 self.evaluate_binary_op(&left_val, op, &right_val)
-                    .map_err(|e| RuntimeError::type_error_with_context(
-                        e,
-                        self.source.to_string(),
-                        (&expr.span).into(),
-                    ))
+                    .map_err(|e| {
+                        RuntimeError::type_error_with_context(
+                            e,
+                            self.source.to_string(),
+                            (&expr.span).into(),
+                        )
+                    })
             }
             Expression::UnaryOp { op, expr, .. } => {
                 let value = self.evaluate_expression(&expr, context)?;
@@ -804,23 +834,39 @@ impl Runtime {
                 BraiseType::Bool,
             )),
             BinaryOperator::Less => {
-                let left_num = left.to_number().map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right.to_number().map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let right_num = right
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
                 Ok(TypedValue::new(left_num < right_num, BraiseType::Bool))
             }
             BinaryOperator::LessEqual => {
-                let left_num = left.to_number().map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right.to_number().map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let right_num = right
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
                 Ok(TypedValue::new(left_num <= right_num, BraiseType::Bool))
             }
             BinaryOperator::Greater => {
-                let left_num = left.to_number().map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right.to_number().map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let right_num = right
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
                 Ok(TypedValue::new(left_num > right_num, BraiseType::Bool))
             }
             BinaryOperator::GreaterEqual => {
-                let left_num = left.to_number().map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right.to_number().map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let right_num = right
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
                 Ok(TypedValue::new(left_num >= right_num, BraiseType::Bool))
             }
             BinaryOperator::And => Ok(TypedValue::new(

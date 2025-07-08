@@ -26,7 +26,11 @@ pub enum TypeError {
 
 impl TypeError {
     /// Create a type mismatch error with context
-    pub fn mismatch(expected: impl Into<String>, got: impl Into<String>, context: impl Into<String>) -> Self {
+    pub fn mismatch(
+        expected: impl Into<String>,
+        got: impl Into<String>,
+        context: impl Into<String>,
+    ) -> Self {
         Self::Mismatch {
             expected: expected.into(),
             got: got.into(),
@@ -58,12 +62,8 @@ impl TypeError {
     /// Get a suggestion for fixing this type error
     pub fn suggestion(&self) -> Option<String> {
         match self {
-            TypeError::Mismatch { expected, got, .. } => {
-                suggest_type_fix(expected, got)
-            }
-            TypeError::CannotConvert { from, to } => {
-                suggest_conversion_fix(from, to)
-            }
+            TypeError::Mismatch { expected, got, .. } => suggest_type_fix(expected, got),
+            TypeError::CannotConvert { from, to } => suggest_conversion_fix(from, to),
             _ => None,
         }
     }
@@ -71,7 +71,11 @@ impl TypeError {
     /// Create a colored, user-friendly error message
     pub fn colored_message(&self) -> String {
         match self {
-            TypeError::Mismatch { expected, got, context } => {
+            TypeError::Mismatch {
+                expected,
+                got,
+                context,
+            } => {
                 format!(
                     "Type mismatch in {}: expected {}, got {}",
                     context.yellow(),
@@ -79,7 +83,11 @@ impl TypeError {
                     got.red()
                 )
             }
-            TypeError::UnsupportedOperation { operation, left, right } => {
+            TypeError::UnsupportedOperation {
+                operation,
+                left,
+                right,
+            } => {
                 format!(
                     "Cannot apply {} to {} and {}",
                     operation.yellow(),
@@ -88,11 +96,7 @@ impl TypeError {
                 )
             }
             TypeError::CannotConvert { from, to } => {
-                format!(
-                    "Cannot convert {} to {}",
-                    from.red(),
-                    to.green()
-                )
+                format!("Cannot convert {} to {}", from.red(), to.green())
             }
         }
     }
@@ -116,7 +120,10 @@ fn suggest_type_fix(expected: &str, got: &str) -> Option<String> {
 fn suggest_conversion_fix(from: &str, to: &str) -> Option<String> {
     match (from, to) {
         ("string", "number") => Some("Ensure the string contains a valid number".to_string()),
-        ("string", "bool") => Some("Use \"true\", \"false\", \"1\", \"0\", \"yes\", \"no\", \"on\", or \"off\"".to_string()),
+        ("string", "bool") => Some(
+            "Use \"true\", \"false\", \"1\", \"0\", \"yes\", \"no\", \"on\", or \"off\""
+                .to_string(),
+        ),
         ("number", "string") => Some("Numbers are automatically converted to strings".to_string()),
         ("bool", "string") => Some("Booleans are automatically converted to strings".to_string()),
         _ => None,
@@ -170,9 +177,13 @@ mod tests {
     #[test]
     fn test_type_error_creation() {
         let error = TypeError::mismatch("string", "number", "variable assignment");
-        
+
         match error {
-            TypeError::Mismatch { expected, got, context } => {
+            TypeError::Mismatch {
+                expected,
+                got,
+                context,
+            } => {
                 assert_eq!(expected, "string");
                 assert_eq!(got, "number");
                 assert_eq!(context, "variable assignment");

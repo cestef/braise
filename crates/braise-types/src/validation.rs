@@ -1,4 +1,4 @@
-use crate::{BraiseType, TypedValue, TypeError, TypeInferenceEngine};
+use crate::{BraiseType, TypeError, TypeInferenceEngine, TypedValue};
 
 /// Type validation utilities for the Braise language
 pub struct TypeValidator {
@@ -39,7 +39,7 @@ impl TypeValidator {
             return Err(TypeError::mismatch(
                 &expected_type.to_string(),
                 &value.value_type.to_string(),
-                context
+                context,
             ));
         }
         Ok(())
@@ -56,7 +56,7 @@ impl TypeValidator {
             return Err(TypeError::mismatch(
                 &expected.to_string(),
                 &actual.to_string(),
-                context
+                context,
             ));
         }
         Ok(())
@@ -73,7 +73,7 @@ impl TypeValidator {
             return Err(TypeError::mismatch(
                 &format!("type convertible to {}", to),
                 &from.to_string(),
-                context
+                context,
             ));
         }
         Ok(())
@@ -90,7 +90,7 @@ impl TypeValidator {
             return Err(TypeError::mismatch(
                 &param_type.to_string(),
                 &default_type.to_string(),
-                &format!("default value for parameter '{}'", param_name)
+                &format!("default value for parameter '{}'", param_name),
             ));
         }
         Ok(())
@@ -108,7 +108,7 @@ impl TypeValidator {
                 return Err(TypeError::mismatch(
                     &expected_element_type.to_string(),
                     &element_type.to_string(),
-                    &format!("{} element {}", context, i)
+                    &format!("{} element {}", context, i),
                 ));
             }
         }
@@ -124,7 +124,8 @@ impl TypeValidator {
     ) -> Result<BraiseType, TypeError> {
         // For now, we use the inference engine's validation
         // This could be extended with more sophisticated argument checking
-        self.engine.validate_function_call(module, function, arg_types)
+        self.engine
+            .validate_function_call(module, function, arg_types)
     }
 
     /// Validate that a field access is valid
@@ -142,12 +143,13 @@ impl TypeValidator {
         condition_type: &BraiseType,
         context: &str,
     ) -> Result<(), TypeError> {
-        if !condition_type.can_convert_from(&BraiseType::Bool) 
-            && !matches!(condition_type, BraiseType::Bool | BraiseType::Any) {
+        if !condition_type.can_convert_from(&BraiseType::Bool)
+            && !matches!(condition_type, BraiseType::Bool | BraiseType::Any)
+        {
             return Err(TypeError::mismatch(
                 "boolean or boolean-convertible",
                 &condition_type.to_string(),
-                context
+                context,
             ));
         }
         Ok(())
@@ -168,14 +170,14 @@ impl TypeValidator {
                 _ => Err(TypeError::mismatch(
                     "iterable type (array or string)",
                     &iterable_type.to_string(),
-                    context
+                    context,
                 )),
             },
             BraiseType::Any => Ok(BraiseType::Any),
             _ => Err(TypeError::mismatch(
                 "iterable type (array or string)",
                 &iterable_type.to_string(),
-                context
+                context,
             )),
         }
     }
@@ -190,7 +192,7 @@ impl TypeValidator {
             return Err(TypeError::mismatch(
                 "non-empty type list",
                 "empty list",
-                &format!("{} union type", context)
+                &format!("{} union type", context),
             ));
         }
 
@@ -217,7 +219,7 @@ impl TypeValidator {
             return Err(TypeError::mismatch(
                 "non-empty variant list",
                 "empty list",
-                &format!("{} enum type", context)
+                &format!("{} enum type", context),
             ));
         }
 
@@ -228,7 +230,7 @@ impl TypeValidator {
                     return Err(TypeError::mismatch(
                         "unique enum variants",
                         &format!("duplicate variant '{}'", variant1),
-                        &format!("{} enum type", context)
+                        &format!("{} enum type", context),
                     ));
                 }
             }
@@ -259,11 +261,7 @@ impl TypeValidator {
         actual: &BraiseType,
         context: &str,
     ) -> TypeError {
-        let error = TypeError::mismatch(
-            &expected.to_string(),
-            &actual.to_string(),
-            context
-        );
+        let error = TypeError::mismatch(&expected.to_string(), &actual.to_string(), context);
 
         // Add suggestions based on common type mismatches
         if let Some(_suggestion) = self.suggest_fix(expected, actual) {
@@ -280,9 +278,10 @@ impl TypeValidator {
             (BraiseType::Number, BraiseType::String) => {
                 Some("Try parsing the string as a number or use a numeric literal".to_string())
             }
-            (BraiseType::Bool, BraiseType::String) => {
-                Some("Use \"true\", \"false\", \"1\", \"0\", \"yes\", \"no\", \"on\", or \"off\"".to_string())
-            }
+            (BraiseType::Bool, BraiseType::String) => Some(
+                "Use \"true\", \"false\", \"1\", \"0\", \"yes\", \"no\", \"on\", or \"off\""
+                    .to_string(),
+            ),
             (BraiseType::Array(_), _) => {
                 Some("Use array syntax like [\"item1\", \"item2\"]".to_string())
             }
@@ -308,126 +307,170 @@ mod tests {
     #[test]
     fn test_value_type_validation() {
         let validator = TypeValidator::new();
-        
+
         let string_value = TypedValue::new("hello", BraiseType::String);
-        
+
         // Valid validation
-        assert!(validator.validate_value_type(
-            &string_value,
-            &BraiseType::String,
-            "test"
-        ).is_ok());
-        
+        assert!(
+            validator
+                .validate_value_type(&string_value, &BraiseType::String, "test")
+                .is_ok()
+        );
+
         // Invalid validation
-        assert!(validator.validate_value_type(
-            &string_value,
-            &BraiseType::Number,
-            "test"
-        ).is_err());
+        assert!(
+            validator
+                .validate_value_type(&string_value, &BraiseType::Number, "test")
+                .is_err()
+        );
     }
 
     #[test]
     fn test_type_compatibility_validation() {
         let validator = TypeValidator::new();
-        
+
         // Compatible types
-        assert!(validator.validate_type_compatibility(
-            &BraiseType::String,
-            &BraiseType::String,
-            "test"
-        ).is_ok());
-        
+        assert!(
+            validator
+                .validate_type_compatibility(&BraiseType::String, &BraiseType::String, "test")
+                .is_ok()
+        );
+
         // Incompatible types
-        assert!(validator.validate_type_compatibility(
-            &BraiseType::Number,
-            &BraiseType::Array(Box::new(BraiseType::String)),
-            "test"
-        ).is_err());
+        assert!(
+            validator
+                .validate_type_compatibility(
+                    &BraiseType::Number,
+                    &BraiseType::Array(Box::new(BraiseType::String)),
+                    "test"
+                )
+                .is_err()
+        );
     }
 
     #[test]
     fn test_parameter_default_validation() {
         let validator = TypeValidator::new();
-        
+
         // Valid default
-        assert!(validator.validate_parameter_default(
-            &BraiseType::String,
-            &BraiseType::String,
-            "param"
-        ).is_ok());
-        
+        assert!(
+            validator
+                .validate_parameter_default(&BraiseType::String, &BraiseType::String, "param")
+                .is_ok()
+        );
+
         // Invalid default (Array is not compatible with String)
-        assert!(validator.validate_parameter_default(
-            &BraiseType::Array(Box::new(BraiseType::String)),
-            &BraiseType::String,
-            "param"
-        ).is_err());
+        assert!(
+            validator
+                .validate_parameter_default(
+                    &BraiseType::Array(Box::new(BraiseType::String)),
+                    &BraiseType::String,
+                    "param"
+                )
+                .is_err()
+        );
     }
 
     #[test]
     fn test_array_validation() {
         let validator = TypeValidator::new();
-        
+
         let element_types = vec![BraiseType::String, BraiseType::String];
-        
+
         // Valid array elements
-        assert!(validator.validate_array_elements(
-            &element_types,
-            &BraiseType::String,
-            "test array"
-        ).is_ok());
-        
+        assert!(
+            validator
+                .validate_array_elements(&element_types, &BraiseType::String, "test array")
+                .is_ok()
+        );
+
         // Invalid array elements
-        assert!(validator.validate_array_elements(
-            &element_types,
-            &BraiseType::Number,
-            "test array"
-        ).is_err());
+        assert!(
+            validator
+                .validate_array_elements(&element_types, &BraiseType::Number, "test array")
+                .is_err()
+        );
     }
 
     #[test]
     fn test_conditional_validation() {
         let validator = TypeValidator::new();
-        
+
         // Valid conditional types
-        assert!(validator.validate_conditional_type(&BraiseType::Bool, "if condition").is_ok());
-        assert!(validator.validate_conditional_type(&BraiseType::String, "if condition").is_ok()); // Can convert to bool
-        
+        assert!(
+            validator
+                .validate_conditional_type(&BraiseType::Bool, "if condition")
+                .is_ok()
+        );
+        assert!(
+            validator
+                .validate_conditional_type(&BraiseType::String, "if condition")
+                .is_ok()
+        ); // Can convert to bool
+
         // Invalid conditional type
-        assert!(validator.validate_conditional_type(
-            &BraiseType::Array(Box::new(BraiseType::String)),
-            "if condition"
-        ).is_err());
+        assert!(
+            validator
+                .validate_conditional_type(
+                    &BraiseType::Array(Box::new(BraiseType::String)),
+                    "if condition"
+                )
+                .is_err()
+        );
     }
 
     #[test]
     fn test_iterable_validation() {
         let validator = TypeValidator::new();
-        
+
         // Valid iterables
-        assert!(validator.validate_iterable_type(
-            &BraiseType::Array(Box::new(BraiseType::String)),
-            "for loop"
-        ).is_ok());
-        assert!(validator.validate_iterable_type(&BraiseType::String, "for loop").is_ok());
-        
+        assert!(
+            validator
+                .validate_iterable_type(
+                    &BraiseType::Array(Box::new(BraiseType::String)),
+                    "for loop"
+                )
+                .is_ok()
+        );
+        assert!(
+            validator
+                .validate_iterable_type(&BraiseType::String, "for loop")
+                .is_ok()
+        );
+
         // Invalid iterable
-        assert!(validator.validate_iterable_type(&BraiseType::Number, "for loop").is_err());
+        assert!(
+            validator
+                .validate_iterable_type(&BraiseType::Number, "for loop")
+                .is_err()
+        );
     }
 
     #[test]
     fn test_enum_validation() {
         let validator = TypeValidator::new();
-        
+
         // Valid enum
         let variants = vec!["dev".to_string(), "prod".to_string(), "staging".to_string()];
-        assert!(validator.validate_enum_variants(&variants, "environment").is_ok());
-        
+        assert!(
+            validator
+                .validate_enum_variants(&variants, "environment")
+                .is_ok()
+        );
+
         // Empty enum
-        assert!(validator.validate_enum_variants(&[], "environment").is_err());
-        
+        assert!(
+            validator
+                .validate_enum_variants(&[], "environment")
+                .is_err()
+        );
+
         // Duplicate variants
         let duplicates = vec!["dev".to_string(), "prod".to_string(), "dev".to_string()];
-        assert!(validator.validate_enum_variants(&duplicates, "environment").is_err());
+        assert!(
+            validator
+                .validate_enum_variants(&duplicates, "environment")
+                .is_err()
+        );
     }
 }

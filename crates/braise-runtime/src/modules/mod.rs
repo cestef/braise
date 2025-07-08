@@ -8,7 +8,7 @@ pub trait BuiltinModule: Send + Sync {
     fn get_field(&self, field: &str) -> Result<TypedValue> {
         Err(RuntimeError::builtin_error(
             format!("Field '{field}' not supported by this module"),
-            "module"
+            "module",
         ))
     }
 }
@@ -127,7 +127,7 @@ impl BuiltinModules {
             Some(m) => m.call_function(function, args),
             None => Err(RuntimeError::builtin_error(
                 format!("Unknown module: {module}"),
-                module
+                module,
             )),
         }
     }
@@ -137,7 +137,7 @@ impl BuiltinModules {
             Some(m) => m.get_field(field),
             None => Err(RuntimeError::builtin_error(
                 format!("Unknown module: {module}"),
-                module
+                module,
             )),
         }
     }

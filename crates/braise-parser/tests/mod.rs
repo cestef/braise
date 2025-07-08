@@ -2,15 +2,14 @@
 
 #[cfg(test)]
 mod tests {
+    use braise_errors::{ParserError, Result};
     use braise_parser::*;
     use core::{BraiseType, ast::*};
-    use braise_errors::{ParserError, Result};
     use lexer::tokenize;
     use std::assert_matches::assert_matches;
 
     fn parse_input(input: &str) -> Result<Config, ParserError> {
-        let tokens =
-            tokenize(input).map_err(|_| ParserError::other("Tokenization failed"))?;
+        let tokens = tokenize(input).map_err(|_| ParserError::other("Tokenization failed"))?;
         let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
         parser.parse()
     }

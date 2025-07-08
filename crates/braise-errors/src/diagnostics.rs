@@ -71,7 +71,12 @@ impl DiagnosticInfo {
     }
 
     /// Add a labeled span
-    pub fn with_label(mut self, span: SourceSpan, label: impl Into<String>, style: LabelStyle) -> Self {
+    pub fn with_label(
+        mut self,
+        span: SourceSpan,
+        label: impl Into<String>,
+        style: LabelStyle,
+    ) -> Self {
         self.labels.push(LabeledSpan {
             span,
             label: label.into(),

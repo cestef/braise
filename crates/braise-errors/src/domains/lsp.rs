@@ -298,7 +298,7 @@ mod tests {
     #[test]
     fn test_lsp_error_creation() {
         let error = LspError::initialization_failed("Server startup failed");
-        
+
         match error {
             LspError::InitializationFailed { reason } => {
                 assert_eq!(reason, "Server startup failed");
@@ -334,10 +334,10 @@ mod tests {
     fn test_lsp_error_method_association() {
         let error = LspError::completion_error("test");
         assert_eq!(error.method(), Some("textDocument/completion"));
-        
+
         let error = LspError::invalid_request("custom/method", "details");
         assert_eq!(error.method(), Some("custom/method"));
-        
+
         let error = LspError::initialization_failed("test");
         assert_eq!(error.method(), None);
     }
@@ -346,7 +346,7 @@ mod tests {
     fn test_document_sync_error_with_uri() {
         let error = LspError::document_sync_error_with_uri("sync failed", "file:///test.braise");
         assert_eq!(error.uri(), Some("file:///test.braise"));
-        
+
         let error = LspError::document_sync_error("sync failed");
         assert_eq!(error.uri(), None);
     }

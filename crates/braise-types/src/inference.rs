@@ -1,4 +1,4 @@
-use crate::{BraiseType, TypeChecker, BuiltinTypeRegistry, TypeError};
+use crate::{BraiseType, BuiltinTypeRegistry, TypeChecker, TypeError};
 
 /// Type inference engine for Braise expressions and statements
 #[derive(Debug, Clone)]
@@ -89,7 +89,7 @@ impl TypeInferenceEngine {
             return Err(TypeError::mismatch(
                 "valid function",
                 &format!("{}.{}", module, function),
-                "function call"
+                "function call",
             ));
         }
 
@@ -100,12 +100,16 @@ impl TypeInferenceEngine {
     }
 
     /// Validate that a field access is valid
-    pub fn validate_field_access(&self, module: &str, field: &str) -> Result<BraiseType, TypeError> {
+    pub fn validate_field_access(
+        &self,
+        module: &str,
+        field: &str,
+    ) -> Result<BraiseType, TypeError> {
         if !self.builtin_registry.has_field(module, field) {
             return Err(TypeError::mismatch(
                 "valid field",
                 &format!("{}.{}", module, field),
-                "field access"
+                "field access",
             ));
         }
 
@@ -123,21 +127,27 @@ impl TypeInferenceEngine {
         match operator {
             // Arithmetic operations
             "+" | "-" | "*" | "/" | "%" => {
-                if left_type.can_convert_from(&BraiseType::Number) 
-                    && right_type.can_convert_from(&BraiseType::Number) {
+                if left_type.can_convert_from(&BraiseType::Number)
+                    && right_type.can_convert_from(&BraiseType::Number)
+                {
                     Ok(BraiseType::Number)
                 } else {
-                    Err(TypeError::unsupported_operation(operator, left_type, right_type))
+                    Err(TypeError::unsupported_operation(
+                        operator, left_type, right_type,
+                    ))
                 }
             }
 
             // Comparison operations
             "<" | ">" | "<=" | ">=" => {
-                if left_type.can_convert_from(&BraiseType::Number) 
-                    && right_type.can_convert_from(&BraiseType::Number) {
+                if left_type.can_convert_from(&BraiseType::Number)
+                    && right_type.can_convert_from(&BraiseType::Number)
+                {
                     Ok(BraiseType::Bool)
                 } else {
-                    Err(TypeError::unsupported_operation(operator, left_type, right_type))
+                    Err(TypeError::unsupported_operation(
+                        operator, left_type, right_type,
+                    ))
                 }
             }
 
@@ -146,15 +156,20 @@ impl TypeInferenceEngine {
 
             // Logical operations
             "&&" | "||" => {
-                if left_type.can_convert_from(&BraiseType::Bool) 
-                    && right_type.can_convert_from(&BraiseType::Bool) {
+                if left_type.can_convert_from(&BraiseType::Bool)
+                    && right_type.can_convert_from(&BraiseType::Bool)
+                {
                     Ok(BraiseType::Bool)
                 } else {
-                    Err(TypeError::unsupported_operation(operator, left_type, right_type))
+                    Err(TypeError::unsupported_operation(
+                        operator, left_type, right_type,
+                    ))
                 }
             }
 
-            _ => Err(TypeError::unsupported_operation(operator, left_type, right_type)),
+            _ => Err(TypeError::unsupported_operation(
+                operator, left_type, right_type,
+            )),
         }
     }
 
@@ -172,7 +187,7 @@ impl TypeInferenceEngine {
                     Err(TypeError::mismatch(
                         "boolean or boolean-convertible",
                         &operand_type.to_string(),
-                        "logical negation"
+                        "logical negation",
                     ))
                 }
             }
@@ -184,7 +199,7 @@ impl TypeInferenceEngine {
                     Err(TypeError::mismatch(
                         "number or number-convertible",
                         &operand_type.to_string(),
-                        "numeric negation"
+                        "numeric negation",
                     ))
                 }
             }
@@ -192,7 +207,7 @@ impl TypeInferenceEngine {
             _ => Err(TypeError::mismatch(
                 "valid unary operator",
                 operator,
-                "unary operation"
+                "unary operation",
             )),
         }
     }
@@ -213,19 +228,23 @@ impl TypeInferenceEngine {
 
     /// Validate that a type can be used in a conditional context
     pub fn validate_condition_type(&self, condition_type: &BraiseType) -> Result<(), TypeError> {
-        if !condition_type.can_convert_from(&BraiseType::Bool) 
-            && !matches!(condition_type, BraiseType::Bool | BraiseType::Any) {
+        if !condition_type.can_convert_from(&BraiseType::Bool)
+            && !matches!(condition_type, BraiseType::Bool | BraiseType::Any)
+        {
             return Err(TypeError::mismatch(
                 "boolean or boolean-convertible",
                 &condition_type.to_string(),
-                "conditional expression"
+                "conditional expression",
             ));
         }
         Ok(())
     }
 
     /// Validate that a type can be iterated over
-    pub fn validate_iterable_type(&self, iterable_type: &BraiseType) -> Result<BraiseType, TypeError> {
+    pub fn validate_iterable_type(
+        &self,
+        iterable_type: &BraiseType,
+    ) -> Result<BraiseType, TypeError> {
         match iterable_type {
             BraiseType::Array(element_type) => Ok((**element_type).clone()),
             BraiseType::String => Ok(BraiseType::String),
@@ -235,14 +254,14 @@ impl TypeInferenceEngine {
                 _ => Err(TypeError::mismatch(
                     "iterable type (array or string)",
                     &iterable_type.to_string(),
-                    "for loop"
+                    "for loop",
                 )),
             },
             BraiseType::Any => Ok(BraiseType::Any),
             _ => Err(TypeError::mismatch(
                 "iterable type (array or string)",
                 &iterable_type.to_string(),
-                "for loop"
+                "for loop",
             )),
         }
     }
@@ -276,7 +295,7 @@ mod tests {
     #[test]
     fn test_inference_engine_creation() {
         let engine = TypeInferenceEngine::new();
-        
+
         // Test builtin function types
         assert_eq!(
             engine.get_builtin_function_type("env", "get"),
@@ -295,11 +314,11 @@ mod tests {
     #[test]
     fn test_variable_management() {
         let mut engine = TypeInferenceEngine::new();
-        
+
         engine.define_variable("x".to_string(), BraiseType::String);
         assert!(engine.is_variable_defined("x"));
         assert_eq!(engine.get_variable_type("x"), Some(&BraiseType::String));
-        
+
         assert!(!engine.is_variable_defined("y"));
     }
 
@@ -307,10 +326,10 @@ mod tests {
     fn test_scope_management() {
         let mut root = TypeInferenceEngine::new();
         root.define_variable("x".to_string(), BraiseType::String);
-        
+
         let child = root.enter_scope();
         assert!(child.is_variable_defined("x"));
-        
+
         // Root shouldn't see child variables
         assert!(!root.is_variable_defined("y"));
     }
@@ -318,41 +337,35 @@ mod tests {
     #[test]
     fn test_binary_operation_inference() {
         let engine = TypeInferenceEngine::new();
-        
+
         // Arithmetic operations
-        let result = engine.infer_binary_operation_type(
-            &BraiseType::Number,
-            "+",
-            &BraiseType::Number
-        ).unwrap();
+        let result = engine
+            .infer_binary_operation_type(&BraiseType::Number, "+", &BraiseType::Number)
+            .unwrap();
         assert_eq!(result, BraiseType::Number);
-        
+
         // Comparison operations
-        let result = engine.infer_binary_operation_type(
-            &BraiseType::Number,
-            "<",
-            &BraiseType::Number
-        ).unwrap();
+        let result = engine
+            .infer_binary_operation_type(&BraiseType::Number, "<", &BraiseType::Number)
+            .unwrap();
         assert_eq!(result, BraiseType::Bool);
-        
+
         // Equality operations
-        let result = engine.infer_binary_operation_type(
-            &BraiseType::String,
-            "==",
-            &BraiseType::Number
-        ).unwrap();
+        let result = engine
+            .infer_binary_operation_type(&BraiseType::String, "==", &BraiseType::Number)
+            .unwrap();
         assert_eq!(result, BraiseType::Bool);
     }
 
     #[test]
     fn test_array_type_inference() {
         let engine = TypeInferenceEngine::new();
-        
+
         // Homogeneous array
         let types = vec![BraiseType::String, BraiseType::String];
         let array_type = engine.infer_array_type(&types);
         assert_eq!(array_type, BraiseType::Array(Box::new(BraiseType::String)));
-        
+
         // Mixed array -> Common type (String can accept Number through conversion)
         let types = vec![BraiseType::String, BraiseType::Number];
         let array_type = engine.infer_array_type(&types);
@@ -368,16 +381,20 @@ mod tests {
     #[test]
     fn test_validation_functions() {
         let engine = TypeInferenceEngine::new();
-        
+
         // Valid function call
         assert!(engine.validate_function_call("env", "get", &[]).is_ok());
-        
+
         // Invalid function call
-        assert!(engine.validate_function_call("env", "nonexistent", &[]).is_err());
-        
+        assert!(
+            engine
+                .validate_function_call("env", "nonexistent", &[])
+                .is_err()
+        );
+
         // Valid field access
         assert!(engine.validate_field_access("env", "HOME").is_ok());
-        
+
         // Invalid field access
         assert!(engine.validate_field_access("env", "nonexistent").is_err());
     }

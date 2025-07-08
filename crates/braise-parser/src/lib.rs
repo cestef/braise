@@ -363,7 +363,6 @@ impl Parser {
                 for (_, arg) in args {
                     self.type_check_expression(arg)?;
                 }
-                // TODO: Validate recipe call arguments against recipe signature
             }
 
             Statement::Shell { .. } => {}

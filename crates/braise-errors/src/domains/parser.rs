@@ -8,7 +8,7 @@ use thiserror::Error;
 pub enum ParserError {
     /// Unexpected token found during parsing
     #[error("Unexpected token: expected {}, found {}", 
-        expected.bold().green(), 
+        expected.bold().green(),
         found.bold().red()
     )]
     #[diagnostic(
@@ -302,10 +302,13 @@ mod tests {
 
     #[test]
     fn test_parser_error_creation() {
-        let error = ParserError::unexpected_token("identifier", "number", "42 invalid", (0, 2).into());
-        
+        let error =
+            ParserError::unexpected_token("identifier", "number", "42 invalid", (0, 2).into());
+
         match error {
-            ParserError::UnexpectedToken { expected, found, .. } => {
+            ParserError::UnexpectedToken {
+                expected, found, ..
+            } => {
                 assert_eq!(expected, "identifier");
                 assert_eq!(found, "number");
             }
@@ -315,9 +318,13 @@ mod tests {
 
     #[test]
     fn test_parser_error_severity() {
-        let error = ParserError::non_exhaustive_match("match x { 1 => }", (0, 16).into(), Some("2, _".to_string()));
+        let error = ParserError::non_exhaustive_match(
+            "match x { 1 => }",
+            (0, 16).into(),
+            Some("2, _".to_string()),
+        );
         assert_eq!(error.severity(), ErrorSeverity::Warning);
-        
+
         let error = ParserError::invalid_expression("missing operator", "x y", (0, 3).into());
         assert_eq!(error.severity(), ErrorSeverity::Error);
     }
@@ -330,7 +337,7 @@ mod tests {
             (26, 4).into(),
             (12, 4).into(),
         );
-        
+
         match error {
             ParserError::DuplicateParameter { name, .. } => {
                 assert_eq!(name, "name");
@@ -343,7 +350,7 @@ mod tests {
     fn test_other_error_with_context() {
         let error = ParserError::other_with_context("custom error", "source", (0, 6).into());
         assert!(error.span().is_some());
-        
+
         let error = ParserError::other("simple error");
         assert!(error.span().is_none());
     }

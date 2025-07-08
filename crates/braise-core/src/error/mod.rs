@@ -1,6 +1,5 @@
 pub use braise_errors::*;
 
-// TODO: move legacy imports
 pub mod cli {
     pub use braise_errors::CliError;
     pub type Result<T> = std::result::Result<T, CliError>;

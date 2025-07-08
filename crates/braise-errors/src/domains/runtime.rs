@@ -59,7 +59,7 @@ pub enum RuntimeError {
 
     /// External command execution failure
     #[error("Command failed: {command} (exit code: {exit_code})", 
-        command = .command.bold().green(), 
+        command = .command.bold().green(),
         exit_code = .exit_code
     )]
     #[diagnostic(
@@ -83,8 +83,8 @@ pub enum RuntimeError {
 
     /// Invalid parameter value
     #[error("Invalid parameter: {name} (expected: {}, got: {})", 
-        expected.green(), 
-        got.red(), 
+        expected.green(),
+        got.red(),
         name = .name.bold()
     )]
     #[diagnostic(
@@ -346,10 +346,7 @@ impl RuntimeError {
     }
 
     /// Create a builtin error
-    pub fn builtin_error(
-        message: impl Into<String>,
-        module: impl Into<String>,
-    ) -> Self {
+    pub fn builtin_error(message: impl Into<String>, module: impl Into<String>) -> Self {
         Self::BuiltinError {
             message: message.into(),
             module: module.into(),
@@ -389,10 +386,7 @@ impl RuntimeError {
     }
 
     /// Create an I/O error
-    pub fn io_error(
-        message: impl Into<String>,
-        operation: impl Into<String>,
-    ) -> Self {
+    pub fn io_error(message: impl Into<String>, operation: impl Into<String>) -> Self {
         Self::IoError {
             message: message.into(),
             path: None,
@@ -450,7 +444,7 @@ mod tests {
     #[test]
     fn test_runtime_error_creation() {
         let error = RuntimeError::undefined_variable("test_var");
-        
+
         match error {
             RuntimeError::UndefinedVariable { name, .. } => {
                 assert_eq!(name, "test_var");
@@ -461,7 +455,10 @@ mod tests {
 
     #[test]
     fn test_runtime_error_severity() {
-        assert_eq!(RuntimeError::undefined_variable("x").severity(), ErrorSeverity::Error);
+        assert_eq!(
+            RuntimeError::undefined_variable("x").severity(),
+            ErrorSeverity::Error
+        );
         assert_eq!(RuntimeError::exit(0).severity(), ErrorSeverity::Info);
         assert_eq!(
             RuntimeError::circular_dependency("test", HashSet::new()).severity(),
@@ -474,7 +471,7 @@ mod tests {
         let error = RuntimeError::exit(42);
         assert!(error.is_exit());
         assert_eq!(error.exit_code(), Some(42));
-        
+
         let error = RuntimeError::undefined_variable("x");
         assert!(!error.is_exit());
         assert_eq!(error.exit_code(), None);
@@ -483,9 +480,14 @@ mod tests {
     #[test]
     fn test_command_failed_with_stderr() {
         let error = RuntimeError::command_failed_with_stderr("ls /invalid", 1, "No such file");
-        
+
         match error {
-            RuntimeError::CommandFailed { command, exit_code, stderr, .. } => {
+            RuntimeError::CommandFailed {
+                command,
+                exit_code,
+                stderr,
+                ..
+            } => {
                 assert_eq!(command, "ls /invalid");
                 assert_eq!(exit_code, 1);
                 assert_eq!(stderr, Some("No such file".to_string()));

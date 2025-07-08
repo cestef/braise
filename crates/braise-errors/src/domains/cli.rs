@@ -37,10 +37,7 @@ pub enum CliError {
 
     /// Invalid command-line arguments
     #[error("Invalid argument: {argument}")]
-    #[diagnostic(
-        code(braise::cli::invalid_argument),
-        help("{suggestion}")
-    )]
+    #[diagnostic(code(braise::cli::invalid_argument), help("{suggestion}"))]
     InvalidArgument {
         /// The invalid argument
         argument: String,
@@ -73,10 +70,7 @@ impl CliError {
     }
 
     /// Create an invalid argument error
-    pub fn invalid_argument(
-        argument: impl Into<String>,
-        suggestion: impl Into<String>,
-    ) -> Self {
+    pub fn invalid_argument(argument: impl Into<String>, suggestion: impl Into<String>) -> Self {
         Self::InvalidArgument {
             argument: argument.into(),
             suggestion: suggestion.into(),
@@ -125,9 +119,12 @@ mod tests {
     #[test]
     fn test_cli_error_creation() {
         let error = CliError::invalid_argument("--invalid", "Use --help to see available options");
-        
+
         match error {
-            CliError::InvalidArgument { argument, suggestion } => {
+            CliError::InvalidArgument {
+                argument,
+                suggestion,
+            } => {
                 assert_eq!(argument, "--invalid");
                 assert_eq!(suggestion, "Use --help to see available options");
             }
@@ -145,7 +142,7 @@ mod tests {
     fn test_read_recipe_error() {
         let io_error = std::io::Error::new(std::io::ErrorKind::NotFound, "File not found");
         let error = CliError::read_recipe_error(io_error, "missing.braise");
-        
+
         match error {
             CliError::ReadRecipeError { file, .. } => {
                 assert_eq!(file, "missing.braise");

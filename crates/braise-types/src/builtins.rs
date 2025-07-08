@@ -107,9 +107,7 @@ impl BuiltinTypeRegistry {
 
     /// Get the type of a builtin field
     pub fn get_field_type(&self, module: &str, field: &str) -> Option<&BraiseType> {
-        self.modules
-            .get(module)
-            .and_then(|m| m.fields.get(field))
+        self.modules.get(module).and_then(|m| m.fields.get(field))
     }
 
     /// Check if a module exists
@@ -152,19 +150,33 @@ impl BuiltinTypeRegistry {
     }
 
     /// Add a function to an existing module
-    pub fn add_function(&mut self, module: &str, function: String, return_type: BraiseType) -> Result<(), String> {
-        let module_types = self.modules.get_mut(module)
+    pub fn add_function(
+        &mut self,
+        module: &str,
+        function: String,
+        return_type: BraiseType,
+    ) -> Result<(), String> {
+        let module_types = self
+            .modules
+            .get_mut(module)
             .ok_or_else(|| format!("Module '{}' not found", module))?;
-        
+
         module_types.functions.insert(function, return_type);
         Ok(())
     }
 
     /// Add a field to an existing module
-    pub fn add_field(&mut self, module: &str, field: String, field_type: BraiseType) -> Result<(), String> {
-        let module_types = self.modules.get_mut(module)
+    pub fn add_field(
+        &mut self,
+        module: &str,
+        field: String,
+        field_type: BraiseType,
+    ) -> Result<(), String> {
+        let module_types = self
+            .modules
+            .get_mut(module)
             .ok_or_else(|| format!("Module '{}' not found", module))?;
-        
+
         module_types.fields.insert(field, field_type);
         Ok(())
     }
@@ -233,40 +245,55 @@ mod tests {
     #[test]
     fn test_builtin_registry_creation() {
         let registry = BuiltinTypeRegistry::new();
-        
+
         // Test env module
         assert!(registry.has_module("env"));
         assert!(registry.has_function("env", "get"));
         assert!(registry.has_field("env", "HOME"));
-        assert_eq!(registry.get_function_type("env", "get"), Some(&BraiseType::String));
-        assert_eq!(registry.get_field_type("env", "HOME"), Some(&BraiseType::String));
-        
+        assert_eq!(
+            registry.get_function_type("env", "get"),
+            Some(&BraiseType::String)
+        );
+        assert_eq!(
+            registry.get_field_type("env", "HOME"),
+            Some(&BraiseType::String)
+        );
+
         // Test cpu module
         assert!(registry.has_module("cpu"));
         assert!(registry.has_function("cpu", "count"));
-        assert_eq!(registry.get_function_type("cpu", "count"), Some(&BraiseType::Number));
-        
+        assert_eq!(
+            registry.get_function_type("cpu", "count"),
+            Some(&BraiseType::Number)
+        );
+
         // Test git module
         assert!(registry.has_module("git"));
         assert!(registry.has_function("git", "branch"));
-        assert_eq!(registry.get_function_type("git", "is_clean"), Some(&BraiseType::Bool));
-        
+        assert_eq!(
+            registry.get_function_type("git", "is_clean"),
+            Some(&BraiseType::Bool)
+        );
+
         // Test fs module
         assert!(registry.has_module("fs"));
         assert!(registry.has_function("fs", "exists"));
-        assert_eq!(registry.get_function_type("fs", "exists"), Some(&BraiseType::Bool));
+        assert_eq!(
+            registry.get_function_type("fs", "exists"),
+            Some(&BraiseType::Bool)
+        );
     }
 
     #[test]
     fn test_custom_module_addition() {
         let mut registry = BuiltinTypeRegistry::new();
-        
+
         let mut custom_module = ModuleTypes::new();
         custom_module.add_function("test_func".to_string(), BraiseType::String);
         custom_module.add_field("test_field".to_string(), BraiseType::Number);
-        
+
         registry.add_module("custom".to_string(), custom_module);
-        
+
         assert!(registry.has_module("custom"));
         assert!(registry.has_function("custom", "test_func"));
         assert!(registry.has_field("custom", "test_field"));
@@ -275,13 +302,21 @@ mod tests {
     #[test]
     fn test_module_extension() {
         let mut registry = BuiltinTypeRegistry::new();
-        
-        // Add a new function to existing env module
-        registry.add_function("env", "new_func".to_string(), BraiseType::Bool).unwrap();
+
+        registry
+            .add_function("env", "new_func".to_string(), BraiseType::Bool)
+            .unwrap();
         assert!(registry.has_function("env", "new_func"));
-        assert_eq!(registry.get_function_type("env", "new_func"), Some(&BraiseType::Bool));
-        
+        assert_eq!(
+            registry.get_function_type("env", "new_func"),
+            Some(&BraiseType::Bool)
+        );
+
         // Try to add to non-existent module
-        assert!(registry.add_function("nonexistent", "func".to_string(), BraiseType::String).is_err());
+        assert!(
+            registry
+                .add_function("nonexistent", "func".to_string(), BraiseType::String)
+                .is_err()
+        );
     }
 }

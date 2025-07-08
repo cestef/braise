@@ -9,7 +9,7 @@ pub mod symbol;
 pub use braise_types::{BraiseType, TypeInferenceEngine, TypedValue, ValueData};
 
 // Re-export the unified error system
-pub use error::{BraiseError, Result, ErrorSeverity};
+pub use error::{BraiseError, ErrorSeverity, Result};
 
 // Re-export other core modules
 pub use ast::*;

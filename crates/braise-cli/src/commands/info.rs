@@ -1,5 +1,5 @@
 use braise_errors::RuntimeError;
-use core::{ast::*, Result};
+use core::{Result, ast::*};
 use lexer::tokenize;
 use owo_colors::OwoColorize;
 use parser::Parser as BraiseParser;

@@ -73,19 +73,19 @@ impl ErrorFormatter {
     pub fn format_error(&self, error: &BraiseError) -> String {
         let severity = error.severity();
         let style = self.config.severity_styles.style_for_severity(severity);
-        
+
         let mut output = String::new();
-        
+
         // Error header with severity and code
         let header = self.format_error_header(error, severity, style);
         output.push_str(&header);
         output.push('\n');
-        
+
         // Main error message
         let message = self.format_error_message(error, style);
         output.push_str(&message);
         output.push('\n');
-        
+
         // Source context if available
         if self.config.show_source {
             if let Some(source_context) = self.format_source_context(error) {
@@ -94,18 +94,23 @@ impl ErrorFormatter {
                 output.push('\n');
             }
         }
-        
+
         // Help text if available
         if let Some(help) = self.format_help_text(error) {
             output.push('\n');
             output.push_str(&help);
         }
-        
+
         output
     }
 
     /// Format the error header (severity + code)
-    fn format_error_header(&self, error: &BraiseError, severity: ErrorSeverity, style: Style) -> String {
+    fn format_error_header(
+        &self,
+        error: &BraiseError,
+        severity: ErrorSeverity,
+        style: Style,
+    ) -> String {
         let severity_text = severity.display_name();
         let prefix = if self.config.use_colors {
             format!("{}", style.style(severity_text))
@@ -127,7 +132,7 @@ impl ErrorFormatter {
     /// Format the main error message
     fn format_error_message(&self, error: &BraiseError, style: Style) -> String {
         let message = error.to_string();
-        
+
         if self.config.use_colors {
             format!("{}", style.style(&message))
         } else {
@@ -147,13 +152,13 @@ impl ErrorFormatter {
     /// Format help text
     fn format_help_text(&self, error: &BraiseError) -> Option<String> {
         let help = error.help_text()?;
-        
+
         let help_prefix = if self.config.use_colors {
             "help".blue().to_string()
         } else {
             "HELP".to_string()
         };
-        
+
         Some(format!("{}: {}", help_prefix, help))
     }
 
@@ -168,14 +173,14 @@ impl ErrorFormatter {
         }
 
         let mut output = String::new();
-        
+
         // Header for multiple errors
         let header = if self.config.use_colors {
             format!("{} errors found:", errors.len().to_string().red().bold())
         } else {
             format!("{} ERRORS FOUND:", errors.len())
         };
-        
+
         output.push_str(&header);
         output.push('\n');
         output.push('\n');
@@ -186,11 +191,11 @@ impl ErrorFormatter {
             } else {
                 format!("ERROR {}:", i + 1)
             };
-            
+
             output.push_str(&error_num);
             output.push('\n');
             output.push_str(&self.format_error(error));
-            
+
             if i < errors.len() - 1 {
                 output.push('\n');
                 output.push_str(&"-".repeat(40));
@@ -206,10 +211,10 @@ impl ErrorFormatter {
     pub fn format_error_summary(&self, error: &BraiseError) -> String {
         let severity = error.severity();
         let style = self.config.severity_styles.style_for_severity(severity);
-        
+
         let severity_text = severity.display_name();
         let message = error.to_string();
-        
+
         if self.config.use_colors {
             format!("{}: {}", style.style(severity_text), message)
         } else {
@@ -222,14 +227,14 @@ impl ErrorFormatter {
         let severity = error.severity();
         let icon = severity.icon();
         let message = error.to_string();
-        
+
         // Truncate message if too long
         let truncated_message = if message.len() > 80 {
             format!("{}...", &message[..77])
         } else {
             message
         };
-        
+
         if self.config.use_colors {
             let style = self.config.severity_styles.style_for_severity(severity);
             format!("{} {}", style.style(icon), truncated_message)
@@ -305,20 +310,17 @@ impl BraiseError {
     /// Get help text for this error (if available)
     pub fn help_text(&self) -> Option<String> {
         match self {
-            BraiseError::Cli(cli_error) => {
-                match cli_error {
-                    crate::domains::CliError::NoTask => {
-                        Some("Specify a recipe name to run, or use --list to see available recipes".to_string())
-                    }
-                    crate::domains::CliError::InvalidArgument { .. } => {
-                        Some("Check the command line usage with --help".to_string())
-                    }
-                    _ => None,
+            BraiseError::Cli(cli_error) => match cli_error {
+                crate::domains::CliError::NoTask => Some(
+                    "Specify a recipe name to run, or use --list to see available recipes"
+                        .to_string(),
+                ),
+                crate::domains::CliError::InvalidArgument { .. } => {
+                    Some("Check the command line usage with --help".to_string())
                 }
-            }
-            BraiseError::Parser(_) => {
-                Some("Check the syntax of your braise file".to_string())
-            }
+                _ => None,
+            },
+            BraiseError::Parser(_) => Some("Check the syntax of your braise file".to_string()),
             BraiseError::Runtime(_) => {
                 Some("This error occurred during recipe execution".to_string())
             }
@@ -328,9 +330,7 @@ impl BraiseError {
             BraiseError::Lexer { .. } => {
                 Some("Check for invalid characters or token sequences".to_string())
             }
-            BraiseError::Lsp(_) => {
-                Some("This is an LSP protocol error".to_string())
-            }
+            BraiseError::Lsp(_) => Some("This is an LSP protocol error".to_string()),
         }
     }
 }
@@ -345,7 +345,7 @@ pub mod text_utils {
 
         let mut lines = Vec::new();
         let mut current_line = String::new();
-        
+
         for word in text.split_whitespace() {
             if current_line.is_empty() {
                 current_line = word.to_string();
@@ -357,11 +357,11 @@ pub mod text_utils {
                 current_line = word.to_string();
             }
         }
-        
+
         if !current_line.is_empty() {
             lines.push(current_line);
         }
-        
+
         lines
     }
 
@@ -395,7 +395,7 @@ mod tests {
     fn test_error_formatter_basic() {
         let formatter = ErrorFormatter::new();
         let error = BraiseError::Cli(CliError::no_task());
-        
+
         let formatted = formatter.format_error(&error);
         assert!(!formatted.is_empty());
         assert!(formatted.contains("error"));
@@ -405,10 +405,10 @@ mod tests {
     fn test_error_formatter_without_colors() {
         let mut config = FormattingConfig::default();
         config.use_colors = false;
-        
+
         let formatter = ErrorFormatter::with_config(config);
         let error = BraiseError::Runtime(RuntimeError::undefined_variable("test"));
-        
+
         let formatted = formatter.format_error(&error);
         assert!(!formatted.is_empty());
         // Should not contain ANSI color codes
@@ -422,7 +422,7 @@ mod tests {
             BraiseError::Cli(CliError::no_task()),
             BraiseError::Runtime(RuntimeError::undefined_variable("x")),
         ];
-        
+
         let formatted = formatter.format_errors(&errors);
         assert!(formatted.contains("2 errors") || formatted.contains("2"));
         assert!(formatted.contains("Error") && formatted.contains("1"));
@@ -433,7 +433,7 @@ mod tests {
     fn test_error_summary() {
         let formatter = ErrorFormatter::new();
         let error = BraiseError::Type(TypeError::mismatch("string", "number", "test"));
-        
+
         let summary = formatter.format_error_summary(&error);
         assert!(!summary.is_empty());
         assert!(summary.contains("Type") || summary.contains("error"));
@@ -442,8 +442,10 @@ mod tests {
     #[test]
     fn test_compact_formatting() {
         let formatter = ErrorFormatter::new();
-        let error = BraiseError::Runtime(RuntimeError::other("A very long error message that should be truncated because it exceeds the maximum length for compact display"));
-        
+        let error = BraiseError::Runtime(RuntimeError::other(
+            "A very long error message that should be truncated because it exceeds the maximum length for compact display",
+        ));
+
         let compact = formatter.format_compact(&error);
         assert!(compact.len() < 100); // Should be truncated
         assert!(compact.contains("..."));
@@ -460,17 +462,17 @@ mod tests {
     #[test]
     fn test_text_utils() {
         use text_utils::*;
-        
+
         // Test text wrapping
         let wrapped = wrap_text("This is a long line that should be wrapped", 10);
         assert!(wrapped.len() > 1);
         assert!(wrapped.iter().all(|line| line.len() <= 10));
-        
+
         // Test text indentation
         let indented = indent_text("line1\nline2", 4);
         assert!(indented.contains("    line1"));
         assert!(indented.contains("    line2"));
-        
+
         // Test text truncation
         let truncated = truncate_text("This is a long string", 10);
         assert_eq!(truncated, "This is...");

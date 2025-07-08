@@ -1,4 +1,4 @@
-use crate::{BraiseType, TypedValue, ValueData, TypeError};
+use crate::{BraiseType, TypeError, TypedValue, ValueData};
 use std::collections::HashMap;
 
 impl TypedValue {
@@ -7,7 +7,7 @@ impl TypedValue {
         if self.value_type.is_compatible_with(target_type) {
             return Ok(self.clone());
         }
-        
+
         match (&self.value, target_type) {
             (_, BraiseType::String) => Ok(TypedValue::new(self.to_string(), BraiseType::String)),
             (_, BraiseType::Optional(inner)) => self.convert_to(inner),
@@ -21,11 +21,13 @@ impl TypedValue {
                 Err(TypeError::cannot_convert(&self.value_type, target_type))
             }
             (ValueData::String(s), BraiseType::Number) => {
-                let num = s.parse::<f64>().map_err(|_| TypeError::mismatch(
-                    "number",
-                    &format!("string '{}'", s),
-                    "string to number conversion"
-                ))?;
+                let num = s.parse::<f64>().map_err(|_| {
+                    TypeError::mismatch(
+                        "number",
+                        &format!("string '{}'", s),
+                        "string to number conversion",
+                    )
+                })?;
                 Ok(TypedValue::new(num, BraiseType::Number))
             }
             (ValueData::Bool(b), BraiseType::Number) => Ok(TypedValue::new(
@@ -63,7 +65,7 @@ impl TypedValue {
                     Err(TypeError::mismatch(
                         &format!("one of {{{}}}", variants.join(", ")),
                         s,
-                        "enum conversion"
+                        "enum conversion",
                     ))
                 }
             }
@@ -85,14 +87,13 @@ impl TypedValue {
     pub fn to_number(&self) -> Result<f64, TypeError> {
         match &self.value {
             ValueData::Number(n) => Ok(*n),
-            ValueData::String(s) => s.parse().map_err(|_| TypeError::cannot_convert(
-                &self.value_type,
-                &BraiseType::Number
-            )),
+            ValueData::String(s) => s
+                .parse()
+                .map_err(|_| TypeError::cannot_convert(&self.value_type, &BraiseType::Number)),
             ValueData::Bool(b) => Ok(if *b { 1.0 } else { 0.0 }),
             _ => Err(TypeError::cannot_convert(
                 &self.value_type,
-                &BraiseType::Number
+                &BraiseType::Number,
             )),
         }
     }
@@ -107,7 +108,7 @@ impl TypedValue {
             return Err(TypeError::mismatch(
                 &expected_type.to_string(),
                 &format!("{:?}", self.value),
-                context
+                context,
             ));
         }
         Ok(())
@@ -180,10 +181,7 @@ impl TypeConverter {
 
                 match items {
                     Ok(values) => Ok(TypedValue::new(values, expected_type.clone())),
-                    Err(e) => Err(format!(
-                        "Invalid array parameter '{}': {}",
-                        param_name, e
-                    )),
+                    Err(e) => Err(format!("Invalid array parameter '{}': {}", param_name, e)),
                 }
             }
 
@@ -203,9 +201,7 @@ impl TypeConverter {
                 }
                 Err(format!(
                     "Invalid parameter '{}': expected one of [{}], got '{}'",
-                    param_name,
-                    expected_type,
-                    user_value
+                    param_name, expected_type, user_value
                 ))
             }
 
@@ -239,7 +235,10 @@ impl TypeConverter {
         }
 
         // For arithmetic operations, try to convert to numbers
-        if matches!(operation, "+" | "-" | "*" | "/" | "%" | "<" | ">" | "<=" | ">=") {
+        if matches!(
+            operation,
+            "+" | "-" | "*" | "/" | "%" | "<" | ">" | "<=" | ">="
+        ) {
             if let (Ok(left_num), Ok(right_num)) = (left.to_number(), right.to_number()) {
                 return Ok((
                     TypedValue::new(left_num, BraiseType::Number),
@@ -318,9 +317,10 @@ mod tests {
     fn test_type_coercion() {
         let left = TypedValue::new("42", BraiseType::String);
         let right = TypedValue::new(10.0, BraiseType::Number);
-        
-        let (coerced_left, coerced_right) = TypeConverter::coerce_for_operation(&left, &right, "+").unwrap();
-        
+
+        let (coerced_left, coerced_right) =
+            TypeConverter::coerce_for_operation(&left, &right, "+").unwrap();
+
         assert_eq!(coerced_left.value_type, BraiseType::Number);
         assert_eq!(coerced_right.value_type, BraiseType::Number);
     }
