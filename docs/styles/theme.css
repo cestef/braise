@@ -1,0 +1,192 @@
+:root {
+	--color-red-rgb: 251, 73, 52;
+	--color-red: #fb4934;
+	--color-orange-rgb: 254, 128, 25;
+	--color-orange: #fe8019;
+	--color-yellow-rgb: 250, 189, 47;
+	--color-yellow: #fabd2f;
+	--color-green-rgb: 152, 151, 26;
+	--color-green: #98971a;
+	--color-cyan-rgb: 104, 157, 106;
+	--color-cyan: #689d6a;
+	--color-blue-rgb: 131, 165, 152;
+	--color-blue: #83a598;
+	--color-purple-rgb: 177, 98, 134;
+	--color-purple: #b16286;
+	--color-pink-rgb: 215, 153, 33;
+	--color-pink: #d79921;
+
+	/* Gruvbox Light Theme */
+	--background: 43 96% 95%; /* #fbf1c7 - Gruvbox light bg */
+	--foreground: 25 18% 22%; /* #3c3836 - Gruvbox dark0 */
+
+	--card: 37 92% 89%; /* #f2e5bc - Gruvbox light bg1 */
+	--card-foreground: 25 18% 22%;
+	--popover: 43 96% 95%;
+	--popover-foreground: 25 18% 22%;
+	--modal: 43 96% 95%;
+	--modal-foreground: 25 18% 22%;
+
+	--primary: 25 18% 22%; /* #3c3836 - Gruvbox dark0 */
+	--primary-foreground: 43 96% 95%;
+	--primary-hover: 25 18% 30%; /* Slightly lighter */
+	--secondary: 30 83% 84%; /* #ebdbb2 - Gruvbox light1 */
+	--secondary-foreground: 25 18% 22%;
+	--secondary-hover: 30 83% 80%;
+
+	--muted: 30 83% 84%; /* #ebdbb2 - Gruvbox light1 */
+	--muted-foreground: 25 43% 53%; /* #7c6f64 - Gruvbox gray */
+	--accent: 37 92% 89%; /* #f2e5bc - Gruvbox light bg1 */
+	--accent-foreground: 25 18% 22%;
+	--accent-hover: 37 92% 85%;
+
+	--destructive: 4 89% 58%; /* #cc241d - Gruvbox red */
+	--destructive-foreground: 43 96% 95%;
+	--destructive-hover: 4 89% 48%;
+	--success: 64 89% 49%; /* #79740e - Gruvbox green */
+	--success-foreground: 43 96% 95%;
+	--success-hover: 64 89% 39%;
+	--warning: 39 74% 39%; /* #b57614 - Gruvbox yellow */
+	--warning-foreground: 43 96% 95%;
+	--info: 205 82% 31%; /* #076678 - Gruvbox blue */
+	--info-foreground: 43 96% 95%;
+
+	--border: 35 76% 81%; /* #d5c4a1 - Gruvbox light2 */
+	--border-hover: 35 76% 75%;
+	--input: 35 76% 81%;
+	--input-focus: 35 76% 75%;
+	--ring: 25 18% 22%;
+	--radius: 0.25rem;
+
+	--chart-1: 4 89% 58%; /* Red */
+	--chart-2: 39 74% 39%; /* Yellow */
+	--chart-3: 64 89% 49%; /* Green */
+	--chart-4: 205 82% 31%; /* Blue */
+	--chart-5: 331 45% 32%; /* Purple */
+
+	/* Code block colors for syntax highlighting */
+	--code-bg: #f9f5d7; /* Gruvbox light bg0_s - warmer, more brownish */
+	--code-text: #3c3836; /* Gruvbox dark0 */
+
+	--ansi-black: #3c3836;
+	--ansi-black-dim: #3c383680;
+	--ansi-red: #9d0006;
+	--ansi-red-dim: #9d000680;
+	--ansi-green: #79740e;
+	--ansi-green-dim: #79740e80;
+	--ansi-yellow: #b57614;
+	--ansi-yellow-dim: #b5761480;
+	--ansi-blue: #076678;
+	--ansi-blue-dim: #07667880;
+	--ansi-magenta: #8f3f71;
+	--ansi-magenta-dim: #8f3f7180;
+	--ansi-cyan: #427b58;
+	--ansi-cyan-dim: #427b5880;
+	--ansi-white: #928374;
+	--ansi-white-dim: #92837480;
+	--ansi-bright-black: #7c6f64;
+	--ansi-bright-black-dim: #7c6f6480;
+	--ansi-bright-red: #cc241d;
+	--ansi-bright-red-dim: #cc241d80;
+	--ansi-bright-green: #98971a;
+	--ansi-bright-green-dim: #98971a80;
+	--ansi-bright-yellow: #d79921;
+	--ansi-bright-yellow-dim: #d7992180;
+	--ansi-bright-blue: #458588;
+	--ansi-bright-blue-dim: #45858880;
+	--ansi-bright-magenta: #b16286;
+	--ansi-bright-magenta-dim: #b1628680;
+	--ansi-bright-cyan: #689d6a;
+	--ansi-bright-cyan-dim: #689d6a80;
+	--ansi-bright-white: #a89984;
+	--ansi-bright-white-dim: #a8998480;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		/* Gruvbox Dark Theme */
+		--background: 28 24% 16%; /* #282828 - Gruvbox dark bg */
+		--foreground: 30 83% 84%; /* #ebdbb2 - Gruvbox light1 */
+
+		--card: 25 18% 22%; /* #3c3836 - Gruvbox dark0_h */
+		--card-foreground: 30 83% 84%;
+		--popover: 28 24% 16%;
+		--popover-foreground: 30 83% 84%;
+		--modal: 25 18% 22%;
+		--modal-foreground: 30 83% 84%;
+
+		--primary: 30 83% 84%; /* #ebdbb2 - Gruvbox light1 */
+		--primary-foreground: 28 24% 16%;
+		--primary-hover: 30 83% 80%;
+		--secondary: 25 18% 22%; /* #3c3836 - Gruvbox dark0_h */
+		--secondary-foreground: 30 83% 84%;
+		--secondary-hover: 25 18% 26%;
+
+		--muted: 25 18% 22%; /* #3c3836 - Gruvbox dark0_h */
+		--muted-foreground: 25 36% 56%; /* #928374 - Gruvbox gray */
+		--accent: 28 29% 31%; /* #504945 - Gruvbox dark1 */
+		--accent-foreground: 30 83% 84%;
+		--accent-hover: 28 29% 35%;
+
+		--destructive: 4 68% 49%; /* #cc241d - Gruvbox red */
+		--destructive-foreground: 30 83% 84%;
+		--destructive-hover: 4 68% 55%;
+		--success: 64 60% 43%; /* #98971a - Gruvbox green */
+		--success-foreground: 30 83% 84%;
+		--success-hover: 64 60% 49%;
+		--warning: 39 74% 39%; /* #b57614 - Gruvbox yellow */
+		--warning-foreground: 30 83% 84%;
+		--info: 205 60% 45%; /* #458588 - Gruvbox blue */
+		--info-foreground: 30 83% 84%;
+
+		--border: 28 29% 31%; /* #504945 - Gruvbox dark1 */
+		--border-hover: 28 29% 35%;
+		--input: 28 29% 31%;
+		--input-focus: 28 29% 35%;
+		--ring: 30 83% 84%;
+		--radius: 0.25rem;
+
+		--chart-1: 4 77% 59%; /* Bright Red */
+		--chart-2: 39 84% 56%; /* Bright Yellow */
+		--chart-3: 64 67% 45%; /* Bright Green */
+		--chart-4: 205 60% 55%; /* Bright Blue */
+		--chart-5: 331 45% 55%; /* Bright Purple */
+
+		/* Code block colors for syntax highlighting - dark theme */
+		--code-bg: hsl(28 24% 18%); /* Gruvbox dark0_s - warmer, more brownish */
+		--code-text: #ebdbb2; /* Gruvbox light1 */
+
+		--ansi-black: #1d2021;
+		--ansi-black-dim: #1d202180;
+		--ansi-red: #cc241d;
+		--ansi-red-dim: #cc241d80;
+		--ansi-green: #98971a;
+		--ansi-green-dim: #98971a80;
+		--ansi-yellow: #d79921;
+		--ansi-yellow-dim: #d7992180;
+		--ansi-blue: #458588;
+		--ansi-blue-dim: #45858880;
+		--ansi-magenta: #b16286;
+		--ansi-magenta-dim: #b1628680;
+		--ansi-cyan: #689d6a;
+		--ansi-cyan-dim: #689d6a80;
+		--ansi-white: #a89984;
+		--ansi-white-dim: #a8998480;
+		--ansi-bright-black: #928374;
+		--ansi-bright-black-dim: #92837480;
+		--ansi-bright-red: #fb4934;
+		--ansi-bright-red-dim: #fb493480;
+		--ansi-bright-green: #b8bb26;
+		--ansi-bright-green-dim: #b8bb2680;
+		--ansi-bright-yellow: #fabd2f;
+		--ansi-bright-yellow-dim: #fabd2f80;
+		--ansi-bright-blue: #83a598;
+		--ansi-bright-blue-dim: #83a59880;
+		--ansi-bright-magenta: #d3869b;
+		--ansi-bright-magenta-dim: #d3869b80;
+		--ansi-bright-cyan: #8ec07c;
+		--ansi-bright-cyan-dim: #8ec07c80;
+		--ansi-bright-white: #ebdbb2;
+		--ansi-bright-white-dim: #ebdbb280;
+	}
+}

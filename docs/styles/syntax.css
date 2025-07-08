@@ -1,0 +1,273 @@
+:root {
+	/* Gruvbox Light Theme - Syntax Colors */
+	--code-comment: #928374;
+	--code-keyword: #9d0006;
+	--code-string: #79740e;
+	--code-number: #8f3f71;
+	--code-function: #b57614;
+	--code-variable: #076678;
+	--code-type: #af3a03;
+	--code-operator: #427b58;
+	--code-punctuation: #665c54;
+	--code-border: #d5c4a1;
+	--code-selection: #ebdbb2;
+	--code-highlight: #d5c4a1;
+	--code-error-bg: #cc241d;
+	--code-error-text: #fbf1c7;
+	--code-deprecated-bg: #b16286;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		/* Gruvbox Dark Theme - Syntax Colors */
+		--code-comment: #928374;
+		--code-keyword: #fb4934;
+		--code-string: #b8bb26;
+		--code-number: #d3869b;
+		--code-function: #fabd2f;
+		--code-variable: #83a598;
+		--code-type: #fe8019;
+		--code-operator: #8ec07c;
+		--code-punctuation: #a89984;
+		--code-border: #504945;
+		--code-selection: #3c3836;
+		--code-highlight: #504945;
+		--code-error-bg: #cc241d;
+		--code-error-text: #fbf1c7;
+		--code-deprecated-bg: #b16286;
+	}
+}
+
+/* Code block styles using the theme variables */
+.z-code {
+	color: var(--code-text);
+	background-color: var(--code-bg);
+}
+
+/* Comments */
+.z-comment,
+.z-punctuation.z-definition.z-comment {
+	color: var(--code-comment);
+	font-style: italic;
+}
+
+/* Variables */
+.z-variable {
+	color: var(--code-variable);
+}
+
+.z-variable.z-parameter {
+	color: var(--code-variable);
+	font-style: italic;
+}
+
+.z-variable.z-language {
+	color: var(--code-keyword);
+	font-style: italic;
+	font-weight: bold;
+}
+
+.z-variable.z-member {
+	color: var(--code-variable);
+}
+
+/* Strings */
+.z-string,
+.z-constant.z-other.z-symbol {
+	color: var(--code-string);
+}
+
+.z-string.z-regexp,
+.z-constant.z-character.z-escape {
+	color: var(--code-operator);
+}
+
+/* Numbers and Constants */
+.z-constant.z-numeric {
+	color: var(--code-number);
+	font-weight: bold;
+}
+
+.z-constant.z-language {
+	color: var(--code-number);
+	font-weight: bold;
+}
+
+.z-constant.z-character,
+.z-constant.z-other {
+	color: var(--code-number);
+}
+
+/* Keywords */
+.z-keyword,
+.z-keyword.z-operator.z-word {
+	color: var(--code-keyword);
+	font-weight: bold;
+}
+
+.z-keyword.z-operator {
+	color: var(--code-operator);
+}
+
+/* Operators and Punctuation */
+.z-punctuation.z-separator,
+.z-punctuation.z-terminator {
+	color: var(--code-punctuation);
+}
+
+.z-punctuation.z-section {
+	color: var(--code-punctuation);
+}
+
+.z-punctuation.z-accessor {
+	color: var(--code-operator);
+}
+
+/* Storage and Types */
+.z-storage {
+	color: var(--code-keyword);
+	font-weight: bold;
+}
+
+.z-storage.z-type {
+	color: var(--code-type);
+	font-weight: bold;
+}
+
+/* Functions and Entities */
+.z-entity.z-name.z-function {
+	color: var(--code-function);
+	font-weight: bold;
+}
+
+.z-shell.z-function {
+	font-weight: bold;
+	color: var(--code-function);
+}
+
+.z-entity.z-name,
+.z-entity.z-name.z-tag,
+.z-entity.z-name.z-label {
+	color: var(--code-function);
+	font-weight: bold;
+}
+
+.z-entity.z-other.z-inherited-class {
+	color: var(--code-type);
+	text-decoration: underline;
+}
+
+.z-entity.z-name.z-tag,
+.z-meta.z-tag.z-sgml {
+	color: var(--code-function);
+}
+
+.z-punctuation.z-definition.z-tag.z-end,
+.z-punctuation.z-definition.z-tag.z-begin,
+.z-punctuation.z-definition.z-tag {
+	color: var(--code-punctuation);
+}
+
+.z-entity.z-other.z-attribute-name {
+	color: var(--code-variable);
+	font-style: italic;
+}
+
+/* Support (Built-ins) */
+.z-support.z-function,
+.z-support.z-macro {
+	color: var(--code-function);
+}
+
+.z-support.z-constant {
+	color: var(--code-number);
+	font-style: italic;
+}
+
+.z-support.z-type,
+.z-support.z-class {
+	color: var(--code-type);
+	font-style: italic;
+}
+
+.z-invalid {
+	color: var(--code-error-text);
+	background-color: var(--code-error-bg);
+}
+
+.z-invalid.z-deprecated {
+	color: var(--code-error-text);
+	background-color: var(--code-deprecated-bg);
+}
+
+/* Markup and Documentation */
+.z-markup.z-heading {
+	color: var(--code-function);
+	font-weight: bold;
+}
+
+.z-string.z-other.z-link,
+.z-markup.z-underline.z-link {
+	color: var(--code-variable);
+	text-decoration: underline;
+}
+
+.z-markup.z-italic {
+	font-style: italic;
+}
+
+.z-markup.z-bold {
+	font-weight: bold;
+}
+
+.z-markup.z-italic .z-markup.z-bold,
+.z-markup.z-bold .z-markup.z-italic {
+	font-weight: bold;
+	font-style: italic;
+}
+
+.z-markup.z-raw {
+	background-color: var(--code-selection);
+}
+
+.z-markup.z-raw.z-inline {
+	background-color: var(--code-selection);
+}
+
+.z-meta.z-separator {
+	color: var(--code-comment);
+	background-color: var(--code-selection);
+}
+
+.z-markup.z-quote {
+	color: var(--code-comment);
+	font-style: italic;
+}
+
+.z-markup.z-list.z-numbered.z-bullet,
+.z-markup.z-list .z-punctuation.z-definition.z-list_item {
+	color: var(--code-punctuation);
+}
+
+.z-markup.z-inserted {
+	color: var(--code-string);
+	background-color: var(--code-highlight);
+}
+
+.z-markup.z-changed {
+	color: var(--code-function);
+}
+
+.z-markup.z-deleted {
+	color: var(--code-keyword);
+	text-decoration: line-through;
+}
+
+.z-markup.z-strike {
+	text-decoration: line-through;
+}
+
+.z-markup.z-table {
+	color: var(--code-function);
+}
+

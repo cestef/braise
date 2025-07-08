@@ -17,8 +17,8 @@ Yet another task runner, because apparently the world needed one more. But hey, 
 
 ## Features
 
-- **Actual types** (revolutionary, I know)
-- **Dependencies that work**
+- **Types** (revolutionary, I know)
+- **Dependencies**
 - **Parallel execution**
 - **Built-in modules** (`input`, `env`, `git`, `fs` and `cpu` - the essentials)
 - **LSP support**
@@ -29,12 +29,12 @@ Yet another task runner, because apparently the world needed one more. But hey, 
 Install it:
 
 <details>
-<summary>with <a href="./install.sh"><code>install.sh</code></a></summary>
+<summary>with <a href="./docs/static/install.sh"><code>install.sh</code></a></summary>
 
 <p>
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/cestef/braise/dev/install.sh | INCLUDE_DEV=true bash
+curl -sSL https://braise.cstef.dev/install.sh | INCLUDE_DEV=true bash
 ```
 </p>
 </details>
