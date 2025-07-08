@@ -169,7 +169,7 @@ pub enum RuntimeError {
     )]
     #[diagnostic(
         code(braise::runtime::circular_dependency),
-        help("Remove the circular dependency by restructuring recipe dependencies")
+        help("Remove the circular dependency by restructuring recipe dependencies or calls")
     )]
     CircularDependency {
         /// Recipe where circular dependency was detected

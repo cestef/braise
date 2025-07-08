@@ -20,7 +20,7 @@ pub fn execute_recipe(
     let source = Arc::new(code.to_string());
     let mut parser = Parser::new(tokens, source.clone(), "test.braise".to_string());
     let ast = parser.parse()?;
-    let runtime = Runtime::new(ast, source).with_executor(StringExecutor::new(true));
+    let runtime = Runtime::new(ast, source).with_executor(StringExecutor::new(false));
     runtime.execute_recipe(recipe, params)?;
     Ok(runtime.executor.output().unwrap_or_default())
 }

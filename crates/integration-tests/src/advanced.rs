@@ -19,9 +19,14 @@ fn test_recipe_dependencies_syntax() {
         "#;
 
     // Test that we can at least parse and execute basic recipes
-    assert!(execute_recipe(code, "lint", HashMap::new()).is_ok());
-    assert!(execute_recipe(code, "test", HashMap::new()).is_ok());
-    assert!(execute_recipe(code, "build", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "lint", HashMap::new()).unwrap();
+    assert_eq!(output, "Linting code\n");
+    
+    let output = execute_recipe(code, "test", HashMap::new()).unwrap();
+    assert_eq!(output, "Running tests\n");
+    
+    let output = execute_recipe(code, "build", HashMap::new()).unwrap();
+    assert_eq!(output, "Building project\n");
 }
 
 #[test]
@@ -59,7 +64,10 @@ fn test_advanced_match_patterns() {
     params.insert("count".to_string(), number_param(1.0));
     params.insert("enabled".to_string(), bool_param(false));
 
-    assert!(execute_recipe(code, "process_status", params).is_ok());
+    let output = execute_recipe(code, "process_status", params).unwrap();
+    assert!(output.contains("❌ Error!"));
+    assert!(output.contains("Single item"));
+    assert!(output.contains("Feature is disabled"));
 }
 
 #[test]
@@ -84,7 +92,8 @@ fn test_union_types_and_enums() {
     params.insert("env".to_string(), string_param("prod"));
     params.insert("service".to_string(), string_param("web"));
 
-    assert!(execute_recipe(code, "deploy", params).is_ok());
+    let output = execute_recipe(code, "deploy", params).unwrap();
+    assert_eq!(output, "Deploying web to production\n");
 }
 
 #[test]
@@ -120,7 +129,10 @@ fn test_complex_conditionals_and_operators() {
     params.insert("ci".to_string(), bool_param(true));
     params.insert("debug".to_string(), bool_param(false));
 
-    assert!(execute_recipe(code, "build", params).is_ok());
+    let output = execute_recipe(code, "build", params).unwrap();
+    assert!(output.contains("Using 8 cores for parallel build"));
+    assert!(output.contains("CI environment detected"));
+    assert!(output.contains("Release build"));
 }
 
 #[test]
@@ -145,7 +157,9 @@ fn test_advanced_string_interpolation() {
     params.insert("version".to_string(), string_param("2.1.0"));
     params.insert("registry".to_string(), string_param("ghcr.io"));
 
-    assert!(execute_recipe(code, "package", params).is_ok());
+    let output = execute_recipe(code, "package", params).unwrap();
+    assert!(output.contains("Building image: ghcr.io/web-server:2.1.0"));
+    assert!(output.contains("Creating artifact: web-server-2.1.0.tar.gz"));
 }
 
 #[test]
@@ -165,7 +179,12 @@ fn test_array_operations_and_iteration() {
         }
         "#;
 
-    assert!(execute_recipe(code, "check_files", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "check_files", HashMap::new()).unwrap();
+    assert!(output.contains("Checking package.json"));
+    assert!(output.contains("Checking Cargo.toml"));
+    assert!(output.contains("Checking README.md"));
+    assert!(output.contains("Number: 1"));
+    assert!(output.contains("Number: 5"));
 }
 
 #[test]
@@ -187,7 +206,10 @@ fn test_builtin_modules_integration() {
         }
         "#;
 
-    assert!(execute_recipe(code, "system_info", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "system_info", HashMap::new()).unwrap();
+    assert!(output.contains("Home: "));
+    assert!(output.contains("Platform: "));
+    assert!(output.contains("Cargo.toml"));
 }
 
 #[test]
@@ -220,18 +242,22 @@ fn test_complex_workflow_patterns() {
         "#;
 
     // Test normal test execution
-    assert!(execute_recipe(code, "test", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "test", HashMap::new()).unwrap();
+    assert_eq!(output, "Running normal tests\n");
 
     // Test with coverage
     let mut params = HashMap::new();
     params.insert("coverage".to_string(), bool_param(true));
-    assert!(execute_recipe(code, "test", params).is_ok());
+    let output = execute_recipe(code, "test", params).unwrap();
+    assert_eq!(output, "Running with coverage\n");
 
     // Test release build
     let mut params = HashMap::new();
     params.insert("profile".to_string(), string_param("release"));
     params.insert("jobs".to_string(), number_param(4.0));
-    assert!(execute_recipe(code, "build", params).is_ok());
+    let output = execute_recipe(code, "build", params).unwrap();
+    assert!(output.contains("Building in release mode"));
+    assert!(output.contains("cargo build --release -j 4"));
 }
 
 #[test]
@@ -261,15 +287,21 @@ fn test_monorepo_patterns() {
         "#;
 
     // Test all services
-    assert!(execute_recipe(code, "test", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "test", HashMap::new()).unwrap();
+    assert!(output.contains("Testing api"));
+    assert!(output.contains("Testing web"));
+    assert!(output.contains("Testing worker"));
 
     // Test specific service
     let mut params = HashMap::new();
     params.insert("service".to_string(), string_param("api"));
-    assert!(execute_recipe(code, "test", params).is_ok());
+    let output = execute_recipe(code, "test", params).unwrap();
+    assert_eq!(output, "Testing api\n");
 
     // Test dev workflow
-    assert!(execute_recipe(code, "dev", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "dev", HashMap::new()).unwrap();
+    assert!(output.contains("Starting api"));
+    assert!(output.contains("Starting web"));
 }
 
 #[test]
@@ -293,7 +325,10 @@ fn test_conditional_expressions_in_assignments() {
     params.insert("ci".to_string(), bool_param(true));
     params.insert("cores".to_string(), number_param(8.0));
 
-    assert!(execute_recipe(code, "smart_build", params).is_ok());
+    let output = execute_recipe(code, "smart_build", params).unwrap();
+    assert!(output.contains("Building with profile: release"));
+    assert!(output.contains("Using 8 jobs"));
+    assert!(output.contains("Command: cargo build --release -j 8"));
 }
 
 #[test]
@@ -313,10 +348,12 @@ fn test_error_handling_patterns() {
     // Test with valid service
     let mut params = HashMap::new();
     params.insert("service".to_string(), string_param("api"));
-    assert!(execute_recipe(code, "validate", params).is_ok());
+    let output = execute_recipe(code, "validate", params).unwrap();
+    assert_eq!(output, "Valid service: api\n");
 
     // Test with empty service
     let mut params = HashMap::new();
     params.insert("service".to_string(), string_param(""));
-    assert!(execute_recipe(code, "validate", params).is_ok());
+    let output = execute_recipe(code, "validate", params).unwrap();
+    assert_eq!(output, "Error: service name cannot be empty\n");
 }

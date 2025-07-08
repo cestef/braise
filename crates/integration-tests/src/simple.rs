@@ -9,7 +9,8 @@ fn test_basic_recipe() {
         }
         "#;
 
-    assert!(execute_recipe(code, "hello", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "hello", HashMap::new()).unwrap();
+    assert_eq!(output, "Hello, World!\n");
 }
 
 #[test]
@@ -24,7 +25,8 @@ fn test_recipe_with_string_parameter() {
     let mut params = HashMap::new();
     params.insert("name".to_string(), string_param("Alice"));
 
-    assert!(execute_recipe(code, "greet", params).is_ok());
+    let output = execute_recipe(code, "greet", params).unwrap();
+    assert_eq!(output, "Hello, Alice!\n");
 }
 
 #[test]
@@ -36,7 +38,8 @@ fn test_recipe_with_default_parameter() {
         }
         "#;
 
-    assert!(execute_recipe(code, "greet", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "greet", HashMap::new()).unwrap();
+    assert_eq!(output, "Hello, World!\n");
 }
 
 #[test]
@@ -51,7 +54,8 @@ fn test_recipe_with_number_parameter() {
     let mut params = HashMap::new();
     params.insert("num".to_string(), number_param(42.0));
 
-    assert!(execute_recipe(code, "count", params).is_ok());
+    let output = execute_recipe(code, "count", params).unwrap();
+    assert_eq!(output, "Count: 42\n");
 }
 
 #[test]
@@ -66,7 +70,8 @@ fn test_recipe_with_bool_parameter() {
     let mut params = HashMap::new();
     params.insert("enabled".to_string(), bool_param(true));
 
-    assert!(execute_recipe(code, "check", params).is_ok());
+    let output = execute_recipe(code, "check", params).unwrap();
+    assert_eq!(output, "Enabled: true\n");
 }
 
 #[test]
@@ -79,7 +84,8 @@ fn test_multiple_commands() {
         }
         "#;
 
-    assert!(execute_recipe(code, "build", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "build", HashMap::new()).unwrap();
+    assert_eq!(output, "Starting build\nCompiling\nDone\n");
 }
 
 #[test]
@@ -93,7 +99,8 @@ fn test_variable_assignment() {
         }
         "#;
 
-    assert!(execute_recipe(code, "vars", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "vars", HashMap::new()).unwrap();
+    assert_eq!(output, "Hello 42 true\n");
 }
 
 #[test]
@@ -106,7 +113,8 @@ fn test_string_interpolation() {
         }
         "#;
 
-    assert!(execute_recipe(code, "interpolate", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "interpolate", HashMap::new()).unwrap();
+    assert_eq!(output, "Hello, World!\n");
 }
 
 #[test]
@@ -123,12 +131,14 @@ fn test_if_statement() {
         "#;
 
     // Test with default (false)
-    assert!(execute_recipe(code, "conditional", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "conditional", HashMap::new()).unwrap();
+    assert_eq!(output, "Release mode\n");
 
     // Test with true
     let mut params = HashMap::new();
     params.insert("debug".to_string(), bool_param(true));
-    assert!(execute_recipe(code, "conditional", params).is_ok());
+    let output = execute_recipe(code, "conditional", params).unwrap();
+    assert_eq!(output, "Debug mode\n");
 }
 
 #[test]
@@ -141,7 +151,8 @@ fn test_array_literal() {
         }
         "#;
 
-    assert!(execute_recipe(code, "arrays", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "arrays", HashMap::new()).unwrap();
+    assert!(output.contains("Items: "));
 }
 
 #[test]
@@ -155,7 +166,10 @@ fn test_for_loop() {
         }
         "#;
 
-    assert!(execute_recipe(code, "iterate", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "iterate", HashMap::new()).unwrap();
+    assert!(output.contains("Processing a"));
+    assert!(output.contains("Processing b"));
+    assert!(output.contains("Processing c"));
 }
 
 #[test]
@@ -171,7 +185,8 @@ fn test_match_statement() {
         }
         "#;
 
-    assert!(execute_recipe(code, "match", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "match", HashMap::new()).unwrap();
+    assert_eq!(output, "Operation succeeded\n");
 }
 
 #[test]
@@ -183,7 +198,8 @@ fn test_builtin_env_module() {
         }
         "#;
 
-    assert!(execute_recipe(code, "env_test", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "env_test", HashMap::new()).unwrap();
+    assert!(output.contains("Home: "));
 }
 
 #[test]
@@ -195,7 +211,8 @@ fn test_builtin_os_module() {
         }
         "#;
 
-    assert!(execute_recipe(code, "os_test", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "os_test", HashMap::new()).unwrap();
+    assert!(output.contains("Platform: "));
 }
 
 #[test]
@@ -207,7 +224,8 @@ fn test_builtin_fs_module() {
         }
         "#;
 
-    assert!(execute_recipe(code, "fs_test", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "fs_test", HashMap::new()).unwrap();
+    assert!(output.contains("Exists: "));
 }
 
 #[test]
@@ -258,7 +276,8 @@ fn test_complex_deployment_example() {
     params.insert("environment".to_string(), string_param("prod"));
     params.insert("version".to_string(), string_param("2.1.0"));
 
-    assert!(execute_recipe(code, "deploy", params).is_ok());
+    let output = execute_recipe(code, "deploy", params).unwrap();
+    assert_eq!(output, "Production deployment of web-2.1.0.tar.gz\n");
 }
 
 #[test]
@@ -276,7 +295,8 @@ fn test_union_type_parameters() {
     params.insert("input".to_string(), string_param("hello"));
     params.insert("count".to_string(), number_param(10.0));
 
-    assert!(execute_recipe(code, "flexible", params).is_ok());
+    let output = execute_recipe(code, "flexible", params).unwrap();
+    assert_eq!(output, "Input: hello, Count: 10\n");
 }
 
 #[test]
@@ -298,7 +318,8 @@ fn test_enum_like_parameters() {
     let mut params = HashMap::new();
     params.insert("env".to_string(), string_param("prod"));
 
-    assert!(execute_recipe(code, "deploy", params).is_ok());
+    let output = execute_recipe(code, "deploy", params).unwrap();
+    assert_eq!(output, "Deploying to production\n");
 }
 
 #[test]
@@ -324,7 +345,9 @@ fn test_complex_conditionals() {
     params.insert("cores".to_string(), number_param(8.0));
     params.insert("debug".to_string(), bool_param(true));
 
-    assert!(execute_recipe(code, "build", params).is_ok());
+    let output = execute_recipe(code, "build", params).unwrap();
+    assert!(output.contains("Using 8 cores for parallel build"));
+    assert!(output.contains("Debug build enabled"));
 }
 
 #[test]
@@ -347,7 +370,8 @@ fn test_advanced_string_interpolation() {
     params.insert("version".to_string(), string_param("2.1.0"));
     params.insert("env".to_string(), string_param("staging"));
 
-    assert!(execute_recipe(code, "package", params).is_ok());
+    let output = execute_recipe(code, "package", params).unwrap();
+    assert!(output.contains("Building image: registry.example.com/web-server:2.1.0-staging"));
 }
 
 #[test]
@@ -362,7 +386,10 @@ fn test_array_iteration_with_conditionals() {
         }
         "#;
 
-    assert!(execute_recipe(code, "check_files", HashMap::new()).is_ok());
+    let output = execute_recipe(code, "check_files", HashMap::new()).unwrap();
+    assert!(output.contains("Checking README.md"));
+    assert!(output.contains("Checking package.json"));
+    assert!(output.contains("Checking Cargo.toml"));
 }
 
 #[test]
@@ -391,5 +418,7 @@ fn test_match_with_multiple_patterns() {
     params.insert("status".to_string(), string_param("error"));
     params.insert("count".to_string(), number_param(3.0));
 
-    assert!(execute_recipe(code, "process_status", params).is_ok());
+    let output = execute_recipe(code, "process_status", params).unwrap();
+    assert!(output.contains("❌ Error!"));
+    assert!(output.contains("Multiple items: 3"));
 }

@@ -53,6 +53,7 @@ impl Runtime {
         name: &str,
         user_params: HashMap<String, TypedValue>,
     ) -> Result<()> {
+        // Check for circular dependency
         {
             let mut stack = self.stack.write().unwrap();
             if !stack.insert(name.to_string()) {
@@ -63,6 +64,23 @@ impl Runtime {
             }
         }
 
+        // Ensure we clean up the stack on exit
+        let result = self.execute_recipe_impl(name, user_params);
+        
+        // Remove from stack regardless of success or failure
+        {
+            let mut stack = self.stack.write().unwrap();
+            stack.remove(name);
+        }
+
+        result
+    }
+
+    fn execute_recipe_impl(
+        &self,
+        name: &str,
+        user_params: HashMap<String, TypedValue>,
+    ) -> Result<()> {
         let recipe = self
             .config
             .recipes

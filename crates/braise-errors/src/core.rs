@@ -76,7 +76,7 @@ impl BraiseError {
     pub fn domain(&self) -> &'static str {
         match self {
             BraiseError::Lexer { .. } => "lexer",
-            BraiseError::Parser(_) => "parser", 
+            BraiseError::Parser(_) => "parser",
             BraiseError::Runtime(_) => "runtime",
             BraiseError::Type(_) => "type",
             BraiseError::Cli(_) => "cli",
@@ -135,6 +135,63 @@ impl From<ErrorSeverity> for Severity {
 impl miette::Diagnostic for BraiseError {
     fn severity(&self) -> Option<miette::Severity> {
         Some(self.severity().into())
+    }
+
+    fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        match self {
+            BraiseError::Lexer { code, .. } => Some(Box::new(code.clone())),
+            BraiseError::Parser(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),
+            BraiseError::Runtime(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),
+            BraiseError::Type(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),
+            BraiseError::Cli(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),
+            BraiseError::Lsp(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),
+        }
+    }
+
+    fn diagnostic_source(&self) -> Option<&dyn miette::Diagnostic> {
+        match self {
+            BraiseError::Lexer { .. } => None,
+            BraiseError::Parser(e) => Some(e),
+            BraiseError::Runtime(_) => None, // Don't chain runtime errors to avoid duplication
+            BraiseError::Type(e) => Some(e),
+            BraiseError::Cli(e) => Some(e),
+            BraiseError::Lsp(e) => Some(e),
+        }
+    }
+
+    fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        match self {
+            BraiseError::Lexer { message, .. } => Some(Box::new(message.clone())),
+            BraiseError::Parser(e) => e.help().map(|h| Box::new(h) as Box<dyn std::fmt::Display>),
+            BraiseError::Runtime(e) => e.help().map(|h| Box::new(h) as Box<dyn std::fmt::Display>),
+            BraiseError::Type(e) => e.help().map(|h| Box::new(h) as Box<dyn std::fmt::Display>),
+            BraiseError::Cli(e) => e.help().map(|h| Box::new(h) as Box<dyn std::fmt::Display>),
+            BraiseError::Lsp(e) => e.help().map(|h| Box::new(h) as Box<dyn std::fmt::Display>),
+        }
+    }
+
+    fn source_code(&self) -> Option<&dyn miette::SourceCode> {
+        match self {
+            BraiseError::Lexer { code, .. } => Some(code),
+            BraiseError::Parser(e) => e.source_code(),
+            BraiseError::Runtime(e) => e.source_code(),
+            BraiseError::Type(e) => e.source_code(),
+            BraiseError::Cli(e) => e.source_code(),
+            BraiseError::Lsp(e) => e.source_code(),
+        }
+    }
+
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
+        match self {
+            BraiseError::Lexer { span, .. } => Some(Box::new(std::iter::once(
+                miette::LabeledSpan::new(Some("right here".to_string()), span.offset(), span.len()),
+            ))),
+            BraiseError::Parser(e) => e.labels(),
+            BraiseError::Runtime(e) => e.labels(),
+            BraiseError::Type(e) => e.labels(),
+            BraiseError::Cli(e) => e.labels(),
+            BraiseError::Lsp(e) => e.labels(),
+        }
     }
 }
 
