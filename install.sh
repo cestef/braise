@@ -9,7 +9,7 @@ INCLUDE_DEV=${INCLUDE_DEV:-false}
 VERBOSE=${VERBOSE:-false}
 
 PROJECT_NAME=$(basename "$GITHUB_REPO")
-INSTALLER_NAME="${PROJECT_NAME}-installer.sh"
+INSTALLER_NAME="braise-cli-installer.sh"
 
 # Color setup
 if [ "$NO_COLORS" = true ]; then
