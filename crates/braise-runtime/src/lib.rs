@@ -114,7 +114,7 @@ impl Runtime {
         let mut context = self.resolve_parameters(&recipe.value, user_params)?;
         debug!("Resolved {} context variables", context.len());
 
-        println!("{}\n", name.bold().underline());
+        println!("{}", name.cyan().bold());
 
         debug!("Executing {} statements", recipe.value.body.len());
         for (i, statement) in recipe.value.body.iter().enumerate() {
@@ -245,9 +245,9 @@ impl Runtime {
                     if *is_async {
                         debug!("Running parallel for loop");
                         if self.dry_run {
-                            println!("  → Would run {} iterations in parallel", items.len());
+                            println!("  {} Would run {} iterations in parallel", "‖".dimmed(), items.len().to_string().dimmed());
                         } else {
-                            println!("  → Running {} iterations in parallel", items.len());
+                            println!("  {} Running {} iterations in parallel", "‖".yellow(), items.len().to_string().bold());
                         }
 
                         let context_arc = Arc::new(Mutex::new(context.clone()));
@@ -306,7 +306,7 @@ impl Runtime {
             Statement::Print(expr) => {
                 let value = self.evaluate_expression(&expr, context)?;
                 if self.dry_run {
-                    println!("  📣 {value}");
+                    println!("  {} {}", "print".dimmed(), value.to_string().italic());
                 } else {
                     println!("{value}");
                 }
@@ -326,7 +326,7 @@ impl Runtime {
                 };
 
                 if self.dry_run {
-                    println!("  ⚡ exit {exit_code}");
+                    println!("  {} {}", "exit".red().bold(), exit_code.to_string().dimmed());
                 } else {
                     return Err(RuntimeError::exit(exit_code));
                 }
@@ -387,7 +387,7 @@ impl Runtime {
                 }
 
                 if self.dry_run {
-                    println!("  ⚡ Call recipe: {recipe_name} with args: {resolved_args:?}");
+                    println!("  {} {} {}", "call".purple().bold(), recipe_name.cyan(), format!("{:?}", resolved_args).dimmed());
                 } else {
                     self.execute_recipe(&recipe_name, resolved_args)?;
                 }
@@ -856,11 +856,11 @@ impl Runtime {
     }
 
     fn show_command(&self, command: &str) {
-        println!("  ⚡ {command}");
+        println!("  {} {}", "→".dimmed(), command.italic());
     }
 
     fn run_command(&self, command: &str, shell: Option<&String>) -> Result<()> {
-        println!("  → {command}");
+        println!("  {} {}", "→".blue(), command);
 
         self.executor.run(command, shell)
     }
