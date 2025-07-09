@@ -24,7 +24,7 @@ impl TypedValue {
                 let num = s.parse::<f64>().map_err(|_| {
                     TypeError::mismatch(
                         "number",
-                        &format!("string '{}'", s),
+                        format!("string '{s}'"),
                         "string to number conversion",
                     )
                 })?;
@@ -63,7 +63,7 @@ impl TypedValue {
                     Ok(TypedValue::new(s.clone(), target_type.clone()))
                 } else {
                     Err(TypeError::mismatch(
-                        &format!("one of {{{}}}", variants.join(", ")),
+                        format!("one of {{{}}}", variants.join(", ")),
                         s,
                         "enum conversion",
                     ))
@@ -106,8 +106,8 @@ impl TypedValue {
     ) -> Result<(), TypeError> {
         if !self.value_type.is_compatible_with(expected_type) {
             return Err(TypeError::mismatch(
-                &expected_type.to_string(),
-                &format!("{:?}", self.value),
+                expected_type.to_string(),
+                format!("{:?}", self.value),
                 context,
             ));
         }
@@ -133,8 +133,7 @@ impl TypeConverter {
             BraiseType::Number => {
                 let num = user_value.parse::<f64>().map_err(|_| {
                     format!(
-                        "Invalid parameter '{}': expected number, got '{}'",
-                        param_name, user_value
+                        "Invalid parameter '{param_name}': expected number, got '{user_value}'"
                     )
                 })?;
                 Ok(TypedValue::new(num, BraiseType::Number))
@@ -146,8 +145,7 @@ impl TypeConverter {
                     "false" | "0" | "no" | "off" => false,
                     _ => {
                         return Err(format!(
-                            "Invalid parameter '{}': expected boolean (true/false, 1/0, yes/no, on/off), got '{}'",
-                            param_name, user_value
+                            "Invalid parameter '{param_name}': expected boolean (true/false, 1/0, yes/no, on/off), got '{user_value}'"
                         ));
                     }
                 };
@@ -181,7 +179,7 @@ impl TypeConverter {
 
                 match items {
                     Ok(values) => Ok(TypedValue::new(values, expected_type.clone())),
-                    Err(e) => Err(format!("Invalid array parameter '{}': {}", param_name, e)),
+                    Err(e) => Err(format!("Invalid array parameter '{param_name}': {e}")),
                 }
             }
 
@@ -200,8 +198,7 @@ impl TypeConverter {
                     }
                 }
                 Err(format!(
-                    "Invalid parameter '{}': expected one of [{}], got '{}'",
-                    param_name, expected_type, user_value
+                    "Invalid parameter '{param_name}': expected one of [{expected_type}], got '{user_value}'"
                 ))
             }
 
@@ -246,14 +243,13 @@ impl TypeConverter {
         if matches!(
             operation,
             "+" | "-" | "*" | "/" | "%" | "<" | ">" | "<=" | ">="
-        ) {
-            if let (Ok(left_num), Ok(right_num)) = (left.to_number(), right.to_number()) {
+        )
+            && let (Ok(left_num), Ok(right_num)) = (left.to_number(), right.to_number()) {
                 return Ok((
                     TypedValue::new(left_num, BraiseType::Number),
                     TypedValue::new(right_num, BraiseType::Number),
                 ));
             }
-        }
 
         // For equality operations, convert to common type
         if matches!(operation, "==" | "!=") {

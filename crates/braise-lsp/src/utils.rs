@@ -33,8 +33,8 @@ pub fn get_expression_preview(expr: &Expression) -> String {
         Expression::ModuleAccess { module, field, .. } => {
             format!("{module}.{field}")
         }
-        Expression::Interpolation(parts) => {
-            let preview: Vec<String> = parts
+        Expression::Interpolation(interpolated) => {
+            let preview: Vec<String> = interpolated.parts
                 .iter()
                 .take(3)
                 .map(|part| match part {
@@ -46,7 +46,7 @@ pub fn get_expression_preview(expr: &Expression) -> String {
                 .collect();
 
             let result = preview.join("");
-            if parts.len() > 3 {
+            if interpolated.parts.len() > 3 {
                 format!("\"{result}...\"")
             } else {
                 format!("\"{result}\"")

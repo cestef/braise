@@ -157,7 +157,7 @@ impl Formatter {
                     || after_brace
                         .chars()
                         .nth(keyword.len())
-                        .map_or(false, |c| !c.is_alphanumeric()))
+                        .is_some_and(|c| !c.is_alphanumeric()))
         })
     }
 

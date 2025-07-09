@@ -37,8 +37,8 @@ impl TypeValidator {
     ) -> Result<(), TypeError> {
         if !value.value_type.is_compatible_with(expected_type) {
             return Err(TypeError::mismatch(
-                &expected_type.to_string(),
-                &value.value_type.to_string(),
+                expected_type.to_string(),
+                value.value_type.to_string(),
                 context,
             ));
         }
@@ -54,8 +54,8 @@ impl TypeValidator {
     ) -> Result<(), TypeError> {
         if !actual.is_compatible_with(expected) {
             return Err(TypeError::mismatch(
-                &expected.to_string(),
-                &actual.to_string(),
+                expected.to_string(),
+                actual.to_string(),
                 context,
             ));
         }
@@ -71,8 +71,8 @@ impl TypeValidator {
     ) -> Result<(), TypeError> {
         if !to.can_convert_from(from) {
             return Err(TypeError::mismatch(
-                &format!("type convertible to {}", to),
-                &from.to_string(),
+                format!("type convertible to {to}"),
+                from.to_string(),
                 context,
             ));
         }
@@ -88,9 +88,9 @@ impl TypeValidator {
     ) -> Result<(), TypeError> {
         if !default_type.is_compatible_with(param_type) {
             return Err(TypeError::mismatch(
-                &param_type.to_string(),
-                &default_type.to_string(),
-                &format!("default value for parameter '{}'", param_name),
+                param_type.to_string(),
+                default_type.to_string(),
+                format!("default value for parameter '{param_name}'"),
             ));
         }
         Ok(())
@@ -106,9 +106,9 @@ impl TypeValidator {
         for (i, element_type) in element_types.iter().enumerate() {
             if !element_type.is_compatible_with(expected_element_type) {
                 return Err(TypeError::mismatch(
-                    &expected_element_type.to_string(),
-                    &element_type.to_string(),
-                    &format!("{} element {}", context, i),
+                    expected_element_type.to_string(),
+                    element_type.to_string(),
+                    format!("{context} element {i}"),
                 ));
             }
         }
@@ -148,7 +148,7 @@ impl TypeValidator {
         {
             return Err(TypeError::mismatch(
                 "boolean or boolean-convertible",
-                &condition_type.to_string(),
+                condition_type.to_string(),
                 context,
             ));
         }
@@ -169,14 +169,14 @@ impl TypeValidator {
                 BraiseType::String => Ok(BraiseType::String),
                 _ => Err(TypeError::mismatch(
                     "iterable type (array or string)",
-                    &iterable_type.to_string(),
+                    iterable_type.to_string(),
                     context,
                 )),
             },
             BraiseType::Any => Ok(BraiseType::Any),
             _ => Err(TypeError::mismatch(
                 "iterable type (array or string)",
-                &iterable_type.to_string(),
+                iterable_type.to_string(),
                 context,
             )),
         }
@@ -192,7 +192,7 @@ impl TypeValidator {
             return Err(TypeError::mismatch(
                 "non-empty type list",
                 "empty list",
-                &format!("{} union type", context),
+                format!("{context} union type"),
             ));
         }
 
@@ -219,7 +219,7 @@ impl TypeValidator {
             return Err(TypeError::mismatch(
                 "non-empty variant list",
                 "empty list",
-                &format!("{} enum type", context),
+                format!("{context} enum type"),
             ));
         }
 
@@ -229,8 +229,8 @@ impl TypeValidator {
                 if i != j && variant1 == variant2 {
                     return Err(TypeError::mismatch(
                         "unique enum variants",
-                        &format!("duplicate variant '{}'", variant1),
-                        &format!("{} enum type", context),
+                        format!("duplicate variant '{variant1}'"),
+                        format!("{context} enum type"),
                     ));
                 }
             }
@@ -261,7 +261,7 @@ impl TypeValidator {
         actual: &BraiseType,
         context: &str,
     ) -> TypeError {
-        let error = TypeError::mismatch(&expected.to_string(), &actual.to_string(), context);
+        let error = TypeError::mismatch(expected.to_string(), actual.to_string(), context);
 
         // Add suggestions based on common type mismatches
         if let Some(_suggestion) = self.suggest_fix(expected, actual) {

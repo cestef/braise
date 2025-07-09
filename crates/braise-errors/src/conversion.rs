@@ -31,38 +31,6 @@ impl From<io::Error> for BraiseError {
     }
 }
 
-// Optional conversions for external crates (commented out to avoid warnings)
-// These can be enabled when the corresponding features are added to Cargo.toml
-
-/*
-/// Conversion from JSON parsing errors
-impl From<serde_json::Error> for BraiseError {
-    fn from(error: serde_json::Error) -> Self {
-        BraiseError::Parser(ParserError::other(
-            format!("JSON parsing error: {}", error),
-        ))
-    }
-}
-
-/// Conversion from TOML parsing errors
-impl From<toml::de::Error> for BraiseError {
-    fn from(error: toml::de::Error) -> Self {
-        BraiseError::Parser(ParserError::other(
-            format!("TOML parsing error: {}", error),
-        ))
-    }
-}
-
-/// Conversion from regex errors
-impl From<regex::Error> for BraiseError {
-    fn from(error: regex::Error) -> Self {
-        BraiseError::Runtime(RuntimeError::other(
-            format!("Regular expression error: {}", error),
-        ))
-    }
-}
-*/
-
 /// Conversion from environment variable errors
 impl From<std::env::VarError> for BraiseError {
     fn from(error: std::env::VarError) -> Self {
@@ -78,14 +46,14 @@ impl From<std::env::VarError> for BraiseError {
 impl From<std::num::ParseIntError> for BraiseError {
     fn from(error: std::num::ParseIntError) -> Self {
         BraiseError::Type(TypeError::cannot_convert("string", "number"))
-            .with_suggestion(format!("Invalid number format: {}", error))
+            .with_suggestion(format!("Invalid number format: {error}"))
     }
 }
 
 impl From<std::num::ParseFloatError> for BraiseError {
     fn from(error: std::num::ParseFloatError) -> Self {
         BraiseError::Type(TypeError::cannot_convert("string", "number"))
-            .with_suggestion(format!("Invalid float format: {}", error))
+            .with_suggestion(format!("Invalid float format: {error}"))
     }
 }
 
@@ -122,8 +90,7 @@ impl From<braise_types::TypeError> for TypeError {
 impl From<std::str::Utf8Error> for BraiseError {
     fn from(error: std::str::Utf8Error) -> Self {
         BraiseError::Runtime(RuntimeError::other(format!(
-            "UTF-8 encoding error: {}",
-            error
+            "UTF-8 encoding error: {error}"
         )))
     }
 }
@@ -131,8 +98,7 @@ impl From<std::str::Utf8Error> for BraiseError {
 impl From<std::string::FromUtf8Error> for BraiseError {
     fn from(error: std::string::FromUtf8Error) -> Self {
         BraiseError::Runtime(RuntimeError::other(format!(
-            "UTF-8 conversion error: {}",
-            error
+            "UTF-8 conversion error: {error}"
         )))
     }
 }
@@ -150,7 +116,7 @@ impl From<std::fs::DirBuilder> for BraiseError {
 /// Conversion from format errors
 impl From<std::fmt::Error> for BraiseError {
     fn from(error: std::fmt::Error) -> Self {
-        BraiseError::Runtime(RuntimeError::other(format!("Formatting error: {}", error)))
+        BraiseError::Runtime(RuntimeError::other(format!("Formatting error: {error}")))
     }
 }
 
@@ -224,48 +190,6 @@ where
     }
 }
 
-/// Helper for chaining error conversions
-pub struct ErrorChain {
-    errors: Vec<BraiseError>,
-}
-
-impl ErrorChain {
-    /// Create a new error chain
-    pub fn new() -> Self {
-        Self { errors: Vec::new() }
-    }
-
-    /// Add an error to the chain
-    pub fn push(mut self, error: impl Into<BraiseError>) -> Self {
-        self.errors.push(error.into());
-        self
-    }
-
-    /// Convert the chain to a single error
-    pub fn into_error(self) -> Option<BraiseError> {
-        if self.errors.is_empty() {
-            return None;
-        }
-
-        if self.errors.len() == 1 {
-            return Some(self.errors.into_iter().next().unwrap());
-        }
-
-        // For multiple errors, create a runtime error with all messages
-        let messages: Vec<String> = self.errors.iter().map(|e| e.to_string()).collect();
-        Some(BraiseError::Runtime(RuntimeError::other(format!(
-            "Multiple errors occurred:\n{}",
-            messages.join("\n")
-        ))))
-    }
-}
-
-impl Default for ErrorChain {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// Extension methods for BraiseError
 impl BraiseError {
     /// Add context information to this error
@@ -274,12 +198,11 @@ impl BraiseError {
             BraiseError::Runtime(mut error) => {
                 match &mut error {
                     RuntimeError::Other { message, .. } => {
-                        *message = format!("{}: {}", context, message);
+                        *message = format!("{context}: {message}");
                     }
                     _ => {
                         return BraiseError::Runtime(RuntimeError::other(format!(
-                            "{}: {}",
-                            context, error
+                            "{context}: {error}"
                         )));
                     }
                 }
@@ -370,19 +293,6 @@ mod tests {
         let with_context = result.with_braise_context("testing");
 
         assert!(with_context.is_err());
-    }
-
-    #[test]
-    fn test_error_chain() {
-        let chain = ErrorChain::new()
-            .push(RuntimeError::undefined_variable("x"))
-            .push(RuntimeError::undefined_variable("y"));
-
-        let error = chain.into_error();
-        assert!(error.is_some());
-
-        let error_msg = error.unwrap().to_string();
-        assert!(error_msg.contains("Multiple errors"));
     }
 
     #[test]

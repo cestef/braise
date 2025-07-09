@@ -32,7 +32,7 @@ impl std::fmt::Display for Config {
             }
         }
         if let Some(shell) = &self.shell {
-            writeln!(f, "Shell: {}", shell)?;
+            writeln!(f, "Shell: {shell}")?;
         }
         Ok(())
     }
@@ -160,7 +160,7 @@ pub enum Expression {
         field: String,
         field_type: Option<BraiseType>,
     },
-    Interpolation(Vec<InterpolationPart>),
+    Interpolation(InterpolatedStringExpr),
     Array(Vec<SpannedNode<Expression>>),
     BinaryOp {
         left: Box<SpannedNode<Expression>>,
@@ -238,10 +238,10 @@ impl Expression {
 impl std::fmt::Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expression::String(s) => write!(f, "\"{}\"", s),
-            Expression::Number(n) => write!(f, "{}", n),
-            Expression::Bool(b) => write!(f, "{}", b),
-            Expression::Variable(name) => write!(f, "{}", name),
+            Expression::String(s) => write!(f, "\"{s}\""),
+            Expression::Number(n) => write!(f, "{n}"),
+            Expression::Bool(b) => write!(f, "{b}"),
+            Expression::Variable(name) => write!(f, "{name}"),
             Expression::FunctionCall {
                 module,
                 function,
@@ -251,9 +251,9 @@ impl std::fmt::Display for Expression {
                 let args_str: Vec<String> = args.iter().map(|a| a.value.to_string()).collect();
                 write!(f, "{}.{}({})", module, function, args_str.join(", "))
             }
-            Expression::ModuleAccess { module, field, .. } => write!(f, "{}.{}", module, field),
-            Expression::Interpolation(parts) => {
-                let parts_str: Vec<String> = parts
+            Expression::ModuleAccess { module, field, .. } => write!(f, "{module}.{field}"),
+            Expression::Interpolation(interpolated) => {
+                let parts_str: Vec<String> = interpolated.parts
                     .iter()
                     .map(|part| match part {
                         InterpolationPart::String(s) => s.clone(),
@@ -311,7 +311,7 @@ impl std::fmt::Display for Expression {
                     })
                     .collect();
                 let result_type_str = if let Some(rt) = result_type {
-                    format!(": {}", rt)
+                    format!(": {rt}")
                 } else {
                     String::new()
                 };
@@ -384,6 +384,12 @@ pub struct PatternMatch<T> {
 pub enum InterpolationPart {
     String(String),
     Expression(SpannedNode<Expression>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct InterpolatedStringExpr {
+    pub parts: Vec<InterpolationPart>,
+    pub is_recursive: bool, // Indicates if this uses the new recursive lexing system
 }
 
 #[derive(Debug, Clone, PartialEq)]

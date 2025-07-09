@@ -426,13 +426,11 @@ impl DiagnosticsProvider {
                     ..
                 } if var_name == name => return Some(param_type.clone()),
                 Statement::Try { catch_block, .. } => {
-                    if let Some(catch) = catch_block {
-                        if let Some(var_name) = &catch.error_var {
-                            if var_name == name {
+                    if let Some(catch) = catch_block
+                        && let Some(var_name) = &catch.error_var
+                            && var_name == name {
                                 return Some(BraiseType::Error);
                             }
-                        }
-                    }
                 }
                 Statement::For { var, iterable, .. } if var == name => {
                     return Some(iterable.value.get_type());
@@ -496,8 +494,8 @@ impl DiagnosticsProvider {
                     self.validate_expression(elem, diagnostics);
                 }
             }
-            Expression::Interpolation(parts) => {
-                for part in parts {
+            Expression::Interpolation(interpolated) => {
+                for part in &interpolated.parts {
                     if let InterpolationPart::Expression(expr) = part {
                         self.validate_expression(expr, diagnostics);
                     }
@@ -553,7 +551,7 @@ impl DiagnosticsProvider {
                         },
                     )
                 {
-                    if let Some(param_type) = Self::get_variable_type(&name, &recipe.value) {
+                    if let Some(param_type) = Self::get_variable_type(name, &recipe.value) {
                         return param_type.is_compatible_with(e);
                     } else {
                         return false;

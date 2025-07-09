@@ -47,7 +47,7 @@ impl TypeChecker {
             || self
                 .parent
                 .as_ref()
-                .map_or(false, |parent| parent.is_variable_defined(name))
+                .is_some_and(|parent| parent.is_variable_defined(name))
     }
 
     /// Create a new scope that inherits from this one

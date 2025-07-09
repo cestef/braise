@@ -45,7 +45,7 @@ pub enum ParserError {
     /// Non-exhaustive pattern matching
     #[error("Non-exhaustive match: {}", 
         missing.as_deref()
-            .map(|s| format!("missing: '{}'", s))
+            .map(|s| format!("missing: '{s}'"))
             .unwrap_or_else(|| "consider adding a wildcard pattern '_'".to_string())
     )]
     #[diagnostic(

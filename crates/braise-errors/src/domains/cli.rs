@@ -16,7 +16,7 @@ pub enum CliError {
 
     /// No recipe file found in default locations
     #[error("No recipe file found, searched for: {}", 
-        format_file_list(&DEFAULT_FILES)
+        format_file_list(DEFAULT_FILES)
     )]
     #[diagnostic(
         code(braise::cli::no_recipe_file),

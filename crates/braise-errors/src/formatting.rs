@@ -87,13 +87,12 @@ impl ErrorFormatter {
         output.push('\n');
 
         // Source context if available
-        if self.config.show_source {
-            if let Some(source_context) = self.format_source_context(error) {
+        if self.config.show_source
+            && let Some(source_context) = self.format_source_context(error) {
                 output.push('\n');
                 output.push_str(&source_context);
                 output.push('\n');
             }
-        }
 
         // Help text if available
         if let Some(help) = self.format_help_text(error) {
@@ -120,7 +119,7 @@ impl ErrorFormatter {
 
         if self.config.show_codes {
             if let Some(code) = error.error_code() {
-                format!("{} [{}]", prefix, code)
+                format!("{prefix} [{code}]")
             } else {
                 prefix
             }
@@ -159,7 +158,7 @@ impl ErrorFormatter {
             "HELP".to_string()
         };
 
-        Some(format!("{}: {}", help_prefix, help))
+        Some(format!("{help_prefix}: {help}"))
     }
 
     /// Format a list of errors
@@ -239,7 +238,7 @@ impl ErrorFormatter {
             let style = self.config.severity_styles.style_for_severity(severity);
             format!("{} {}", style.style(icon), truncated_message)
         } else {
-            format!("{} {}", icon, truncated_message)
+            format!("{icon} {truncated_message}")
         }
     }
 }
@@ -349,7 +348,7 @@ pub mod text_utils {
         for word in text.split_whitespace() {
             if current_line.is_empty() {
                 current_line = word.to_string();
-            } else if current_line.len() + word.len() + 1 <= width {
+            } else if current_line.len() + word.len() < width {
                 current_line.push(' ');
                 current_line.push_str(word);
             } else {
@@ -369,7 +368,7 @@ pub mod text_utils {
     pub fn indent_text(text: &str, spaces: usize) -> String {
         let indent = " ".repeat(spaces);
         text.lines()
-            .map(|line| format!("{}{}", indent, line))
+            .map(|line| format!("{indent}{line}"))
             .collect::<Vec<_>>()
             .join("\n")
     }

@@ -135,16 +135,15 @@ impl Parser {
             if self.enable_type_checking {
                 let expr_type = self.infer_expression_type(&value_expr.value);
 
-                if !matches!(declared_type, BraiseType::Any) {
-                    if !expr_type.is_compatible_with(&declared_type) {
+                if !matches!(declared_type, BraiseType::Any)
+                    && !expr_type.is_compatible_with(&declared_type) {
                         return Err(self.create_type_error(
                             declared_type.to_string(),
                             expr_type.to_string(),
-                            format!("let statement for variable '{}'", name),
+                            format!("let statement for variable '{name}'"),
                             &value_expr.span,
                         ));
                     }
-                }
 
                 inferred_type = Some(expr_type);
             }
@@ -368,7 +367,7 @@ impl Parser {
                         return Err(self.create_type_error(
                             param_type.to_string(),
                             expr_type.to_string(),
-                            format!("variable declaration '{}'", name),
+                            format!("variable declaration '{name}'"),
                             &value_expr.span,
                         ));
                     }
@@ -385,7 +384,7 @@ impl Parser {
                         return Err(self.create_type_error(
                             var_type_clone.to_string(),
                             expr_type.to_string(),
-                            format!("assignment to variable '{}'", name),
+                            format!("assignment to variable '{name}'"),
                             &value.span,
                         ));
                     }

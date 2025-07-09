@@ -133,14 +133,14 @@ impl std::fmt::Display for BraiseType {
             BraiseType::String => write!(f, "string"),
             BraiseType::Number => write!(f, "number"),
             BraiseType::Bool => write!(f, "bool"),
-            BraiseType::Array(inner) => write!(f, "[{}]", inner),
+            BraiseType::Array(inner) => write!(f, "[{inner}]"),
             BraiseType::Enum(variants) => write!(f, "{{{}}}", variants.join(" | ")),
             BraiseType::Recipe => write!(f, "recipe"),
             BraiseType::Union(types) => {
                 let type_strs: Vec<String> = types.iter().map(|t| t.to_string()).collect();
                 write!(f, "{}", type_strs.join(" | "))
             }
-            BraiseType::Optional(inner) => write!(f, "{}?", inner),
+            BraiseType::Optional(inner) => write!(f, "{inner}?"),
             BraiseType::Any => write!(f, "any"),
             BraiseType::Error => write!(f, "error"),
         }
@@ -214,41 +214,41 @@ impl TypedValue {
 impl std::fmt::Display for TypedValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.value {
-            ValueData::String(s) => write!(f, "{}", s),
+            ValueData::String(s) => write!(f, "{s}"),
             ValueData::Number(n) => {
                 if n.fract() == 0.0 {
                     write!(f, "{}", *n as i64)
                 } else {
-                    write!(f, "{}", n)
+                    write!(f, "{n}")
                 }
             }
-            ValueData::Bool(b) => write!(f, "{}", b),
+            ValueData::Bool(b) => write!(f, "{b}"),
             ValueData::Array(arr) => {
                 write!(f, "[")?;
                 for (i, item) in arr.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", item)?;
+                    write!(f, "{item}")?;
                 }
                 write!(f, "]")
             }
             ValueData::Recipe(name, args) => {
-                write!(f, "{}(", name)?;
+                write!(f, "{name}(")?;
                 for (i, (k, v)) in args.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}: {}", k, v)?;
+                    write!(f, "{k}: {v}")?;
                 }
                 write!(f, ")")
             }
             ValueData::None => write!(f, "null"),
             ValueData::Error { message, code } => {
                 if let Some(code) = code {
-                    write!(f, "Error({}): {}", code, message)
+                    write!(f, "Error({code}): {message}")
                 } else {
-                    write!(f, "Error: {}", message)
+                    write!(f, "Error: {message}")
                 }
             }
         }

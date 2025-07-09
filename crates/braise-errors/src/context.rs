@@ -219,7 +219,7 @@ impl Location {
 
     /// Convert to SourceSpan for miette
     pub fn to_source_span(self) -> SourceSpan {
-        SourceSpan::new(self.offset.into(), self.length.into())
+        SourceSpan::new(self.offset.into(), self.length)
     }
 
     /// Format as human-readable location

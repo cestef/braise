@@ -231,7 +231,7 @@ impl Parser {
                         return Err(self.create_type_error(
                             param_type.to_string(),
                             expr_type.to_string(),
-                            format!("variable declaration '{}'", name),
+                            format!("variable declaration '{name}'"),
                             &value_expr.span,
                         ));
                     }
@@ -252,7 +252,7 @@ impl Parser {
                         return Err(self.create_type_error(
                             var_type.to_string(),
                             expr_type.to_string(),
-                            format!("assignment to variable '{}'", name),
+                            format!("assignment to variable '{name}'"),
                             &value.span,
                         ));
                     }
@@ -354,7 +354,7 @@ impl Parser {
             }
             Statement::Call { recipe, args } => {
                 self.type_check_expression(recipe)?;
-                for (_, arg) in args {
+                for arg in args.values_mut() {
                     self.type_check_expression(arg)?;
                 }
             }
@@ -533,8 +533,8 @@ impl Parser {
                 result_type_resolved
             }
 
-            Expression::Interpolation(parts) => {
-                for part in parts {
+            Expression::Interpolation(interpolated) => {
+                for part in &mut interpolated.parts {
                     if let InterpolationPart::Expression(expr) = part {
                         self.type_check_expression(expr)?;
                     }
@@ -632,7 +632,7 @@ impl Parser {
                             return Err(ParseError::non_exhaustive_match(
                                 self.source.to_string(),
                                 span.into(),
-                                Some(format!("pattern for enum variant '{}'", variant)),
+                                Some(format!("pattern for enum variant '{variant}'")),
                             ));
                         }
                     }
@@ -648,7 +648,7 @@ impl Parser {
                     return Err(ParseError::non_exhaustive_match(
                         self.source.to_string(),
                         span.into(),
-                        Some(format!("patterns for type '{}'", e.to_string())),
+                        Some(format!("patterns for type '{}'", e)),
                     ));
                 }
             }
@@ -697,12 +697,11 @@ impl Parser {
     ) -> ParseError {
         let suggestion = self.suggest_type_fix(&expected, &got);
         let mut message = format!(
-            "Type mismatch in {}: expected {}, got {}",
-            context, expected, got
+            "Type mismatch in {context}: expected {expected}, got {got}"
         );
 
         if let Some(suggestion) = suggestion {
-            message.push_str(&format!(". {}", suggestion));
+            message.push_str(&format!(". {suggestion}"));
         }
 
         ParseError::invalid_expression(message, self.source.as_ref().clone(), span.into())
@@ -710,7 +709,7 @@ impl Parser {
 
     fn create_undefined_variable_error(&self, name: &str, span: &Span) -> ParseError {
         ParseError::invalid_expression(
-            format!("Undefined variable: '{}'", name),
+            format!("Undefined variable: '{name}'"),
             self.source.as_ref().clone(),
             span.into(),
         )

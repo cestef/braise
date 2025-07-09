@@ -10,13 +10,13 @@ impl EnvModule {
     }
 
     fn get(&self, var_name: TypedValue) -> Result<TypedValue> {
-        let value = env::var(&var_name.to_string()).unwrap_or_default();
+        let value = env::var(var_name.to_string()).unwrap_or_default();
         Ok(TypedValue::new(value, BraiseType::String))
     }
 
     fn has(&self, var_name: TypedValue) -> Result<TypedValue> {
         Ok(TypedValue::new(
-            env::var(&var_name.to_string()).is_ok(),
+            env::var(var_name.to_string()).is_ok(),
             BraiseType::Bool,
         ))
     }

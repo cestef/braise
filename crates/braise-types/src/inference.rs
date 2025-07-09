@@ -88,7 +88,7 @@ impl TypeInferenceEngine {
         if !self.builtin_registry.has_function(module, function) {
             return Err(TypeError::mismatch(
                 "valid function",
-                &format!("{}.{}", module, function),
+                format!("{module}.{function}"),
                 "function call",
             ));
         }
@@ -108,7 +108,7 @@ impl TypeInferenceEngine {
         if !self.builtin_registry.has_field(module, field) {
             return Err(TypeError::mismatch(
                 "valid field",
-                &format!("{}.{}", module, field),
+                format!("{module}.{field}"),
                 "field access",
             ));
         }
@@ -186,7 +186,7 @@ impl TypeInferenceEngine {
                 } else {
                     Err(TypeError::mismatch(
                         "boolean or boolean-convertible",
-                        &operand_type.to_string(),
+                        operand_type.to_string(),
                         "logical negation",
                     ))
                 }
@@ -198,7 +198,7 @@ impl TypeInferenceEngine {
                 } else {
                     Err(TypeError::mismatch(
                         "number or number-convertible",
-                        &operand_type.to_string(),
+                        operand_type.to_string(),
                         "numeric negation",
                     ))
                 }
@@ -233,7 +233,7 @@ impl TypeInferenceEngine {
         {
             return Err(TypeError::mismatch(
                 "boolean or boolean-convertible",
-                &condition_type.to_string(),
+                condition_type.to_string(),
                 "conditional expression",
             ));
         }
@@ -253,14 +253,14 @@ impl TypeInferenceEngine {
                 BraiseType::String => Ok(BraiseType::String),
                 _ => Err(TypeError::mismatch(
                     "iterable type (array or string)",
-                    &iterable_type.to_string(),
+                    iterable_type.to_string(),
                     "for loop",
                 )),
             },
             BraiseType::Any => Ok(BraiseType::Any),
             _ => Err(TypeError::mismatch(
                 "iterable type (array or string)",
-                &iterable_type.to_string(),
+                iterable_type.to_string(),
                 "for loop",
             )),
         }

@@ -124,7 +124,7 @@ impl Runtime {
         debug!("Executing {} statements", recipe.value.body.len());
         for (i, statement) in recipe.value.body.iter().enumerate() {
             trace!("Executing statement {}: {:?}", i + 1, statement.value);
-            self.execute_statement(&statement, &mut context)?;
+            self.execute_statement(statement, &mut context)?;
         }
 
         Ok(())
@@ -142,7 +142,7 @@ impl Runtime {
             let value = if let Some(user_value) = provided_params.remove(&param.value.name) {
                 user_value
             } else if let Some(default_expr) = &param.value.default {
-                let evaluated = self.evaluate_expression(&default_expr, &context)?;
+                let evaluated = self.evaluate_expression(default_expr, &context)?;
 
                 evaluated.convert_to(&param.value.param_type).map_err(|e| {
                     RuntimeError::type_error_with_context(
@@ -203,7 +203,7 @@ impl Runtime {
     ) -> Result<()> {
         match &statement.value {
             Statement::Run(expr) => {
-                let value = self.evaluate_expression(&expr, context)?;
+                let value = self.evaluate_expression(expr, context)?;
                 let command_str = value.to_string();
                 debug!("Executing command: {}", command_str);
                 if self.dry_run {
@@ -221,17 +221,17 @@ impl Runtime {
                 then_block,
                 else_block,
             } => {
-                let condition_value = self.evaluate_expression(&condition, context)?;
+                let condition_value = self.evaluate_expression(condition, context)?;
                 debug!("If condition evaluated to: {}", condition_value.to_bool());
                 if condition_value.to_bool() {
                     debug!("Executing then block with {} statements", then_block.len());
                     for stmt in then_block {
-                        self.execute_statement(&stmt, context)?;
+                        self.execute_statement(stmt, context)?;
                     }
                 } else if let Some(else_stmts) = else_block {
                     debug!("Executing else block with {} statements", else_stmts.len());
                     for stmt in else_stmts {
-                        self.execute_statement(&stmt, context)?;
+                        self.execute_statement(stmt, context)?;
                     }
                 }
             }
@@ -245,7 +245,7 @@ impl Runtime {
                 body,
                 is_async,
             } => {
-                let iterable_value = self.evaluate_expression(&iterable, context)?;
+                let iterable_value = self.evaluate_expression(iterable, context)?;
 
                 if let ValueData::Array(items) = iterable_value.value {
                     debug!(
@@ -290,7 +290,7 @@ impl Runtime {
 
                             for stmt in body {
                                 if let Err(e) =
-                                    self_clone.execute_statement(&stmt, &mut loop_context)
+                                    self_clone.execute_statement(stmt, &mut loop_context)
                                 {
                                     let mut errors_guard = errors_clone.lock().unwrap();
                                     errors_guard.push(e);
@@ -307,7 +307,7 @@ impl Runtime {
                         for item in items {
                             context.set(var.clone(), item);
                             for stmt in body {
-                                self.execute_statement(&stmt, context)?;
+                                self.execute_statement(stmt, context)?;
                             }
                         }
                     }
@@ -324,7 +324,7 @@ impl Runtime {
                 }
             }
             Statement::Print(expr) => {
-                let value = self.evaluate_expression(&expr, context)?;
+                let value = self.evaluate_expression(expr, context)?;
                 if self.dry_run {
                     println!("  {} {}", "print".dimmed(), value.to_string().italic());
                 } else {
@@ -333,7 +333,7 @@ impl Runtime {
             }
             Statement::Exit(expr) => {
                 let exit_code = {
-                    let value = self.evaluate_expression(&expr, context)?;
+                    let value = self.evaluate_expression(expr, context)?;
                     value.to_number().map_err(|_| {
                         RuntimeError::type_error_with_context(
                             TypeError::mismatch(
@@ -364,7 +364,7 @@ impl Runtime {
                 ..
             } => {
                 let value = if let Some(expr) = orig_value {
-                    self.evaluate_expression(&expr, context)?
+                    self.evaluate_expression(expr, context)?
                 } else {
                     TypedValue::new(ValueData::None, param_type.clone())
                 };
@@ -384,14 +384,14 @@ impl Runtime {
                 context.set(name.clone(), value);
             }
             Statement::Assign { name, value } => {
-                let value = self.evaluate_expression(&value, context)?;
+                let value = self.evaluate_expression(value, context)?;
                 if !context.contains(name) {
                     return Err(RuntimeError::undefined_variable(name.clone()));
                 }
                 context.set(name.clone(), value);
             }
             Statement::Call { recipe, args } => {
-                let recipe_value = self.evaluate_expression(&recipe, context)?;
+                let recipe_value = self.evaluate_expression(recipe, context)?;
                 let mut resolved_args = HashMap::new();
 
                 let recipe_name = match &recipe_value.value {
@@ -406,7 +406,7 @@ impl Runtime {
 
                 if resolved_args.is_empty() {
                     for (arg_name, arg_expr) in args {
-                        let value = self.evaluate_expression(&arg_expr, context)?;
+                        let value = self.evaluate_expression(arg_expr, context)?;
                         resolved_args.insert(arg_name.clone(), value);
                     }
                 }
@@ -416,7 +416,7 @@ impl Runtime {
                         "  {} {} {}",
                         "call".purple().bold(),
                         recipe_name.cyan(),
-                        format!("{:?}", resolved_args).dimmed()
+                        format!("{resolved_args:?}").dimmed()
                     );
                 } else {
                     self.execute_recipe(&recipe_name, resolved_args)?;
@@ -436,7 +436,7 @@ impl Runtime {
             Statement::Throw(expr) => {
                 let error_value = self.evaluate_expression(expr, context)?;
                 let (message, code) = match &error_value.value {
-                    ValueData::Error { message, code } => (message.clone(), code.clone()),
+                    ValueData::Error { message, code } => (message.clone(), *code),
                     _ => (error_value.to_string(), None),
                 };
 
@@ -471,7 +471,7 @@ impl Runtime {
             let mut catch_context = context.clone();
 
             if let Some(ref error_var) = catch.error_var {
-                let error_value = self.create_error_value(&error);
+                let error_value = self.create_error_value(error);
                 catch_context.set(error_var.clone(), error_value);
             }
 
@@ -508,7 +508,7 @@ impl Runtime {
         let (message, code) = match error {
             RuntimeError::CommandFailed {
                 command, exit_code, ..
-            } => (format!("Command failed: {}", command), Some(*exit_code)),
+            } => (format!("Command failed: {command}"), Some(*exit_code)),
             RuntimeError::Exit { code, message, .. } => (
                 message.as_deref().unwrap_or("Exit called").to_string(),
                 Some(*code),
@@ -525,7 +525,7 @@ impl Runtime {
         arms: &[SpannedNode<MatchArm>],
         context: &mut ExecutionContext,
     ) -> Result<()> {
-        let match_value = self.evaluate_expression(&expr, context)?;
+        let match_value = self.evaluate_expression(expr, context)?;
 
         for arm in arms {
             let pattern_match = self.match_pattern(&arm.value.pattern, &match_value, context)?;
@@ -537,7 +537,7 @@ impl Runtime {
                         guard_context.set(name.clone(), value.clone());
                     }
 
-                    let guard_result = self.evaluate_expression(&guard, &guard_context)?;
+                    let guard_result = self.evaluate_expression(guard, &guard_context)?;
                     if !guard_result.to_bool() {
                         continue;
                     }
@@ -548,7 +548,7 @@ impl Runtime {
                 }
 
                 for stmt in &arm.value.body {
-                    self.execute_statement(&stmt, context)?;
+                    self.execute_statement(stmt, context)?;
                 }
                 return Ok(());
             }
@@ -563,7 +563,7 @@ impl Runtime {
         arms: &[SpannedNode<MatchExpressionArm>],
         context: &ExecutionContext,
     ) -> Result<TypedValue> {
-        let match_value = self.evaluate_expression(&expr, context)?;
+        let match_value = self.evaluate_expression(expr, context)?;
 
         for arm in arms {
             let pattern_match = self.match_pattern(&arm.value.pattern, &match_value, context)?;
@@ -574,7 +574,7 @@ impl Runtime {
                         guard_context.set(name.clone(), value.clone());
                     }
 
-                    let guard_result = self.evaluate_expression(&guard, &guard_context)?;
+                    let guard_result = self.evaluate_expression(guard, &guard_context)?;
                     if !guard_result.to_bool() {
                         continue;
                     }
@@ -681,7 +681,7 @@ impl Runtime {
 
             MatchPattern::Array { elements, rest } => {
                 if let ValueData::Array(ref array_values) = value.value {
-                    self.match_array_pattern(elements, rest.as_ref(), &array_values, context)
+                    self.match_array_pattern(elements, rest.as_ref(), array_values, context)
                 } else {
                     Ok(PatternMatch {
                         matched: false,
@@ -701,7 +701,7 @@ impl Runtime {
                     guard_context.set(name.clone(), binding_value.clone());
                 }
 
-                let guard_result = self.evaluate_expression(&condition, &guard_context)?;
+                let guard_result = self.evaluate_expression(condition, &guard_context)?;
                 Ok(PatternMatch {
                     matched: guard_result.to_bool(),
                     bindings: base_match.bindings,
@@ -815,7 +815,7 @@ impl Runtime {
             } => {
                 let arg_values: Result<Vec<TypedValue>> = args
                     .iter()
-                    .map(|arg| self.evaluate_expression(&arg, context))
+                    .map(|arg| self.evaluate_expression(arg, context))
                     .collect();
                 let arg_values = arg_values?;
 
@@ -824,13 +824,13 @@ impl Runtime {
             Expression::ModuleAccess { module, field, .. } => {
                 self.builtins.get_field(module, field)
             }
-            Expression::Interpolation(parts) => {
+            Expression::Interpolation(interpolated) => {
                 let mut result = String::new();
-                for part in parts {
+                for part in &interpolated.parts {
                     match part {
                         InterpolationPart::String(s) => result.push_str(s),
                         InterpolationPart::Expression(expr) => {
-                            let value = self.evaluate_expression(&expr, context)?;
+                            let value = self.evaluate_expression(expr, context)?;
                             result.push_str(&value.to_string());
                         }
                     }
@@ -840,7 +840,7 @@ impl Runtime {
             Expression::Array(elements) => {
                 let values: Result<Vec<TypedValue>> = elements
                     .iter()
-                    .map(|elem| self.evaluate_expression(&elem, context))
+                    .map(|elem| self.evaluate_expression(elem, context))
                     .collect();
                 let values = values?;
                 let array_type = if elements.is_empty() {
@@ -860,8 +860,8 @@ impl Runtime {
             Expression::BinaryOp {
                 left, op, right, ..
             } => {
-                let left_val = self.evaluate_expression(&left, context)?;
-                let right_val = self.evaluate_expression(&right, context)?;
+                let left_val = self.evaluate_expression(left, context)?;
+                let right_val = self.evaluate_expression(right, context)?;
                 self.evaluate_binary_op(&left_val, op, &right_val)
                     .map_err(|e| {
                         RuntimeError::type_error_with_context(
@@ -872,7 +872,7 @@ impl Runtime {
                     })
             }
             Expression::UnaryOp { op, expr, .. } => {
-                let value = self.evaluate_expression(&expr, context)?;
+                let value = self.evaluate_expression(expr, context)?;
                 match op {
                     UnaryOperator::Not => Ok(TypedValue::new(!value.to_bool(), BraiseType::Bool)),
                     UnaryOperator::Minus => {
@@ -893,17 +893,17 @@ impl Runtime {
                 else_expr,
                 ..
             } => {
-                let condition_value = self.evaluate_expression(&condition, context)?;
+                let condition_value = self.evaluate_expression(condition, context)?;
                 if condition_value.to_bool() {
-                    self.evaluate_expression(&then_expr, context)
+                    self.evaluate_expression(then_expr, context)
                 } else {
-                    self.evaluate_expression(&else_expr, context)
+                    self.evaluate_expression(else_expr, context)
                 }
             }
             Expression::RecipeRef { recipe, args } => {
                 let mut arg_values = HashMap::new();
                 for (k, arg) in args {
-                    let value = self.evaluate_expression(&arg, context)?;
+                    let value = self.evaluate_expression(arg, context)?;
                     arg_values.insert(k.clone(), value);
                 }
 
@@ -1051,14 +1051,13 @@ impl Runtime {
             (&left.value_type, &right.value_type),
             (BraiseType::String, BraiseType::Number) | (BraiseType::Number, BraiseType::String)
         ) {
-            if let Ok(left_num) = left.to_number() {
-                if let Ok(right_num) = right.to_number() {
+            if let Ok(left_num) = left.to_number()
+                && let Ok(right_num) = right.to_number() {
                     return left_num == right_num;
                 }
-            }
             let left_str = left.to_string();
             if let Ok(right_num) = right.to_number() {
-                return left_str.parse::<f64>().map_or(false, |n| n == right_num);
+                return left_str.parse::<f64>() == Ok(right_num);
             }
         }
         false

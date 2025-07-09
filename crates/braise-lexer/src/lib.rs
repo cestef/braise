@@ -4,10 +4,15 @@ use braise_core::BraiseError;
 use logos::{Lexer, Logos, Skip};
 use tracing::debug;
 
-pub use crate::{extras::LexerExtras, spanned_token::SpannedToken};
+pub use crate::{
+    extras::LexerExtras, 
+    spanned_token::SpannedToken, 
+    interpolation::{InterpolationSegment, InterpolatedString, lex_interpolated_string}
+};
 
 pub mod extras;
 pub mod spanned_token;
+pub mod interpolation;
 
 fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
     let slice = lex.slice();
@@ -24,6 +29,15 @@ fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
     }
 
     Skip
+}
+
+fn string_callback(lex: &mut Lexer<Token>) -> Option<String> {
+    let slice = lex.slice();
+    let content = slice.trim_matches('"');
+    
+    // Store the raw string content - interpolation will be handled by the parser
+    // using the new recursive lexing system
+    Some(content.to_string())
 }
 
 #[derive(Logos, Debug, PartialEq, Clone, logos_display::Display)]
@@ -85,9 +99,12 @@ pub enum Token {
     ArrayType,
 
     // Literals
-    #[regex(r#""[^"]*""#, |lex| lex.slice().trim_matches('"').to_string())]
+    #[regex(r#""[^"]*""#, callback = string_callback)]
     #[alias("string")]
     String(String),
+    #[regex(r"'[^']*'", |lex| lex.slice().trim_matches('\'').to_string())]
+    #[alias("single_quoted_string")]
+    SingleQuotedString(String),
     #[regex(r#"[0-9]+(\.[0-9]+)?"#, |lex| lex.slice().parse::<f64>().unwrap())]
     #[alias("number")]
     Number(f64),

@@ -135,14 +135,14 @@ impl BuiltinTypeRegistry {
     pub fn has_function(&self, module: &str, function: &str) -> bool {
         self.modules
             .get(module)
-            .map_or(false, |m| m.functions.contains_key(function))
+            .is_some_and(|m| m.functions.contains_key(function))
     }
 
     /// Check if a field exists in a module
     pub fn has_field(&self, module: &str, field: &str) -> bool {
         self.modules
             .get(module)
-            .map_or(false, |m| m.fields.contains_key(field))
+            .is_some_and(|m| m.fields.contains_key(field))
     }
 
     /// Get all modules
@@ -175,7 +175,7 @@ impl BuiltinTypeRegistry {
         let module_types = self
             .modules
             .get_mut(module)
-            .ok_or_else(|| format!("Module '{}' not found", module))?;
+            .ok_or_else(|| format!("Module '{module}' not found"))?;
 
         module_types.functions.insert(function, return_type);
         Ok(())
@@ -191,7 +191,7 @@ impl BuiltinTypeRegistry {
         let module_types = self
             .modules
             .get_mut(module)
-            .ok_or_else(|| format!("Module '{}' not found", module))?;
+            .ok_or_else(|| format!("Module '{module}' not found"))?;
 
         module_types.fields.insert(field, field_type);
         Ok(())

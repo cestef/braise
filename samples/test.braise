@@ -64,4 +64,5 @@ recipe "math" {
     print "Quotient: ${quot}"
     print "Modulus: ${mod_result}"
     print "Random number: ${random}"
+    print "PI: ${math.round(math.PI)}"
 }
