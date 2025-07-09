@@ -69,6 +69,8 @@ impl TextDocumentProvider {
                 if let Some(param_type) =
                     DiagnosticsProvider::get_variable_type(&word, &current_recipe.value)
                 {
+                    // TODO: at the moment we are getting variables from the whole recipe,
+                    // whereas we should be getting it from the current scope
                     let content = format!("**Variable**: `{word}`\n\n**Type**: `{param_type}`");
 
                     return Some(Hover {
@@ -147,14 +149,8 @@ impl TextDocumentProvider {
         None
     }
 
-    pub async fn provide_code_actions(&self, doc: &Document, range: Range) -> CodeActionResponse {
-        let mut actions = Vec::new();
-
-        if let Some(action) = self.create_add_parameter_action(doc, range) {
-            actions.push(action);
-        }
-
-        CodeActionResponse::from(actions)
+    pub async fn provide_code_actions(&self, _doc: &Document, _range: Range) -> CodeActionResponse {
+        CodeActionResponse::from(Vec::new())
     }
 
     pub async fn provide_formatting(&self, doc: &Document) -> Vec<TextEdit> {
@@ -367,47 +363,9 @@ impl TextDocumentProvider {
             "for" => Some(include_str!("../../docs/keywords/for.md").to_string()),
             "let" => Some(include_str!("../../docs/keywords/let.md").to_string()),
             "shell" => Some(include_str!("../../docs/keywords/shell.md").to_string()),
+            "try" => Some(include_str!("../../docs/keywords/try.md").to_string()),
             _ => None,
         }
-    }
-
-    fn create_add_parameter_action(
-        &self,
-        doc: &Document,
-        range: Range,
-    ) -> Option<CodeActionOrCommand> {
-        Some(CodeActionOrCommand::CodeAction(CodeAction {
-            title: "Add parameter".to_string(),
-            kind: Some(CodeActionKind::REFACTOR),
-            diagnostics: None,
-            edit: Some(WorkspaceEdit {
-                changes: None,
-                document_changes: Some(DocumentChanges::Edits(vec![TextDocumentEdit {
-                    text_document: OptionalVersionedTextDocumentIdentifier {
-                        uri: doc.uri.clone(),
-                        version: Some(doc.version),
-                    },
-                    edits: vec![OneOf::Left(TextEdit {
-                        range: Range {
-                            start: Position {
-                                line: range.start.line + 1,
-                                character: 4,
-                            },
-                            end: Position {
-                                line: range.start.line + 1,
-                                character: 4,
-                            },
-                        },
-                        new_text: "param name: string = \"default\"\n    ".to_string(),
-                    })],
-                }])),
-                change_annotations: None,
-            }),
-            command: None,
-            is_preferred: Some(false),
-            disabled: None,
-            data: None,
-        }))
     }
 
     fn get_semantic_token_info(&self, token: &Token) -> (u32, u32) {

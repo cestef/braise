@@ -368,6 +368,30 @@ impl DiagnosticsProvider {
                 }
             }
             Statement::Shell { .. } => {}
+            Statement::Throw(expr) => {
+                self.validate_expression(expr, diagnostics);
+            }
+            Statement::Try {
+                try_block,
+                catch_block,
+                finally_block,
+            } => {
+                for stmt in try_block {
+                    self.validate_statement(&stmt.value, doc, diagnostics);
+                }
+
+                if let Some(catch) = catch_block {
+                    for stmt in &catch.body {
+                        self.validate_statement(&stmt.value, doc, diagnostics);
+                    }
+                }
+
+                if let Some(finally) = finally_block {
+                    for stmt in finally {
+                        self.validate_statement(&stmt.value, doc, diagnostics);
+                    }
+                }
+            }
         }
     }
 
@@ -395,17 +419,27 @@ impl DiagnosticsProvider {
         }
 
         for stmt in &recipe.body {
-            if let Statement::Let {
-                name: var_name,
-                param_type,
-                ..
-            } = &stmt.value
-                && var_name == name
-            {
-                return Some(param_type.clone());
+            match &stmt.value {
+                Statement::Let {
+                    name: var_name,
+                    param_type,
+                    ..
+                } if var_name == name => return Some(param_type.clone()),
+                Statement::Try { catch_block, .. } => {
+                    if let Some(catch) = catch_block {
+                        if let Some(var_name) = &catch.error_var {
+                            if var_name == name {
+                                return Some(BraiseType::Error);
+                            }
+                        }
+                    }
+                }
+                Statement::For { var, iterable, .. } if var == name => {
+                    return Some(iterable.value.get_type());
+                }
+                _ => {}
             }
         }
-
         None
     }
 
@@ -559,7 +593,10 @@ impl DiagnosticsProvider {
                 "is_dirty" | "is_clean" | "branch" | "commit_hash" | "commit_hash_short" | "tag"
             ),
             "fs" => matches!(function, "exists" | "is_file" | "is_dir"),
-            "input" => matches!(function, "text" | "num" | "confirm" | "select" | "multiselect" | "password"),
+            "input" => matches!(
+                function,
+                "text" | "num" | "confirm" | "select" | "multiselect" | "password"
+            ),
             _ => false,
         }
     }

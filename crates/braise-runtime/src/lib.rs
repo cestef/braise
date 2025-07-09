@@ -425,8 +425,98 @@ impl Runtime {
             Statement::Shell { name } => {
                 context.set_shell(name.clone());
             }
+            Statement::Try {
+                try_block,
+                catch_block,
+                finally_block,
+            } => {
+                self.execute_try_statement(try_block, catch_block, finally_block, context)?;
+            }
+
+            Statement::Throw(expr) => {
+                let error_value = self.evaluate_expression(expr, context)?;
+                let (message, code) = match &error_value.value {
+                    ValueData::Error { message, code } => (message.clone(), code.clone()),
+                    _ => (error_value.to_string(), None),
+                };
+
+                return Err(RuntimeError::thrown_with_context(
+                    message,
+                    code,
+                    self.source.to_string(),
+                    (&expr.span).into(),
+                ));
+            }
         }
         Ok(())
+    }
+
+    fn execute_try_statement(
+        &self,
+        try_block: &[SpannedNode<Statement>],
+        catch_block: &Option<CatchBlock>,
+        finally_block: &Option<Vec<SpannedNode<Statement>>>,
+        context: &mut ExecutionContext,
+    ) -> Result<()> {
+        let mut try_result = Ok(());
+
+        for stmt in try_block {
+            if let Err(e) = self.execute_statement(stmt, context) {
+                try_result = Err(e);
+                break;
+            }
+        }
+
+        if let (Err(error), Some(catch)) = (&try_result, catch_block) {
+            let mut catch_context = context.clone();
+
+            if let Some(ref error_var) = catch.error_var {
+                let error_value = self.create_error_value(&error);
+                catch_context.set(error_var.clone(), error_value);
+            }
+
+            debug!("Executing catch block for error: {}", error);
+
+            // Execute catch block
+            for stmt in &catch.body {
+                self.execute_statement(stmt, &mut catch_context)?;
+            }
+
+            // Update original context with catch context changes (except error var)
+            if let Some(ref error_var) = catch.error_var {
+                catch_context.variables.remove(error_var);
+            }
+            *context = catch_context;
+
+            // Clear the error since it was caught
+            try_result = Ok(());
+        }
+
+        if let Some(finally_stmts) = finally_block {
+            debug!("Executing finally block");
+            for stmt in finally_stmts {
+                // Finally block errors should not be suppressed
+                self.execute_statement(stmt, context)?;
+            }
+        }
+
+        // Return the original try result (which may have been cleared by catch)
+        try_result
+    }
+
+    fn create_error_value(&self, error: &RuntimeError) -> TypedValue {
+        let (message, code) = match error {
+            RuntimeError::CommandFailed {
+                command, exit_code, ..
+            } => (format!("Command failed: {}", command), Some(*exit_code)),
+            RuntimeError::Exit { code, message, .. } => (
+                message.as_deref().unwrap_or("Exit called").to_string(),
+                Some(*code),
+            ),
+            _ => (error.to_string(), None),
+        };
+
+        TypedValue::new(ValueData::Error { message, code }, BraiseType::Error)
     }
 
     fn execute_match_statement(

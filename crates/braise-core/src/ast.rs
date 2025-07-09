@@ -135,6 +135,12 @@ pub enum Statement {
     Shell {
         name: String,
     },
+    Try {
+        try_block: Vec<SpannedNode<Statement>>,
+        catch_block: Option<CatchBlock>,
+        finally_block: Option<Vec<SpannedNode<Statement>>>,
+    },
+    Throw(SpannedNode<Expression>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -419,5 +425,17 @@ impl UnaryOperator {
         match self {
             UnaryOperator::Not => BraiseType::Bool,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CatchBlock {
+    pub error_var: Option<String>,
+    pub body: Vec<SpannedNode<Statement>>,
+}
+
+impl CatchBlock {
+    pub fn new(error_var: Option<String>, body: Vec<SpannedNode<Statement>>) -> Self {
+        Self { error_var, body }
     }
 }

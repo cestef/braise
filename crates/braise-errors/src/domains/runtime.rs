@@ -235,6 +235,25 @@ pub enum RuntimeError {
         #[label("error location")]
         span: Option<SourceSpan>,
     },
+
+    /// User-thrown error via throw statement
+    #[error("{message}")]
+    #[diagnostic(
+        code(braise::runtime::thrown_error),
+        help("This error was explicitly thrown using a 'throw' statement")
+    )]
+    Thrown {
+        /// Error message
+        message: String,
+        /// Optional error code
+        code: Option<i32>,
+        /// Optional source context
+        #[source_code]
+        source_code: Option<String>,
+        /// Optional location where error was thrown
+        #[label("thrown here")]
+        span: Option<SourceSpan>,
+    },
 }
 
 impl RuntimeError {
@@ -405,6 +424,41 @@ impl RuntimeError {
         }
     }
 
+    /// Create a thrown error
+    pub fn thrown(message: impl Into<String>) -> Self {
+        Self::Thrown {
+            message: message.into(),
+            code: None,
+            source_code: None,
+            span: None,
+        }
+    }
+
+    /// Create a thrown error with code
+    pub fn thrown_with_code(message: impl Into<String>, code: i32) -> Self {
+        Self::Thrown {
+            message: message.into(),
+            code: Some(code),
+            source_code: None,
+            span: None,
+        }
+    }
+
+    /// Create a thrown error with context
+    pub fn thrown_with_context(
+        message: impl Into<String>,
+        code: Option<i32>,
+        source_code: impl Into<String>,
+        span: SourceSpan,
+    ) -> Self {
+        Self::Thrown {
+            message: message.into(),
+            code,
+            source_code: Some(source_code.into()),
+            span: Some(span),
+        }
+    }
+
     /// Get the severity of this runtime error
     pub fn severity(&self) -> ErrorSeverity {
         match self {
@@ -420,6 +474,7 @@ impl RuntimeError {
             RuntimeError::MatchNoArm { .. } => ErrorSeverity::Error,
             RuntimeError::IoError { .. } => ErrorSeverity::Error,
             RuntimeError::Other { .. } => ErrorSeverity::Error,
+            RuntimeError::Thrown { .. } => ErrorSeverity::Error,
         }
     }
 

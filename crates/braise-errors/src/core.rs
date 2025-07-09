@@ -151,8 +151,8 @@ impl miette::Diagnostic for BraiseError {
     fn diagnostic_source(&self) -> Option<&dyn miette::Diagnostic> {
         match self {
             BraiseError::Lexer { .. } => None,
-            BraiseError::Parser(e) => Some(e),
-            BraiseError::Runtime(_) => None, // Don't chain runtime errors to avoid duplication
+            BraiseError::Parser(_) => None,
+            BraiseError::Runtime(_) => None,
             BraiseError::Type(e) => Some(e),
             BraiseError::Cli(e) => Some(e),
             BraiseError::Lsp(e) => Some(e),

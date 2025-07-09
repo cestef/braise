@@ -244,7 +244,6 @@ impl Parser {
 
                 self.type_engine.define_variable(name.clone(), var_type);
             }
-
             Statement::Assign { name, value } => {
                 let expr_type = self.type_check_expression(value)?;
 
@@ -261,7 +260,6 @@ impl Parser {
                     return Err(self.create_undefined_variable_error(name, &value.span));
                 }
             }
-
             Statement::If {
                 condition,
                 then_block,
@@ -288,7 +286,6 @@ impl Parser {
                     }
                 }
             }
-
             Statement::For {
                 var,
                 iterable,
@@ -332,7 +329,6 @@ impl Parser {
 
                 self.type_engine = original_engine;
             }
-
             Statement::Match { expr, arms } => {
                 let expr_type = self.type_check_expression(expr)?;
 
@@ -353,19 +349,53 @@ impl Parser {
                     self.type_engine = original_engine;
                 }
             }
-
             Statement::Run(expr) | Statement::Print(expr) | Statement::Exit(expr) => {
                 self.type_check_expression(expr)?;
             }
-
             Statement::Call { recipe, args } => {
                 self.type_check_expression(recipe)?;
                 for (_, arg) in args {
                     self.type_check_expression(arg)?;
                 }
             }
-
             Statement::Shell { .. } => {}
+            Statement::Throw(expr) => {
+                let expr_type = self.type_check_expression(expr)?;
+                if !expr_type.is_compatible_with(&BraiseType::Error) {
+                    return Err(self.create_type_error(
+                        "error".to_string(),
+                        expr_type.to_string(),
+                        "throw expression".to_string(),
+                        &expr.span,
+                    ));
+                }
+            }
+            Statement::Try {
+                try_block,
+                catch_block,
+                finally_block,
+            } => {
+                for stmt in try_block {
+                    self.type_check_statement(stmt)?;
+                }
+
+                if let Some(catch) = catch_block {
+                    if let Some(ref error_var) = catch.error_var {
+                        let error_type = BraiseType::Error;
+                        self.type_engine
+                            .define_variable(error_var.clone(), error_type);
+                    }
+                    for stmt in &mut catch.body {
+                        self.type_check_statement(stmt)?;
+                    }
+                }
+
+                if let Some(finally) = finally_block {
+                    for stmt in finally {
+                        self.type_check_statement(stmt)?;
+                    }
+                }
+            }
         }
 
         Ok(())

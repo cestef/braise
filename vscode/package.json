@@ -46,7 +46,7 @@
             {
                 "language": "braise",
                 "scopeName": "source.braise",
-                "path": "./braise.tmLanguage.json"
+                "path": "../syntaxes/braise.tmLanguage.json"
             }
         ],
         "configuration": {
@@ -92,7 +92,7 @@
     },
     "files": [
         "out",
-        "braise.tmLanguage.json",
+        "../syntaxes/braise.tmLanguage.json",
         "assets",
         "language-configuration.json",
         "package.json",

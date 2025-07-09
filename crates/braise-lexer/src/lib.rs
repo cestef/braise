@@ -63,6 +63,14 @@ pub enum Token {
     Shell,
     #[token("cache")]
     Cache,
+    #[token("try")]
+    Try,
+    #[token("catch")]
+    Catch,
+    #[token("throw")]
+    Throw,
+    #[token("finally")]
+    Finally,
 
     // Type keywords
     #[token("string")]

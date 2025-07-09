@@ -142,6 +142,25 @@ impl Formatter {
         }
     }
 
+    #[inline]
+    fn is_continuation_construct(&self, trimmed_line: &str) -> bool {
+        const CONTINUATION_KEYWORDS: &[&str] = &["catch", "finally", "else"];
+
+        if !trimmed_line.starts_with('}') {
+            return false;
+        }
+
+        let after_brace = &trimmed_line[1..].trim_start();
+        CONTINUATION_KEYWORDS.iter().any(|&keyword| {
+            after_brace.starts_with(keyword)
+                && (after_brace.len() == keyword.len()
+                    || after_brace
+                        .chars()
+                        .nth(keyword.len())
+                        .map_or(false, |c| !c.is_alphanumeric()))
+        })
+    }
+
     /// Clean spaces with copy-on-write optimization
     fn clean_spaces_cow<'a>(&self, text: &'a str) -> Cow<'a, str> {
         if !self.needs_space_cleaning(text) {
@@ -241,6 +260,16 @@ impl Formatter {
         let mut current_level = 0u16;
 
         for line in parsed_lines {
+            let trimmed = line.code.trim();
+
+            //  } catch, } finally, } else
+            if self.is_continuation_construct(trimmed) && !line.is_full_line_comment {
+                current_level = current_level.saturating_sub(1);
+                levels.push(current_level);
+                current_level += 1;
+                continue;
+            }
+
             if line.indent_delta < 0 && !line.is_full_line_comment {
                 current_level = current_level.saturating_sub(1);
             }
@@ -501,5 +530,40 @@ run "echo hello"
 
         assert!(result.contains("// Parameter name"));
         assert!(result.contains("// User age"));
+    }
+
+    #[test]
+    fn test_continuation_constructs() {
+        let input = r#"recipe "test_continuation" {
+try {
+run "work"
+} catch e {
+print "error"
+} finally {
+run "cleanup"
+}
+if condition {
+run "if block"
+} else {
+run "else block"
+}
+}"#;
+
+        let expected = r#"recipe "test_continuation" {
+    try {
+        run "work"
+    } catch e {
+        print "error"
+    } finally {
+        run "cleanup"
+    }
+    if condition {
+        run "if block"
+    } else {
+        run "else block"
+    }
+}"#;
+
+        assert_eq!(Formatter::format(input), expected);
     }
 }

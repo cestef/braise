@@ -12,6 +12,7 @@ pub enum BraiseType {
     Union(Vec<BraiseType>),
     Optional(Box<BraiseType>),
     Any,
+    Error,
 }
 
 impl BraiseType {
@@ -40,6 +41,7 @@ impl BraiseType {
             (BraiseType::Bool, BraiseType::Number) => true,
             (BraiseType::Number, BraiseType::Bool) => true,
 
+            (BraiseType::String, BraiseType::Error) => true,
             _ => false,
         }
     }
@@ -114,6 +116,13 @@ impl BraiseType {
             }
             BraiseType::Optional(_) => TypedValue::new(None::<ValueData>, self.clone()),
             BraiseType::Any => TypedValue::new("".to_string(), BraiseType::Any),
+            BraiseType::Error => TypedValue::new(
+                ValueData::Error {
+                    message: "An error occurred".to_string(),
+                    code: None,
+                },
+                BraiseType::Error,
+            ),
         }
     }
 }
@@ -133,6 +142,7 @@ impl std::fmt::Display for BraiseType {
             }
             BraiseType::Optional(inner) => write!(f, "{}?", inner),
             BraiseType::Any => write!(f, "any"),
+            BraiseType::Error => write!(f, "error"),
         }
     }
 }
@@ -152,6 +162,7 @@ pub enum ValueData {
     Array(Vec<TypedValue>),
     Recipe(String, HashMap<String, TypedValue>),
     None,
+    Error { message: String, code: Option<i32> },
 }
 
 impl TypedValue {
@@ -182,6 +193,7 @@ impl TypedValue {
             }
             ValueData::Recipe(_, _) => BraiseType::Recipe,
             ValueData::None => BraiseType::Optional(Box::new(BraiseType::Any)),
+            ValueData::Error { .. } => BraiseType::Error,
         }
     }
 
@@ -194,6 +206,7 @@ impl TypedValue {
             ValueData::Array(arr) => !arr.is_empty(),
             ValueData::Recipe(_, args) => !args.is_empty(),
             ValueData::None => false,
+            ValueData::Error { .. } => false,
         }
     }
 }
@@ -231,6 +244,13 @@ impl std::fmt::Display for TypedValue {
                 write!(f, ")")
             }
             ValueData::None => write!(f, "null"),
+            ValueData::Error { message, code } => {
+                if let Some(code) = code {
+                    write!(f, "Error({}): {}", code, message)
+                } else {
+                    write!(f, "Error: {}", message)
+                }
+            }
         }
     }
 }

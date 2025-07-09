@@ -87,6 +87,10 @@
                     "patterns": [
                         {
                             "include": "#strings"
+                        },
+                        {
+                            "name": "punctuation.separator.braise",
+                            "match": ","
                         }
                     ]
                 }
@@ -142,7 +146,107 @@
                     "include": "#print-statement"
                 },
                 {
+                    "include": "#try-catch-finally-statement"
+                },
+                {
+                    "include": "#catch-block"
+                },
+                {
+                    "include": "#finally-block"
+                },
+                {
+                    "include": "#throw-statement"
+                },
+                {
                     "include": "#expressions"
+                },
+                {
+                    "include": "#block"
+                }
+            ]
+        },
+        "throw-statement": {
+            "patterns": [
+                {
+                    "name": "meta.throw.braise",
+                    "begin": "\\b(throw)\\b",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.braise"
+                        }
+                    },
+                    "end": "(?=\\n\\s*(?:[a-zA-Z]|\\})|\\}|$)",
+                    "patterns": [
+                        {
+                            "include": "#expressions"
+                        }
+                    ]
+                }
+            ]
+        },
+        "try-catch-finally-statement": {
+            "patterns": [
+                {
+                    "name": "meta.try.braise",
+                    "begin": "\\b(try)\\b",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.braise"
+                        }
+                    },
+                    "end": "(?<=\\})(?!\\s*(?:catch|finally))",
+                    "patterns": [
+                        {
+                            "include": "#block"
+                        },
+                        {
+                            "include": "#catch-block"
+                        },
+                        {
+                            "include": "#finally-block"
+                        }
+                    ]
+                }
+            ]
+        },
+        "catch-block": {
+            "patterns": [
+                {
+                    "name": "meta.catch.braise",
+                    "begin": "\\b(catch)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.braise"
+                        },
+                        "2": {
+                            "name": "variable.other.braise"
+                        }
+                    },
+                    "end": "(?<=\\})",
+                    "patterns": [
+                        {
+                            "include": "#block"
+                        }
+                    ]
+                }
+            ]
+        },
+        "finally-block": {
+            "patterns": [
+                {
+                    "name": "meta.finally.braise",
+                    "begin": "\\b(finally)\\b",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "keyword.control.braise"
+                        }
+                    },
+                    "end": "(?<=\\})",
+                    "patterns": [
+                        {
+                            "include": "#block"
+                        }
+                    ]
                 }
             ]
         },
@@ -150,18 +254,57 @@
             "patterns": [
                 {
                     "name": "meta.param.braise",
-                    "match": "\\b(param)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*:\\s*([a-zA-Z0-9_\\[\\]\"\\,\\s]+)",
-                    "captures": {
+                    "begin": "\\b(param)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*:\\s*",
+                    "beginCaptures": {
                         "1": {
                             "name": "keyword.control.braise"
                         },
                         "2": {
                             "name": "variable.parameter.braise"
-                        },
-                        "3": {
-                            "name": "storage.type.braise"
                         }
-                    }
+                    },
+                    "end": "(?=\\n\\s*(?:[a-zA-Z]|\\})|\\}|$)",
+                    "patterns": [
+                        {
+                            "include": "#type-annotations"
+                        },
+                        {
+                            "name": "keyword.operator.assignment.braise",
+                            "match": "="
+                        },
+                        {
+                            "include": "#expressions"
+                        }
+                    ]
+                }
+            ]
+        },
+        "type-annotations": {
+            "patterns": [
+                {
+                    "name": "storage.type.primitive.braise",
+                    "match": "\\b(string|number|int|bool)\\b"
+                },
+                {
+                    "name": "storage.type.array.braise",
+                    "begin": "\\[",
+                    "end": "\\]",
+                    "patterns": [
+                        {
+                            "include": "#type-annotations"
+                        },
+                        {
+                            "include": "#strings"
+                        },
+                        {
+                            "name": "punctuation.separator.type.braise",
+                            "match": ","
+                        }
+                    ]
+                },
+                {
+                    "name": "storage.type.union.braise",
+                    "match": "\\|"
                 }
             ]
         },
@@ -169,7 +312,7 @@
             "patterns": [
                 {
                     "name": "meta.let.braise",
-                    "begin": "\\b(let)\\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*:\\s*([a-zA-Z0-9_\\[\\]\"\\,\\s]+))?\\s*(=)",
+                    "begin": "\\b(let)\\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*:\\s*([^=]+?))?\\s*(=)",
                     "beginCaptures": {
                         "1": {
                             "name": "keyword.control.braise"
@@ -371,22 +514,55 @@
             "patterns": [
                 {
                     "name": "meta.match.arm.braise",
-                    "begin": "(\"[^\"]*\"|_)\\s*(=>)",
+                    "begin": "(\"[^\"]*\"|\\d+(?:\\.\\d+)?|true|false|_|\\[.*?\\]|\\d+\\.\\.=?\\d*|\\d*\\.\\.)\\s*(if\\s+[^=>]*)?\\s*(=>)",
                     "beginCaptures": {
                         "1": {
                             "name": "constant.other.braise"
                         },
                         "2": {
+                            "name": "keyword.control.conditional.braise"
+                        },
+                        "3": {
                             "name": "keyword.operator.braise"
                         }
                     },
-                    "end": "(?=\\s*(?:\"[^\"]*\"|_)\\s*=>|\\s*\\})",
+                    "end": "(?=\\s*(?:\"[^\"]*\"|\\d+(?:\\.\\d+)?|true|false|_|\\[.*?\\]|\\d+\\.\\.=?\\d*|\\d*\\.\\.)\\s*(?:if\\s+[^=>]*)?\\s*=>|\\s*\\})",
                     "patterns": [
                         {
                             "include": "#statements"
                         },
                         {
                             "include": "#block"
+                        },
+                        {
+                            "include": "#expressions"
+                        }
+                    ]
+                },
+                {
+                    "name": "meta.match.arm.variable.braise",
+                    "begin": "([a-zA-Z_][a-zA-Z0-9_]*)\\s*(if\\s+[^=>]*)?\\s*(=>)",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "variable.other.braise"
+                        },
+                        "2": {
+                            "name": "keyword.control.conditional.braise"
+                        },
+                        "3": {
+                            "name": "keyword.operator.braise"
+                        }
+                    },
+                    "end": "(?=\\s*(?:[a-zA-Z_][a-zA-Z0-9_]*|\"[^\"]*\"|\\d+(?:\\.\\d+)?|true|false|_|\\[.*?\\]|\\d+\\.\\.=?\\d*|\\d*\\.\\.)\\s*(?:if\\s+[^=>]*)?\\s*=>|\\s*\\})",
+                    "patterns": [
+                        {
+                            "include": "#statements"
+                        },
+                        {
+                            "include": "#block"
+                        },
+                        {
+                            "include": "#expressions"
                         }
                     ]
                 },
@@ -630,6 +806,15 @@
                     "include": "#booleans"
                 },
                 {
+                    "include": "#arrays"
+                },
+                {
+                    "include": "#ranges"
+                },
+                {
+                    "include": "#function-calls"
+                },
+                {
                     "include": "#builtin-functions"
                 },
                 {
@@ -640,11 +825,108 @@
                 }
             ]
         },
+        "arrays": {
+            "patterns": [
+                {
+                    "name": "meta.array.braise",
+                    "begin": "\\[",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.array.begin.braise"
+                        }
+                    },
+                    "end": "\\]",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.array.end.braise"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "include": "#expressions"
+                        },
+                        {
+                            "name": "punctuation.separator.array.braise",
+                            "match": ","
+                        },
+                        {
+                            "name": "keyword.operator.spread.braise",
+                            "match": "\\.\\."
+                        }
+                    ]
+                }
+            ]
+        },
+        "ranges": {
+            "patterns": [
+                {
+                    "name": "meta.range.inclusive.braise",
+                    "match": "(\\d+)\\s*(\\.\\.)=\\s*(\\d+)",
+                    "captures": {
+                        "1": {
+                            "name": "constant.numeric.braise"
+                        },
+                        "2": {
+                            "name": "keyword.operator.range.braise"
+                        },
+                        "3": {
+                            "name": "constant.numeric.braise"
+                        }
+                    }
+                },
+                {
+                    "name": "meta.range.exclusive.braise",
+                    "match": "(\\d+)?\\s*(\\.\\.)\\s*(\\d+)?",
+                    "captures": {
+                        "1": {
+                            "name": "constant.numeric.braise"
+                        },
+                        "2": {
+                            "name": "keyword.operator.range.braise"
+                        },
+                        "3": {
+                            "name": "constant.numeric.braise"
+                        }
+                    }
+                }
+            ]
+        },
+        "function-calls": {
+            "patterns": [
+                {
+                    "name": "meta.function.call.braise",
+                    "begin": "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)*)(\\()",
+                    "beginCaptures": {
+                        "1": {
+                            "name": "entity.name.function.braise"
+                        },
+                        "2": {
+                            "name": "punctuation.definition.parameters.begin.braise"
+                        }
+                    },
+                    "end": "\\)",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.parameters.end.braise"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "include": "#expressions"
+                        },
+                        {
+                            "name": "punctuation.separator.parameter.braise",
+                            "match": ","
+                        }
+                    ]
+                }
+            ]
+        },
         "keywords": {
             "patterns": [
                 {
                     "name": "keyword.control.braise",
-                    "match": "\\b(recipe|param|let|if|else|match|for|in|call|run|exit|async|print)\\b"
+                    "match": "\\b(recipe|param|let|if|else|match|for|in|call|run|exit|async|print|try|catch|finally|throw|shell)\\b"
                 }
             ]
         },
@@ -719,6 +1001,10 @@
                 {
                     "name": "keyword.operator.assignment.braise",
                     "match": "="
+                },
+                {
+                    "name": "keyword.operator.range.braise",
+                    "match": "\\.\\."
                 },
                 {
                     "name": "keyword.operator.braise",

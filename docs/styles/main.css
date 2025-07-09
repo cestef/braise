@@ -112,10 +112,6 @@ input {
 	@apply focus:ring-0 focus:outline-none;
 }
 
-/* .goto-result:not(:last-child) {
-	@apply border-b border-muted;
-} */
-
 .goto-result,
 .goto-no-result {
 	@apply px-2 py-1 lg:px-4 lg:py-2;
@@ -170,7 +166,6 @@ tr:nth-child(even) {
     @apply bg-muted/80 text-foreground/80 rounded-md px-2 py-[0.25em] whitespace-nowrap;
 }
 
-/* Code blocks with proper Gruvbox backgrounds */
 pre {
     background-color: var(--code-bg) !important;
     color: var(--code-text) !important;
@@ -183,14 +178,12 @@ pre code {
     @apply p-0;
 }
 
-/* Ensure code blocks inherit the proper Gruvbox theme variables */
 .z-code,
 pre .z-code {
     background-color: var(--code-bg) !important;
     color: var(--code-text) !important;
 }
 
-/* code blocks with data-name attribute */
 pre[data-name]::before {
     content: attr(data-name);
     @apply block bg-muted text-muted-foreground text-sm px-4 py-2 border-b border-border rounded-t-lg -mx-4 -mt-4 mb-4;

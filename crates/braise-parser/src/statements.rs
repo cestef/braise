@@ -19,6 +19,8 @@ impl Parser {
             Token::Identifier(name) => self.parse_assign_statement(name.clone())?,
             Token::Call => self.parse_call_statement()?,
             Token::Shell => self.parse_shell_statement()?,
+            Token::Try => self.parse_try_statement()?,
+            Token::Throw => self.parse_throw_statement()?,
             e => return Err(self.create_error("statement".to_string(), e.clone())),
         };
 
@@ -26,6 +28,54 @@ impl Parser {
         let span = self.span_from_token_range(start_token, end_token);
 
         Ok(SpannedNode::new(statement, span))
+    }
+
+    fn parse_try_statement(&mut self) -> Result<Statement> {
+        self.consume_token(Token::Try)?;
+        self.consume_token(Token::LeftBrace)?;
+
+        let try_block = self.parse_statement_block()?;
+
+        let catch_block = if self.match_token(&Token::Catch) {
+            let error_var = if self.check_identifier() {
+                Some(self.parse_identifier()?)
+            } else {
+                None
+            };
+
+            self.consume_token(Token::LeftBrace)?;
+            let catch_body = self.parse_statement_block()?;
+
+            Some(CatchBlock::new(error_var, catch_body))
+        } else {
+            None
+        };
+
+        let finally_block = if self.match_token(&Token::Finally) {
+            self.consume_token(Token::LeftBrace)?;
+            Some(self.parse_statement_block()?)
+        } else {
+            None
+        };
+
+        if catch_block.is_none() && finally_block.is_none() {
+            return Err(
+                self.create_error("catch or finally block".to_string(), self.peek().clone())
+            );
+        }
+
+        Ok(Statement::Try {
+            try_block,
+            catch_block,
+            finally_block,
+        })
+    }
+
+    /// Parse throw statement
+    fn parse_throw_statement(&mut self) -> Result<Statement> {
+        self.consume_token(Token::Throw)?;
+        let expr = self.parse_expression()?;
+        Ok(Statement::Throw(expr))
     }
 
     fn parse_shell_statement(&mut self) -> Result<Statement> {

@@ -31,7 +31,7 @@ recipe "deploy" {
 
 recipe "smart-build" {
     match env.get("CI") {
-        "true" => run "cargo build --release",
+        s if s == "true" => run "cargo build --release",
         _ => run "cargo build"
     }
 }
@@ -50,4 +50,15 @@ recipe "r2" {
 
 recipe "r3" {
     call @r1
+}
+
+recipe "cleanup_test" {
+    try {
+        run "echo 'Doing work'"
+        throw "Something went wrong"
+    } catch e {
+        print "Caught an error: ${e}"
+    } finally {
+        run "echo 'Cleaning up'"
+    }
 }

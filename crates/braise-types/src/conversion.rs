@@ -220,6 +220,14 @@ impl TypeConverter {
                     Ok(TypedValue::new(user_value.to_string(), BraiseType::String))
                 }
             }
+
+            BraiseType::Error => Ok(TypedValue::new(
+                ValueData::Error {
+                    message: user_value.to_string(),
+                    code: None,
+                },
+                BraiseType::Error,
+            )),
         }
     }
 

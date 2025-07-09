@@ -11,7 +11,7 @@ include_path = true
 include_content = true
 
 [markdown]
-extra_syntaxes_and_themes = ["syntaxes/"]
+extra_syntaxes_and_themes = ["../syntaxes/"]
 highlight_code = true
 render_emoji = true
 bottom_footnotes = true

@@ -229,6 +229,19 @@ impl SymbolProvider {
                 SymbolKind::METHOD,
                 Some(format!("Set Shell: {name}")),
             ),
+            Statement::Throw(expr) => {
+                let message_preview = get_expression_preview(&expr.value);
+                (
+                    format!("throw #{}", index + 1),
+                    SymbolKind::METHOD,
+                    Some(format!("Message: {message_preview}")),
+                )
+            }
+            Statement::Try { .. } => (
+                format!("try #{}", index + 1),
+                SymbolKind::CONSTANT,
+                Some("Try block".to_string()),
+            ),
         };
 
         Some(DocumentSymbol {

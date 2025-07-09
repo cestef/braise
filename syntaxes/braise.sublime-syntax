@@ -1,0 +1,463 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/3/syntax.html
+name: Braisé
+scope: source.braise
+file_extensions:
+  - braise
+contexts:
+  arrays:
+    - match: '\['
+      push:
+        - meta_scope: meta.array.braise
+        - match: '\]'
+          pop: true
+        - include: expressions
+        - scope: punctuation.separator.array.braise
+          match: ","
+        - scope: keyword.operator.spread.braise
+          match: \.\.
+  block:
+    - match: '\{'
+      push:
+        - meta_scope: meta.block.braise
+        - match: '\}'
+          pop: true
+        - include: statements
+  booleans:
+    - scope: constant.language.boolean.braise
+      match: \b(true|false)\b
+  builtin-functions:
+    - scope: support.function.builtin.braise
+      match: \b(env|cpu|git|fs|input)\b
+  call-arguments:
+    - match: \(
+      push:
+        - meta_scope: meta.call.arguments.braise
+        - match: \)
+          pop: true
+        - include: call-named-parameters
+  call-named-parameters:
+    - scope: meta.parameter.named.call.braise
+      captures:
+        1: variable.parameter.name.braise
+        2: punctuation.separator.parameter.braise
+      match: '([a-zA-Z_][a-zA-Z0-9_]*)\s*(:)'
+    - include: expressions
+    - scope: punctuation.separator.parameter.braise
+      match: ","
+  call-statement:
+    - captures:
+        1: keyword.control.call.braise
+      match: \b(call)\b
+      push:
+        - meta_scope: meta.call.braise
+        - match: '(?=\n\s*(?:[a-zA-Z]|\})|\}|$)'
+          pop: true
+        - include: call-target
+        - include: call-arguments
+  call-target:
+    - scope: meta.call.target.recipe-reference.braise
+      captures:
+        1: keyword.operator.recipe-reference.braise
+        2: entity.name.function.recipe.braise
+      match: "(@)([a-zA-Z_][a-zA-Z0-9_]*)"
+    - scope: meta.call.target.variable.braise
+      captures:
+        1: variable.other.recipe.braise
+      match: '\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\s*\(|\s*$)'
+  catch-block:
+    - captures:
+        1: keyword.control.braise
+        2: variable.other.braise
+      match: '\b(catch)\s+([a-zA-Z_][a-zA-Z0-9_]*)\b'
+      push:
+        - meta_scope: meta.catch.braise
+        - match: '(?<=\})'
+          pop: true
+        - include: block
+  comments:
+    - scope: comment.line.double-slash.braise
+      match: //.*$
+    - match: /\*
+      push:
+        - meta_scope: comment.block.braise
+        - match: \*/
+          pop: true
+        - scope: comment.block.documentation.braise
+          match: "@[a-zA-Z_][a-zA-Z0-9_]*"
+  else-block:
+    - captures:
+        1: keyword.control.conditional.braise
+      match: \b(else)\b(?!\s+if)
+      push:
+        - meta_scope: meta.else.braise
+        - match: '(?<=\})'
+          pop: true
+        - include: block
+  else-if-chain:
+    - captures:
+        1: keyword.control.conditional.braise
+        2: keyword.control.conditional.braise
+      match: \b(else)\s+(if)\b
+      push:
+        - meta_scope: meta.else-if.braise
+        - match: '(?<=\})(?!\s*else)'
+          pop: true
+        - match: (?<=if)\s+
+          push:
+            - meta_scope: meta.else-if.condition.braise
+            - match: '(?=\{)'
+              pop: true
+            - include: expressions
+        - include: block
+        - include: else-if-chain
+        - include: else-block
+  exit-statement:
+    - captures:
+        1: keyword.control.braise
+      match: \b(exit)\b
+      push:
+        - meta_scope: meta.exit.braise
+        - match: '(?=\n\s*(?:[a-zA-Z]|\})|\}|$)'
+          pop: true
+        - include: expressions
+  expressions:
+    - include: recipe-reference
+    - include: strings
+    - include: numbers
+    - include: booleans
+    - include: arrays
+    - include: ranges
+    - include: function-calls
+    - include: builtin-functions
+    - include: operators
+    - include: identifiers
+  finally-block:
+    - captures:
+        1: keyword.control.braise
+      match: \b(finally)\b
+      push:
+        - meta_scope: meta.finally.braise
+        - match: '(?<=\})'
+          pop: true
+        - include: block
+  for-statement:
+    - captures:
+        1: keyword.control.loop.braise
+        2: variable.other.braise
+        3: keyword.control.loop.braise
+      match: '\b(for)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+(in)\b'
+      push:
+        - meta_scope: meta.for.braise
+        - captures:
+            1: keyword.control.async.braise
+          match: '(?<=\})\s*(async)?'
+          pop: true
+        - include: expressions
+        - include: block
+  function-calls:
+    - captures:
+        1: entity.name.function.braise
+        2: punctuation.definition.parameters.begin.braise
+      match: '([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)(\()'
+      push:
+        - meta_scope: meta.function.call.braise
+        - match: \)
+          pop: true
+        - include: expressions
+        - scope: punctuation.separator.parameter.braise
+          match: ","
+  identifiers:
+    - scope: variable.other.braise
+      match: '\b[a-zA-Z_][a-zA-Z0-9_]*\b'
+  if-condition-and-block:
+    - match: (?<=if)\s+
+      push:
+        - meta_scope: meta.if.condition.braise
+        - match: '(?=\{)'
+          pop: true
+        - include: expressions
+    - include: block
+  if-expression:
+    - captures:
+        1: keyword.control.conditional.braise
+      match: \b(if)\b
+      push:
+        - meta_scope: meta.if.expression.braise
+        - match: '(?<=\})(?!\s*else)'
+          pop: true
+        - include: if-condition-and-block
+        - include: else-if-chain
+        - include: else-block
+  if-statement:
+    - captures:
+        1: keyword.control.conditional.braise
+      match: \b(if)\b
+      push:
+        - meta_scope: meta.if.braise
+        - match: '(?<=\})(?!\s*else)'
+          pop: true
+        - include: if-condition-and-block
+        - include: else-if-chain
+        - include: else-block
+  keywords:
+    - scope: keyword.control.braise
+      match: \b(recipe|param|let|if|else|match|for|in|call|run|exit|async|print|try|catch|finally|throw|shell)\b
+  let-statement:
+    - captures:
+        1: keyword.control.braise
+        2: variable.other.braise
+        3: storage.type.braise
+        4: keyword.operator.assignment.braise
+      match: '\b(let)\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s*:\s*([^=]+?))?\s*(=)'
+      push:
+        - meta_scope: meta.let.braise
+        - match: '(?=\n\s*(?:[a-zA-Z]|\})|\}|$)'
+          pop: true
+        - include: if-expression
+        - include: match-expression
+        - include: expressions
+  main:
+    - include: comments
+    - include: recipe-definition
+    - include: shell-statement
+    - include: keywords
+    - include: strings
+    - include: numbers
+    - include: operators
+    - include: builtin-functions
+  match-arms:
+    - captures:
+        1: constant.other.braise
+        2: keyword.control.conditional.braise
+        3: keyword.operator.braise
+      match: '("[^"]*"|\d+(?:\.\d+)?|true|false|_|\[.*?\]|\d+\.\.=?\d*|\d*\.\.)\s*(if\s+[^=>]*)?\s*(=>)'
+      push:
+        - meta_scope: meta.match.arm.braise
+        - match: '(?=\s*(?:"[^"]*"|\d+(?:\.\d+)?|true|false|_|\[.*?\]|\d+\.\.=?\d*|\d*\.\.)\s*(?:if\s+[^=>]*)?\s*=>|\s*\})'
+          pop: true
+        - include: statements
+        - include: block
+        - include: expressions
+    - captures:
+        1: variable.other.braise
+        2: keyword.control.conditional.braise
+        3: keyword.operator.braise
+      match: '([a-zA-Z_][a-zA-Z0-9_]*)\s*(if\s+[^=>]*)?\s*(=>)'
+      push:
+        - meta_scope: meta.match.arm.variable.braise
+        - match: '(?=\s*(?:[a-zA-Z_][a-zA-Z0-9_]*|"[^"]*"|\d+(?:\.\d+)?|true|false|_|\[.*?\]|\d+\.\.=?\d*|\d*\.\.)\s*(?:if\s+[^=>]*)?\s*=>|\s*\})'
+          pop: true
+        - include: statements
+        - include: block
+        - include: expressions
+    - include: comments
+  match-expression:
+    - captures:
+        1: keyword.control.braise
+      match: \b(match)\b
+      push:
+        - meta_scope: meta.match.expression.braise
+        - match: '(?<=\})'
+          pop: true
+        - include: expressions
+        - include: match-arms
+  match-statement:
+    - captures:
+        1: keyword.control.braise
+      match: \b(match)\b
+      push:
+        - meta_scope: meta.match.braise
+        - match: '(?<=\})'
+          pop: true
+        - include: expressions
+        - include: match-arms
+  numbers:
+    - scope: constant.numeric.braise
+      match: \b\d+(\.\d+)?\b
+  operators:
+    - scope: keyword.operator.comparison.braise
+      match: "==|!=|<=|>=|<|>"
+    - scope: keyword.operator.logical.braise
+      match: '&&|\|\||!'
+    - scope: keyword.operator.assignment.braise
+      match: "="
+    - scope: keyword.operator.range.braise
+      match: \.\.
+    - scope: keyword.operator.braise
+      match: "->|=>|@"
+  param-statement:
+    - captures:
+        1: keyword.control.braise
+        2: variable.parameter.braise
+      match: '\b(param)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*'
+      push:
+        - meta_scope: meta.param.braise
+        - match: '(?=\n\s*(?:[a-zA-Z]|\})|\}|$)'
+          pop: true
+        - include: type-annotations
+        - scope: keyword.operator.assignment.braise
+          match: "="
+        - include: expressions
+  print-statement:
+    - captures:
+        1: keyword.control.braise
+      match: \b(print)\b
+      push:
+        - meta_scope: meta.print.braise
+        - match: '(?=\n\s*(?:[a-zA-Z]|\})|\}|$)'
+          pop: true
+        - include: expressions
+  ranges:
+    - scope: meta.range.inclusive.braise
+      captures:
+        1: constant.numeric.braise
+        2: keyword.operator.range.braise
+        3: constant.numeric.braise
+      match: (\d+)\s*(\.\.)=\s*(\d+)
+    - scope: meta.range.exclusive.braise
+      captures:
+        1: constant.numeric.braise
+        2: keyword.operator.range.braise
+        3: constant.numeric.braise
+      match: (\d+)?\s*(\.\.)\s*(\d+)?
+  recipe-body:
+    - match: '\{'
+      push:
+        - meta_scope: meta.recipe.body.braise
+        - match: '\}'
+          pop: true
+        - include: statements
+  recipe-definition:
+    - captures:
+        1: keyword.control.braise
+        2: entity.name.function.braise
+      match: '\b(recipe)\s+("[^"]*")'
+      push:
+        - meta_scope: meta.recipe.braise
+        - match: '(?<=\})'
+          pop: true
+        - include: recipe-dependencies
+        - include: recipe-body
+  recipe-dependencies:
+    - match: '->\s*\['
+      push:
+        - meta_scope: meta.recipe.dependencies.braise
+        - match: '\]'
+          pop: true
+        - include: strings
+        - scope: punctuation.separator.braise
+          match: ","
+  recipe-parameters:
+    - scope: meta.parameter.named.braise
+      captures:
+        1: variable.parameter.braise
+        2: punctuation.separator.parameter.braise
+      match: '([a-zA-Z_][a-zA-Z0-9_]*)\s*(:)'
+    - include: expressions
+    - scope: punctuation.separator.parameter.braise
+      match: ","
+  recipe-reference:
+    - captures:
+        1: keyword.operator.recipe-reference.braise
+        2: entity.name.function.recipe.braise
+        3: punctuation.definition.parameters.begin.braise
+      match: '(@)([a-zA-Z_][a-zA-Z0-9_]*)\s*(\()'
+      push:
+        - meta_scope: meta.recipe.reference.braise
+        - match: \)
+          pop: true
+        - include: recipe-parameters
+    - scope: meta.recipe.reference.simple.braise
+      captures:
+        1: keyword.operator.recipe-reference.braise
+        2: entity.name.function.recipe.braise
+      match: "(@)([a-zA-Z_][a-zA-Z0-9_]*)"
+  run-statement:
+    - captures:
+        1: keyword.control.braise
+      match: \b(run)\b
+      push:
+        - meta_scope: meta.run.braise
+        - match: '(?=\n\s*(?:[a-zA-Z]|\})|\}|$)'
+          pop: true
+        - include: strings
+        - include: expressions
+  shell-statement:
+    - captures:
+        1: keyword.control.braise
+      match: \b(shell)\b
+      push:
+        - meta_scope: meta.shell.braise
+        - match: '(?=\n\s*(?:[a-zA-Z]|\})|\}|$)'
+          pop: true
+        - include: expressions
+  statements:
+    - include: comments
+    - include: param-statement
+    - include: let-statement
+    - include: if-statement
+    - include: match-statement
+    - include: for-statement
+    - include: call-statement
+    - include: run-statement
+    - include: exit-statement
+    - include: shell-statement
+    - include: print-statement
+    - include: try-catch-finally-statement
+    - include: catch-block
+    - include: finally-block
+    - include: throw-statement
+    - include: expressions
+    - include: block
+  string-interpolation:
+    - match: '\$\{'
+      push:
+        - meta_scope: meta.embedded.expression.braise
+        - match: '\}'
+          pop: true
+        - include: expressions
+  strings:
+    - match: '"'
+      push:
+        - meta_scope: string.quoted.double.braise
+        - match: '"'
+          pop: true
+        - scope: constant.character.escape.braise
+          match: \\.
+        - include: string-interpolation
+  throw-statement:
+    - captures:
+        1: keyword.control.braise
+      match: \b(throw)\b
+      push:
+        - meta_scope: meta.throw.braise
+        - match: '(?=\n\s*(?:[a-zA-Z]|\})|\}|$)'
+          pop: true
+        - include: expressions
+  try-catch-finally-statement:
+    - captures:
+        1: keyword.control.braise
+      match: \b(try)\b
+      push:
+        - meta_scope: meta.try.braise
+        - match: '(?<=\})(?!\s*(?:catch|finally))'
+          pop: true
+        - include: block
+        - include: catch-block
+        - include: finally-block
+  type-annotations:
+    - scope: storage.type.primitive.braise
+      match: \b(string|number|int|bool)\b
+    - match: '\['
+      push:
+        - meta_scope: storage.type.array.braise
+        - match: '\]'
+          pop: true
+        - include: type-annotations
+        - include: strings
+        - scope: punctuation.separator.type.braise
+          match: ","
+    - scope: storage.type.union.braise
+      match: \|
