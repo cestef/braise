@@ -35,8 +35,8 @@ async fn main() -> miette::Result<()> {
                 utils::find_first_existing_file(DEFAULT_FILES).ok_or(CliError::NoRecipeFileFound)?
             };
 
-            let contents =
-                std::fs::read_to_string(&file).map_err(|e| CliError::read_recipe_error(e, file.clone()))?;
+            let contents = std::fs::read_to_string(&file)
+                .map_err(|e| CliError::read_recipe_error(e, file.clone()))?;
 
             match cli.command {
                 Some(Commands::List) => list_recipes(&contents, &file)?,

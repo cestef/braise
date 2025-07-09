@@ -696,9 +696,7 @@ impl Parser {
         span: &Span,
     ) -> ParseError {
         let suggestion = self.suggest_type_fix(&expected, &got);
-        let mut message = format!(
-            "Type mismatch in {context}: expected {expected}, got {got}"
-        );
+        let mut message = format!("Type mismatch in {context}: expected {expected}, got {got}");
 
         if let Some(suggestion) = suggestion {
             message.push_str(&format!(". {suggestion}"));

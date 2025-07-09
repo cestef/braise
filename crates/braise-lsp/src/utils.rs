@@ -34,7 +34,8 @@ pub fn get_expression_preview(expr: &Expression) -> String {
             format!("{module}.{field}")
         }
         Expression::Interpolation(interpolated) => {
-            let preview: Vec<String> = interpolated.parts
+            let preview: Vec<String> = interpolated
+                .parts
                 .iter()
                 .take(3)
                 .map(|part| match part {

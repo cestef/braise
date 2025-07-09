@@ -23,7 +23,7 @@ pub async fn run() -> Result<()> {
 
 fn init_lsp_tracing() {
     use tracing_subscriber::{EnvFilter, fmt as tracing_fmt, prelude::*};
-    
+
     // Only initialize if not already initialized
     if tracing::subscriber::set_global_default(
         tracing_subscriber::registry()
@@ -36,8 +36,10 @@ fn init_lsp_tracing() {
                     .with_line_number(false)
                     .compact(),
             )
-            .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
-    ).is_err() {
+            .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"))),
+    )
+    .is_err()
+    {
         // Subscriber already set, that's fine
     }
 }

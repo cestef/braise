@@ -253,7 +253,8 @@ impl std::fmt::Display for Expression {
             }
             Expression::ModuleAccess { module, field, .. } => write!(f, "{module}.{field}"),
             Expression::Interpolation(interpolated) => {
-                let parts_str: Vec<String> = interpolated.parts
+                let parts_str: Vec<String> = interpolated
+                    .parts
                     .iter()
                     .map(|part| match part {
                         InterpolationPart::String(s) => s.clone(),

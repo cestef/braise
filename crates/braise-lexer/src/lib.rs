@@ -5,14 +5,14 @@ use logos::{Lexer, Logos, Skip};
 use tracing::debug;
 
 pub use crate::{
-    extras::LexerExtras, 
-    spanned_token::SpannedToken, 
-    interpolation::{InterpolationSegment, InterpolatedString, lex_interpolated_string}
+    extras::LexerExtras,
+    interpolation::{InterpolatedString, InterpolationSegment, lex_interpolated_string},
+    spanned_token::SpannedToken,
 };
 
 pub mod extras;
-pub mod spanned_token;
 pub mod interpolation;
+pub mod spanned_token;
 
 fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
     let slice = lex.slice();
@@ -34,7 +34,7 @@ fn newline_callback(lex: &mut Lexer<Token>) -> Skip {
 fn string_callback(lex: &mut Lexer<Token>) -> Option<String> {
     let slice = lex.slice();
     let content = slice.trim_matches('"');
-    
+
     // Store the raw string content - interpolation will be handled by the parser
     // using the new recursive lexing system
     Some(content.to_string())

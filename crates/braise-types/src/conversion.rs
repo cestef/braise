@@ -132,9 +132,7 @@ impl TypeConverter {
 
             BraiseType::Number => {
                 let num = user_value.parse::<f64>().map_err(|_| {
-                    format!(
-                        "Invalid parameter '{param_name}': expected number, got '{user_value}'"
-                    )
+                    format!("Invalid parameter '{param_name}': expected number, got '{user_value}'")
                 })?;
                 Ok(TypedValue::new(num, BraiseType::Number))
             }
@@ -243,13 +241,13 @@ impl TypeConverter {
         if matches!(
             operation,
             "+" | "-" | "*" | "/" | "%" | "<" | ">" | "<=" | ">="
-        )
-            && let (Ok(left_num), Ok(right_num)) = (left.to_number(), right.to_number()) {
-                return Ok((
-                    TypedValue::new(left_num, BraiseType::Number),
-                    TypedValue::new(right_num, BraiseType::Number),
-                ));
-            }
+        ) && let (Ok(left_num), Ok(right_num)) = (left.to_number(), right.to_number())
+        {
+            return Ok((
+                TypedValue::new(left_num, BraiseType::Number),
+                TypedValue::new(right_num, BraiseType::Number),
+            ));
+        }
 
         // For equality operations, convert to common type
         if matches!(operation, "==" | "!=") {

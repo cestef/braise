@@ -1052,9 +1052,10 @@ impl Runtime {
             (BraiseType::String, BraiseType::Number) | (BraiseType::Number, BraiseType::String)
         ) {
             if let Ok(left_num) = left.to_number()
-                && let Ok(right_num) = right.to_number() {
-                    return left_num == right_num;
-                }
+                && let Ok(right_num) = right.to_number()
+            {
+                return left_num == right_num;
+            }
             let left_str = left.to_string();
             if let Ok(right_num) = right.to_number() {
                 return left_str.parse::<f64>() == Ok(right_num);

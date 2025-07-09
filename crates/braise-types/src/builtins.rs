@@ -103,7 +103,10 @@ impl BuiltinTypeRegistry {
                 funcs.insert("num".to_string(), BraiseType::Number);
                 funcs.insert("confirm".to_string(), BraiseType::Bool);
                 funcs.insert("select".to_string(), BraiseType::String);
-                funcs.insert("multiselect".to_string(), BraiseType::Array(Box::new(BraiseType::String)));
+                funcs.insert(
+                    "multiselect".to_string(),
+                    BraiseType::Array(Box::new(BraiseType::String)),
+                );
                 funcs.insert("password".to_string(), BraiseType::String);
                 funcs
             },

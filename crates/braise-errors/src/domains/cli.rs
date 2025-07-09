@@ -15,7 +15,8 @@ pub enum CliError {
     NoTask,
 
     /// No recipe file found in default locations
-    #[error("No recipe file found, searched for: {}", 
+    #[error(
+        "No recipe file found, searched for: {}",
         format_file_list(DEFAULT_FILES)
     )]
     #[diagnostic(

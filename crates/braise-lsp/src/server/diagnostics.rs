@@ -428,9 +428,10 @@ impl DiagnosticsProvider {
                 Statement::Try { catch_block, .. } => {
                     if let Some(catch) = catch_block
                         && let Some(var_name) = &catch.error_var
-                            && var_name == name {
-                                return Some(BraiseType::Error);
-                            }
+                        && var_name == name
+                    {
+                        return Some(BraiseType::Error);
+                    }
                 }
                 Statement::For { var, iterable, .. } if var == name => {
                     return Some(iterable.value.get_type());

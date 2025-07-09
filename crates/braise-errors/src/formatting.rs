@@ -88,11 +88,12 @@ impl ErrorFormatter {
 
         // Source context if available
         if self.config.show_source
-            && let Some(source_context) = self.format_source_context(error) {
-                output.push('\n');
-                output.push_str(&source_context);
-                output.push('\n');
-            }
+            && let Some(source_context) = self.format_source_context(error)
+        {
+            output.push('\n');
+            output.push_str(&source_context);
+            output.push('\n');
+        }
 
         // Help text if available
         if let Some(help) = self.format_help_text(error) {

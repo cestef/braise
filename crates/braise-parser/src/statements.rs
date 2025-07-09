@@ -136,14 +136,15 @@ impl Parser {
                 let expr_type = self.infer_expression_type(&value_expr.value);
 
                 if !matches!(declared_type, BraiseType::Any)
-                    && !expr_type.is_compatible_with(&declared_type) {
-                        return Err(self.create_type_error(
-                            declared_type.to_string(),
-                            expr_type.to_string(),
-                            format!("let statement for variable '{name}'"),
-                            &value_expr.span,
-                        ));
-                    }
+                    && !expr_type.is_compatible_with(&declared_type)
+                {
+                    return Err(self.create_type_error(
+                        declared_type.to_string(),
+                        expr_type.to_string(),
+                        format!("let statement for variable '{name}'"),
+                        &value_expr.span,
+                    ));
+                }
 
                 inferred_type = Some(expr_type);
             }

@@ -1,4 +1,4 @@
-use ::lexer::{Token, lex_interpolated_string, InterpolationSegment};
+use ::lexer::{InterpolationSegment, Token, lex_interpolated_string};
 use core::{BraiseType, ast::*, error::parser::Result};
 use std::collections::HashMap;
 
@@ -264,7 +264,7 @@ impl Parser {
                 self.advance();
 
                 if s.contains("${") {
-                    Ok(Expression::Interpolation(self.parse_interpolation_recursive(&s)?))
+                    Ok(Expression::Interpolation(self.parse_interpolation(&s)?))
                 } else {
                     Ok(Expression::String(s))
                 }
@@ -485,15 +485,19 @@ impl Parser {
         Ok(bindings)
     }
 
-
     /// Parse interpolated string using recursive lexing
-    fn parse_interpolation_recursive(&mut self, s: &str) -> Result<InterpolatedStringExpr> {
+    fn parse_interpolation(&mut self, s: &str) -> Result<InterpolatedStringExpr> {
         let current_span = self.get_current_span();
         let interpolated = lex_interpolated_string(s, &self.source, current_span.start.offset)
-            .map_err(|_err| self.create_error("interpolation parsing".to_string(), Token::String(s.to_string())))?;
-        
+            .map_err(|_err| {
+                self.create_error(
+                    "interpolation parsing".to_string(),
+                    Token::String(s.to_string()),
+                )
+            })?;
+
         let mut parts = Vec::new();
-        
+
         for segment in interpolated.segments {
             match segment {
                 InterpolationSegment::String(string_part) => {
@@ -502,19 +506,19 @@ impl Parser {
                 InterpolationSegment::Expression(tokens) => {
                     // Create a new parser for the expression tokens
                     let mut expr_parser = Parser::new(
-                        tokens, 
-                        self.source.clone(), 
-                        format!("interpolation_{}", current_span.start.offset)
+                        tokens,
+                        self.source.clone(),
+                        format!("interpolation_{}", current_span.start.offset),
                     );
                     expr_parser.enable_type_checking = self.enable_type_checking;
-                    
+
                     // Parse the expression
                     let expr = expr_parser.parse_expression()?;
                     parts.push(InterpolationPart::Expression(expr));
                 }
             }
         }
-        
+
         Ok(InterpolatedStringExpr {
             parts,
             is_recursive: true,
@@ -758,9 +762,18 @@ mod tests {
 
         if let Expression::Interpolation(interpolated) = expr {
             assert_eq!(interpolated.parts.len(), 3);
-            assert!(matches!(interpolated.parts[0], InterpolationPart::String(_)));
-            assert!(matches!(interpolated.parts[1], InterpolationPart::Expression(_)));
-            assert!(matches!(interpolated.parts[2], InterpolationPart::String(_)));
+            assert!(matches!(
+                interpolated.parts[0],
+                InterpolationPart::String(_)
+            ));
+            assert!(matches!(
+                interpolated.parts[1],
+                InterpolationPart::Expression(_)
+            ));
+            assert!(matches!(
+                interpolated.parts[2],
+                InterpolationPart::String(_)
+            ));
             assert!(interpolated.is_recursive);
         } else {
             panic!("Expected interpolation expression");
