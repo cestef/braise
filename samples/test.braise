@@ -20,7 +20,7 @@ recipe "infoo" {
     print "CPU cores: ${cpu.count()}"
     if cpu.count() > 4 {
         print "You have a powerful CPU!"
-        } else {
+    } else {
         print "Your CPU is not very powerful."
     }
     print "Home: ${env.HOME}"
@@ -28,7 +28,7 @@ recipe "infoo" {
     for file in ["package.json", "Cargo.toml", "README.md"] {
         if fs.exists(file) {
             print "${file} exists"
-            } else {
+        } else {
             print "${file} does not exist"
         }
     }
@@ -44,4 +44,24 @@ recipe "flexible" {
     }
 
     print value
+}
+
+recipe "math" {
+    param a: number = 10
+    param b: number = 20
+
+    let random = math.round(math.rand() * 100)
+
+    let sum = a + b
+    let diff = a - b
+    let prod = a * b
+    let quot = a / b
+    let mod_result = a % b
+
+    print "Sum: ${sum}"
+    print "Difference: ${diff}"
+    print "Product: ${prod}"
+    print "Quotient: ${quot}"
+    print "Modulus: ${mod_result}"
+    print "Random number: ${random}"
 }

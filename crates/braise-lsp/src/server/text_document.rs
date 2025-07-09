@@ -354,6 +354,7 @@ impl TextDocumentProvider {
             "git" => Some(include_str!("../../docs/builtins/git.md").to_string()),
             "fs" => Some(include_str!("../../docs/builtins/fs.md").to_string()),
             "input" => Some(include_str!("../../docs/builtins/input.md").to_string()),
+            "math" => Some(include_str!("../../docs/builtins/math.md").to_string()),
             "recipe" => Some(include_str!("../../docs/keywords/recipe.md").to_string()),
             "param" => Some(include_str!("../../docs/keywords/param.md").to_string()),
             "run" => Some(include_str!("../../docs/keywords/run.md").to_string()),

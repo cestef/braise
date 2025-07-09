@@ -161,6 +161,9 @@ use os::OsModule;
 mod input;
 use input::InputModule;
 
+mod math;
+use math::MathModule;
+
 register_modules! {
     "git" => GitModule,
     "env" => EnvModule,
@@ -168,4 +171,5 @@ register_modules! {
     "fs" => FsModule,
     "os" => OsModule,
     "input" => InputModule,
+    "math" => MathModule,
 }

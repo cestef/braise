@@ -457,11 +457,7 @@ impl DiagnosticsProvider {
             } => {
                 if !self.is_valid_builtin_function(module, function) {
                     diagnostics.push(Diagnostic {
-                        range: span_to_range(if args.is_empty() {
-                            &expr.span
-                        } else {
-                            &args[0].span
-                        }),
+                        range: span_to_range(&expr.span),
                         severity: Some(DiagnosticSeverity::ERROR),
                         code: Some(NumberOrString::String("invalid_function".to_string())),
                         message: format!("Invalid function call '{module}.{function}'"),
@@ -598,6 +594,22 @@ impl DiagnosticsProvider {
             "input" => matches!(
                 function,
                 "text" | "num" | "confirm" | "select" | "multiselect" | "password"
+            ),
+            "math" => matches!(
+                function,
+                "rand"
+                    | "abs"
+                    | "sqrt"
+                    | "sin"
+                    | "cos"
+                    | "tan"
+                    | "floor"
+                    | "ceil"
+                    | "round"
+                    | "ln"
+                    | "log10"
+                    | "log2"
+                    | "exp"
             ),
             _ => false,
         }
