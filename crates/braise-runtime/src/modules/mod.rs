@@ -18,7 +18,7 @@ macro_rules! builtin_module {
         $module_name:ident {
             functions: {
                 $(
-                    $func_name:literal => $func_method:ident $( ( $arg_type:expr ) )?
+                    $func_name:literal => $func_method:ident $( ( $( $arg_type:expr ),* ) )?
                 ),* $(,)?
             }
             $(,fields: {
@@ -33,7 +33,7 @@ macro_rules! builtin_module {
                 match function {
                     $(
                         $func_name => {
-                            builtin_module!(@call_function self, $func_method, args $(, $arg_type)?)
+                            builtin_module!(@call_function self, $func_method, args $(, [ $( $arg_type ),* ])?)
                         }
                     )*
                     _ => Err(crate::RuntimeError::builtin_error(
@@ -59,6 +59,7 @@ macro_rules! builtin_module {
         }
     };
 
+    // No arguments
     (@call_function $self:expr, $func_method:ident, $args:ident) => {
         {
             if !$args.is_empty() {
@@ -71,24 +72,99 @@ macro_rules! builtin_module {
         }
     };
 
-    (@call_function $self:expr, $func_method:ident, $args:ident, $arg_type:expr) => {
+    // Generalized argument handling - works for any number of arguments
+    (@call_function $self:expr, $func_method:ident, $args:ident, [ $( $arg_type:expr ),* ]) => {
         {
-            if $args.len() != 1 {
+            // Count expected arguments at compile time
+            const EXPECTED_ARGS: usize = builtin_module!(@count $( $arg_type ),*);
+            
+            if $args.len() != EXPECTED_ARGS {
                 return Err(crate::RuntimeError::builtin_error(
-                    format!("Function '{}' requires exactly 1 argument, got {}", stringify!($func_method), $args.len()),
+                    format!("Function '{}' requires exactly {} arguments, got {}", 
+                        stringify!($func_method), EXPECTED_ARGS, $args.len()),
                     "module"
                 ));
             }
-            let arg = $args.into_iter().next().unwrap();
-            if !arg.value_type.can_convert_from(&$arg_type) {
-                return Err(crate::RuntimeError::builtin_error(
-                    format!("Function '{}' expected argument of type {}, got {}", stringify!($func_method), stringify!($arg_type), arg.value_type),
-                    "module"
-                ));
-            }
-            $self.$func_method(arg)
+            
+            // Validate argument types
+            builtin_module!(@validate_args $args, stringify!($func_method), 0, $( $arg_type ),*)?;
+            
+            // Call the function - we need to unpack arguments dynamically
+            builtin_module!(@call_with_args $self, $func_method, $args, $( $arg_type ),*)
         }
     };
+
+    // Helper macro to count arguments at compile time
+    (@count) => { 0 };
+    (@count $head:expr $(, $tail:expr)*) => { 1 + builtin_module!(@count $( $tail ),*) };
+
+    // Helper macro to validate argument types
+    (@validate_args $args:ident, $func_name:expr, $index:expr,) => { Ok(()) };
+    (@validate_args $args:ident, $func_name:expr, $index:expr, $arg_type:expr $(, $rest:expr)*) => {
+        {
+            if let Some(arg) = $args.get($index) {
+                if !arg.value_type.can_convert_from(&$arg_type) {
+                    return Err(crate::RuntimeError::builtin_error(
+                        format!("Function '{}' expected argument {} of type {}, got {}", 
+                            $func_name, $index + 1, $arg_type, arg.value_type),
+                        "module"
+                    ));
+                }
+            }
+            builtin_module!(@validate_args $args, $func_name, $index + 1, $( $rest ),*)
+        }
+    };
+
+    // Helper macro to call function with unpacked arguments
+    (@call_with_args $self:expr, $func_method:ident, $args:ident,) => {
+        $self.$func_method()
+    };
+    (@call_with_args $self:expr, $func_method:ident, $args:ident, $arg1_type:expr) => {
+        $self.$func_method($args.into_iter().next().unwrap())
+    };
+    (@call_with_args $self:expr, $func_method:ident, $args:ident, $arg1_type:expr, $arg2_type:expr) => {
+        {
+            let mut iter = $args.into_iter();
+            $self.$func_method(iter.next().unwrap(), iter.next().unwrap())
+        }
+    };
+    (@call_with_args $self:expr, $func_method:ident, $args:ident, $arg1_type:expr, $arg2_type:expr, $arg3_type:expr) => {
+        {
+            let mut iter = $args.into_iter();
+            $self.$func_method(iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap())
+        }
+    };
+    (@call_with_args $self:expr, $func_method:ident, $args:ident, $arg1_type:expr, $arg2_type:expr, $arg3_type:expr, $arg4_type:expr) => {
+        {
+            let mut iter = $args.into_iter();
+            $self.$func_method(iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap())
+        }
+    };
+    (@call_with_args $self:expr, $func_method:ident, $args:ident, $arg1_type:expr, $arg2_type:expr, $arg3_type:expr, $arg4_type:expr, $arg5_type:expr) => {
+        {
+            let mut iter = $args.into_iter();
+            $self.$func_method(iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap())
+        }
+    };
+    (@call_with_args $self:expr, $func_method:ident, $args:ident, $arg1_type:expr, $arg2_type:expr, $arg3_type:expr, $arg4_type:expr, $arg5_type:expr, $arg6_type:expr) => {
+        {
+            let mut iter = $args.into_iter();
+            $self.$func_method(iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap())
+        }
+    };
+    (@call_with_args $self:expr, $func_method:ident, $args:ident, $arg1_type:expr, $arg2_type:expr, $arg3_type:expr, $arg4_type:expr, $arg5_type:expr, $arg6_type:expr, $arg7_type:expr) => {
+        {
+            let mut iter = $args.into_iter();
+            $self.$func_method(iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap())
+        }
+    };
+    (@call_with_args $self:expr, $func_method:ident, $args:ident, $arg1_type:expr, $arg2_type:expr, $arg3_type:expr, $arg4_type:expr, $arg5_type:expr, $arg6_type:expr, $arg7_type:expr, $arg8_type:expr) => {
+        {
+            let mut iter = $args.into_iter();
+            $self.$func_method(iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap(), iter.next().unwrap())
+        }
+    };
+
 }
 
 macro_rules! register_modules {

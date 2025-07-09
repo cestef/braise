@@ -28,10 +28,19 @@ impl MathModule {
         Ok(TypedValue::new(num_value.sqrt(), BraiseType::Number))
     }
 
-    fn rand(&self) -> Result<TypedValue> {
-        use rand::Rng;
-        let mut rng = rand::rng();
-        Ok(TypedValue::new(rng.random::<f64>(), BraiseType::Number))
+    fn rand(&self, min: TypedValue, max: TypedValue) -> Result<TypedValue> {
+        let min_num = min.to_number().unwrap_or(0.0);
+        let max_num = max.to_number().unwrap_or(1.0);
+
+        if min_num >= max_num {
+            return Err(RuntimeError::builtin_error(
+                "rand expects min to be less than max".to_string(),
+                "math",
+            ));
+        }
+
+        let random_value = rand::random::<f64>() * (max_num - min_num) + min_num;
+        Ok(TypedValue::new(random_value, BraiseType::Number))
     }
 
     fn cos(&self, value: TypedValue) -> Result<TypedValue> {
@@ -94,6 +103,25 @@ impl MathModule {
         Ok(TypedValue::new(num_value.log2(), BraiseType::Number))
     }
 
+    fn log(&self, value: TypedValue, base: TypedValue) -> Result<TypedValue> {
+        let num_value = value.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("log expects a number: {e}"), "math")
+        })?;
+        let base_value = base.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("log expects a base number: {e}"), "math")
+        })?;
+        if num_value <= 0.0 || base_value <= 1.0 {
+            return Err(RuntimeError::builtin_error(
+                "log expects a positive number and base greater than 1".to_string(),
+                "math",
+            ));
+        }
+        Ok(TypedValue::new(
+            num_value.log(base_value),
+            BraiseType::Number,
+        ))
+    }
+
     fn exp(&self, value: TypedValue) -> Result<TypedValue> {
         let num_value = value.to_number().map_err(|e| {
             RuntimeError::builtin_error(format!("exp expects a number: {e}"), "math")
@@ -125,12 +153,109 @@ impl MathModule {
     fn pi(&self) -> Result<TypedValue> {
         Ok(TypedValue::new(std::f64::consts::PI, BraiseType::Number))
     }
+
+    // Multi-argument functions
+    fn pow(&self, base: TypedValue, exponent: TypedValue) -> Result<TypedValue> {
+        let base_num = base.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("pow expects base to be a number: {e}"), "math")
+        })?;
+        let exp_num = exponent.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("pow expects exponent to be a number: {e}"), "math")
+        })?;
+        Ok(TypedValue::new(base_num.powf(exp_num), BraiseType::Number))
+    }
+
+    fn min(&self, a: TypedValue, b: TypedValue) -> Result<TypedValue> {
+        let a_num = a.to_number().map_err(|e| {
+            RuntimeError::builtin_error(
+                format!("min expects first argument to be a number: {e}"),
+                "math",
+            )
+        })?;
+        let b_num = b.to_number().map_err(|e| {
+            RuntimeError::builtin_error(
+                format!("min expects second argument to be a number: {e}"),
+                "math",
+            )
+        })?;
+        Ok(TypedValue::new(a_num.min(b_num), BraiseType::Number))
+    }
+
+    fn max(&self, a: TypedValue, b: TypedValue) -> Result<TypedValue> {
+        let a_num = a.to_number().map_err(|e| {
+            RuntimeError::builtin_error(
+                format!("max expects first argument to be a number: {e}"),
+                "math",
+            )
+        })?;
+        let b_num = b.to_number().map_err(|e| {
+            RuntimeError::builtin_error(
+                format!("max expects second argument to be a number: {e}"),
+                "math",
+            )
+        })?;
+        Ok(TypedValue::new(a_num.max(b_num), BraiseType::Number))
+    }
+
+    fn clamp(
+        &self,
+        value: TypedValue,
+        min_val: TypedValue,
+        max_val: TypedValue,
+    ) -> Result<TypedValue> {
+        let val_num = value.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("clamp expects value to be a number: {e}"), "math")
+        })?;
+        let min_num = min_val.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("clamp expects min to be a number: {e}"), "math")
+        })?;
+        let max_num = max_val.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("clamp expects max to be a number: {e}"), "math")
+        })?;
+
+        if min_num > max_num {
+            return Err(RuntimeError::builtin_error(
+                "clamp expects min to be less than or equal to max".to_string(),
+                "math",
+            ));
+        }
+
+        Ok(TypedValue::new(
+            val_num.clamp(min_num, max_num),
+            BraiseType::Number,
+        ))
+    }
+
+    fn lerp(&self, start: TypedValue, end: TypedValue, t: TypedValue) -> Result<TypedValue> {
+        let start_num = start.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("lerp expects start to be a number: {e}"), "math")
+        })?;
+        let end_num = end.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("lerp expects end to be a number: {e}"), "math")
+        })?;
+        let t_num = t.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("lerp expects t to be a number: {e}"), "math")
+        })?;
+
+        let result = start_num + (end_num - start_num) * t_num;
+        Ok(TypedValue::new(result, BraiseType::Number))
+    }
+
+    fn hypot(&self, x: TypedValue, y: TypedValue) -> Result<TypedValue> {
+        let x_num = x.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("hypot expects x to be a number: {e}"), "math")
+        })?;
+        let y_num = y.to_number().map_err(|e| {
+            RuntimeError::builtin_error(format!("hypot expects y to be a number: {e}"), "math")
+        })?;
+        Ok(TypedValue::new(x_num.hypot(y_num), BraiseType::Number))
+    }
 }
 
 builtin_module! {
     MathModule {
         functions: {
-            "rand" => rand,
+            "rand" => rand(BraiseType::Number, BraiseType::Number),
             "cos" => cos(BraiseType::Number),
             "sin" => sin(BraiseType::Number),
             "abs" => abs(BraiseType::Number),
@@ -141,8 +266,15 @@ builtin_module! {
             "ln" => ln(BraiseType::Number),
             "log10" => log10(BraiseType::Number),
             "log2" => log2(BraiseType::Number),
+            "log" => log(BraiseType::Number, BraiseType::Number),
             "exp" => exp(BraiseType::Number),
             "tan" => tan(BraiseType::Number),
+            "pow" => pow(BraiseType::Number, BraiseType::Number),
+            "min" => min(BraiseType::Number, BraiseType::Number),
+            "max" => max(BraiseType::Number, BraiseType::Number),
+            "hypot" => hypot(BraiseType::Number, BraiseType::Number),
+            "clamp" => clamp(BraiseType::Number, BraiseType::Number, BraiseType::Number),
+            "lerp" => lerp(BraiseType::Number, BraiseType::Number, BraiseType::Number),
         },
         fields: {
             "PI" => pi,
