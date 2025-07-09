@@ -22,7 +22,6 @@ homepage = "https://github.com/cestef/braise"
 description = "Yet another task runner, because apparently the world needed one more"
 repository = "https://github.com/cestef/braise"
 
-
 [workspace.dependencies]
 miette = { version = "7.6.0", features = ["fancy", "syntect-highlighter"] }
 owo-colors = "4.2.2"
