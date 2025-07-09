@@ -2,7 +2,12 @@
 
 {%block main%}
 
+<div class="container flex flex-col items-center justify-center h-[calc(100svh-96px)] px-4 py-8 mx-auto">
+    <a href="{{ get_url(path='/docs/get-started') }}">
+        <img src="{{ get_url(path='/img/banner.gif') }}" alt="Braisé Logo" class="logo">
 
-
+        <h1 class="text-4xl font-bold text-center mb-4">Run your tasks like a chef!</h1>
+    </a>
+</div>
 
 {%endblock%}

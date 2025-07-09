@@ -1,4 +1,6 @@
 const esbuild = require('esbuild');
+const fs = require('fs');
+const path = require('path');
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -17,6 +19,7 @@ async function main() {
     logLevel: 'warning',
     plugins: [
       /* add to the end of plugins array */
+      copyFilesPlugin,
       esbuildProblemMatcherPlugin
     ]
   });
@@ -27,6 +30,33 @@ async function main() {
     await ctx.dispose();
   }
 }
+
+/**
+ * @type {import('esbuild').Plugin}
+ */
+const copyFilesPlugin = {
+  name: 'copy-files',
+  setup(build) {
+    build.onEnd(() => {
+      const sourceFile = path.join(__dirname, '..', 'syntaxes', 'braise.tmLanguage.json');
+      const targetDir = path.join(__dirname, 'out', 'syntaxes');
+      const targetFile = path.join(targetDir, 'braise.tmLanguage.json');
+
+      // Create target directory if it doesn't exist
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+
+      // Copy the grammar file
+      try {
+        fs.copyFileSync(sourceFile, targetFile);
+        console.log(`✓ Copied ${path.relative(__dirname, sourceFile)} to ${path.relative(__dirname, targetFile)}`);
+      } catch (error) {
+        console.error(`✘ Failed to copy grammar file: ${error.message}`);
+      }
+    });
+  }
+};
 
 /**
  * @type {import('esbuild').Plugin}

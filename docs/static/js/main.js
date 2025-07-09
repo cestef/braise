@@ -28,26 +28,20 @@ window.addEventListener("DOMContentLoaded", () => {
 	}
 
 	let enabled = false;
-	let scrollTimeout;
 
 	scrollElement.addEventListener("scroll", (e) => {
-		if (scrollTimeout) {
-			clearTimeout(scrollTimeout);
-		}
-		scrollTimeout = setTimeout(() => {
-			const percent =
-				(e.target.scrollTop / (e.target.scrollHeight - e.target.clientHeight)) * 100;
-			fillElement.style.width = `${percent}%`;
-			if (e.target.scrollTop > CONSTANTS.SCROLL_THRESHOLD) {
-				scrollButton.style.opacity = 1;
-				scrollButton.style.cursor = "pointer";
-				enabled = true;
-			} else {
-				scrollButton.style.opacity = 0;
-				scrollButton.style.cursor = "default";
-				enabled = false;
-			}
-		}, 16);
+        const percent =
+            (e.target.scrollTop / (e.target.scrollHeight - e.target.clientHeight)) * 100;
+        fillElement.style.width = `${percent}%`;
+        if (e.target.scrollTop > CONSTANTS.SCROLL_THRESHOLD) {
+            scrollButton.style.opacity = 1;
+            scrollButton.style.cursor = "pointer";
+            enabled = true;
+        } else {
+            scrollButton.style.opacity = 0;
+            scrollButton.style.cursor = "default";
+            enabled = false;
+        }
 	});
 
 	scrollButton.addEventListener("click", () => {

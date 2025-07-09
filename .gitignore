@@ -1,7 +1,6 @@
 /target
 node_modules/
-/vscode/out
+extensions/vscode/out
 *.vsix
 .DS_Store
-vscode/syntaxes/src
 /st_syntax_tests

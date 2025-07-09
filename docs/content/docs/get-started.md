@@ -5,7 +5,7 @@ title = "Getting Started"
 
 ## Installation
 
-Braise can be installed in several ways. Choose the one that suits you best.
+Braisé can be installed in several ways. Choose the one that suits you best.
 
 ### Using [`install.sh`](/install.sh)
 
@@ -41,9 +41,23 @@ brew install cestef/tap/braise
 
 ## Your first recipe
 
-```braise,copy,name=hello.braise
+Open your favorite text editor and create a file named `Braisefile` with the following content:
+
+```braise,copy,name=Braisefile
 recipe "hello" {
     param name: string? = "World"
     print "Hello, ${name}!"
 }
+```
+
+Run the recipe using the `braise` command:
+
+```bash,copy
+braise hello --name "Chef"
+```
+
+You should see the output:
+
+```
+Hello, Chef!
 ```

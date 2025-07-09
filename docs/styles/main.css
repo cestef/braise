@@ -169,7 +169,7 @@ tr:nth-child(even) {
 pre {
     background-color: var(--code-bg) !important;
     color: var(--code-text) !important;
-    @apply !rounded-lg border border-border p-4 overflow-x-auto;
+    @apply !rounded-lg border border-border/60 p-4 overflow-x-auto;
 }
 
 pre code {
@@ -186,7 +186,7 @@ pre .z-code {
 
 pre[data-name]::before {
     content: attr(data-name);
-    @apply block bg-muted text-muted-foreground text-sm px-4 py-2 border-b border-border rounded-t-lg -mx-4 -mt-4 mb-4;
+    @apply block bg-muted text-muted-foreground text-sm px-4 py-2 border-b border-border/60 rounded-t-lg -mx-4 -mt-4 mb-4;
 }
 
 pre[data-name] {

@@ -1,10 +1,12 @@
 {
-    "name": "braise-language-support",
-    "displayName": "Braisé Language Support",
+    "name": "braise",
+    "displayName": "Braisé",
     "description": "Language support for Braisé's DSL",
     "version": "0.1.0",
     "publisher": "cstef",
     "repository": "https://github.com/cestef/braise",
+    "icon": "assets/icon.png",
+    "license": "MIT",
     "engines": {
         "vscode": "^1.101.0"
     },
@@ -46,7 +48,7 @@
             {
                 "language": "braise",
                 "scopeName": "source.braise",
-                "path": "../syntaxes/braise.tmLanguage.json"
+                "path": "./out/syntaxes/braise.tmLanguage.json"
             }
         ],
         "configuration": {
@@ -92,7 +94,6 @@
     },
     "files": [
         "out",
-        "../syntaxes/braise.tmLanguage.json",
         "assets",
         "language-configuration.json",
         "package.json",
