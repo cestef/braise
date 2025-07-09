@@ -22,4 +22,5 @@ braise-core = { path = "../braise-core", package = "braise-core" }
 lexer = { path = "../braise-lexer", package = "braise-lexer" }
 parser = { path = "../braise-parser", package = "braise-parser" }
 fmt = { path = "../braise-fmt", package = "braise-fmt" }
+runtime = { path = "../braise-runtime", package = "braise-runtime" }
 braise-errors = { path = "../braise-errors" }

@@ -6,6 +6,7 @@ use braise_core::BraiseType;
 use braise_core::ast::*;
 use braise_errors::{BraiseError, ParserError};
 use miette::SourceSpan;
+use runtime::MODULES;
 use std::collections::HashMap;
 use tower_lsp::Client;
 use tower_lsp::lsp_types::*;
@@ -582,44 +583,13 @@ impl DiagnosticsProvider {
     }
 
     fn is_valid_builtin_function(&self, module: &str, function: &str) -> bool {
-        match module {
-            "env" => matches!(function, "get" | "has"),
-            "cpu" => matches!(function, "count" | "physical_count"),
-            "git" => matches!(
-                function,
-                "is_dirty" | "is_clean" | "branch" | "commit_hash" | "commit_hash_short" | "tag"
-            ),
-            "fs" => matches!(function, "exists" | "is_file" | "is_dir"),
-            "input" => matches!(
-                function,
-                "text" | "num" | "confirm" | "select" | "multiselect" | "password"
-            ),
-            "math" => matches!(
-                function,
-                "rand"
-                    | "abs"
-                    | "sqrt"
-                    | "sin"
-                    | "cos"
-                    | "tan"
-                    | "floor"
-                    | "ceil"
-                    | "round"
-                    | "ln"
-                    | "log10"
-                    | "log2"
-                    | "exp"
-            ),
-            _ => false,
-        }
+        MODULES
+            .get(module)
+            .map_or(false, |m| m.has_function(function))
     }
 
     fn is_valid_builtin_field(&self, module: &str, field: &str) -> bool {
-        match module {
-            "env" => matches!(field, "HOME" | "PWD" | "CI"),
-            "cpu" => matches!(field, "arch"),
-            _ => false,
-        }
+        MODULES.get(module).map_or(false, |m| m.has_field(field))
     }
 
     fn offset_to_position(&self, offset: usize, text: &str) -> Position {

@@ -11,6 +11,12 @@ pub trait BuiltinModule: Send + Sync {
             "module",
         ))
     }
+    fn has_function(&self, _function: &str) -> bool {
+        false
+    }
+    fn has_field(&self, _field: &str) -> bool {
+        false
+    }
 }
 
 macro_rules! builtin_module {
@@ -43,6 +49,15 @@ macro_rules! builtin_module {
                 }
             }
 
+            fn has_function(&self, function: &str) -> bool {
+                match function {
+                    $(
+                        $func_name => true,
+                    )*
+                    _ => false,
+                }
+            }
+
             $(
                 fn get_field(&self, field: &str) -> crate::Result<crate::TypedValue> {
                     match field {
@@ -53,6 +68,15 @@ macro_rules! builtin_module {
                             format!("Unknown field '{}' in module '{}'", field, stringify!($module_name)),
                             stringify!($module_name)
                         ))
+                    }
+                }
+
+                fn has_field(&self, field: &str) -> bool {
+                    match field {
+                        $(
+                            $field_name => true,
+                        )*
+                        _ => false,
                     }
                 }
             )?
@@ -77,18 +101,18 @@ macro_rules! builtin_module {
         {
             // Count expected arguments at compile time
             const EXPECTED_ARGS: usize = builtin_module!(@count $( $arg_type ),*);
-            
+
             if $args.len() != EXPECTED_ARGS {
                 return Err(crate::RuntimeError::builtin_error(
-                    format!("Function '{}' requires exactly {} arguments, got {}", 
+                    format!("Function '{}' requires exactly {} arguments, got {}",
                         stringify!($func_method), EXPECTED_ARGS, $args.len()),
                     "module"
                 ));
             }
-            
+
             // Validate argument types
             builtin_module!(@validate_args $args, stringify!($func_method), 0, $( $arg_type ),*)?;
-            
+
             // Call the function - we need to unpack arguments dynamically
             builtin_module!(@call_with_args $self, $func_method, $args, $( $arg_type ),*)
         }
@@ -105,7 +129,7 @@ macro_rules! builtin_module {
             if let Some(arg) = $args.get($index) {
                 if !arg.value_type.can_convert_from(&$arg_type) {
                     return Err(crate::RuntimeError::builtin_error(
-                        format!("Function '{}' expected argument {} of type {}, got {}", 
+                        format!("Function '{}' expected argument {} of type {}, got {}",
                             $func_name, $index + 1, $arg_type, arg.value_type),
                         "module"
                     ));
@@ -173,7 +197,7 @@ macro_rules! register_modules {
             $module_name:literal => $module_type:ty
         ),* $(,)?
     ) => {
-        static MODULES: once_cell::sync::Lazy<HashMap<String, Box<dyn BuiltinModule>>> =
+        pub static MODULES: once_cell::sync::Lazy<HashMap<String, Box<dyn BuiltinModule>>> =
             once_cell::sync::Lazy::new(|| {
                 let mut modules: HashMap<String, Box<dyn BuiltinModule>> = HashMap::new();
                 $(
@@ -240,6 +264,9 @@ use input::InputModule;
 mod math;
 use math::MathModule;
 
+mod http;
+use http::HttpModule;
+
 register_modules! {
     "git" => GitModule,
     "env" => EnvModule,
@@ -248,4 +275,5 @@ register_modules! {
     "os" => OsModule,
     "input" => InputModule,
     "math" => MathModule,
+    "http" => HttpModule,
 }

@@ -12,7 +12,7 @@ mod context;
 use context::*;
 
 mod modules;
-use modules::*;
+pub use modules::*;
 
 mod executor;
 pub use executor::*;
