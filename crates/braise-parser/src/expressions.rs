@@ -113,7 +113,7 @@ impl Parser {
     }
 
     fn parse_comparison(&mut self) -> Result<Expression> {
-        let mut expr = self.parse_primary()?;
+        let mut expr = self.parse_add_sub()?;
 
         while let Token::Less | Token::LessEqual | Token::Greater | Token::GreaterEqual =
             self.peek()
@@ -138,7 +138,7 @@ impl Parser {
                 _ => break,
             };
 
-            let right = self.parse_primary()?;
+            let right = self.parse_add_sub()?;
             let span = self.get_current_span();
 
             expr = Expression::BinaryOp {
@@ -146,6 +146,112 @@ impl Parser {
                 op,
                 right: Box::new(SpannedNode::new(right, span)),
                 result_type: Some(BraiseType::Bool),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    fn parse_add_sub(&mut self) -> Result<Expression> {
+        let mut expr = self.parse_mul_div_mod()?;
+
+        while let Token::Plus | Token::Minus = self.peek() {
+            let op = match self.peek() {
+                Token::Plus => {
+                    self.advance();
+                    BinaryOperator::Plus
+                }
+                Token::Minus => {
+                    self.advance();
+                    BinaryOperator::Minus
+                }
+                _ => break,
+            };
+
+            let right = self.parse_mul_div_mod()?;
+            let span = self.get_current_span();
+
+            expr = Expression::BinaryOp {
+                left: Box::new(SpannedNode::new(expr, span.clone())),
+                op,
+                right: Box::new(SpannedNode::new(right, span)),
+                result_type: Some(BraiseType::Number),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    fn parse_mul_div_mod(&mut self) -> Result<Expression> {
+        let mut expr = self.parse_unary()?;
+
+        while let Token::Multiply | Token::Divide | Token::Modulus = self.peek() {
+            let op = match self.peek() {
+                Token::Multiply => {
+                    self.advance();
+                    BinaryOperator::Multiply
+                }
+                Token::Divide => {
+                    self.advance();
+                    BinaryOperator::Divide
+                }
+                Token::Modulus => {
+                    self.advance();
+                    BinaryOperator::Modulus
+                }
+                _ => break,
+            };
+
+            let right = self.parse_unary()?;
+            let span = self.get_current_span();
+
+            expr = Expression::BinaryOp {
+                left: Box::new(SpannedNode::new(expr, span.clone())),
+                op,
+                right: Box::new(SpannedNode::new(right, span)),
+                result_type: Some(BraiseType::Number),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    fn parse_unary(&mut self) -> Result<Expression> {
+        match self.peek() {
+            Token::Bang => {
+                self.advance();
+                let expr = self.parse_expression()?;
+                Ok(Expression::UnaryOp {
+                    op: UnaryOperator::Not,
+                    expr: Box::new(expr),
+                    result_type: Some(BraiseType::Bool),
+                })
+            }
+            Token::Minus => {
+                self.advance();
+                let expr = self.parse_expression()?;
+                Ok(Expression::UnaryOp {
+                    op: UnaryOperator::Minus,
+                    expr: Box::new(expr),
+                    result_type: Some(BraiseType::Number),
+                })
+            }
+            _ => self.parse_exponent(),
+        }
+    }
+
+    fn parse_exponent(&mut self) -> Result<Expression> {
+        let mut expr = self.parse_primary()?;
+
+        while self.match_token(&Token::Exponent) {
+            let right = self.parse_primary()?;
+            let span = self.get_current_span();
+
+            expr = Expression::BinaryOp {
+                left: Box::new(SpannedNode::new(expr, span.clone())),
+                op: BinaryOperator::Exponent,
+                right: Box::new(SpannedNode::new(right, span)),
+                result_type: Some(BraiseType::Number),
             };
         }
 
@@ -225,16 +331,6 @@ impl Parser {
 
                 self.consume_token(Token::RightBracket)?;
                 Ok(Expression::Array(elements))
-            }
-            Token::Bang => {
-                self.advance();
-                let expr = self.parse_expression()?;
-
-                Ok(Expression::UnaryOp {
-                    op: UnaryOperator::Not,
-                    expr: Box::new(expr),
-                    result_type: Some(BraiseType::Bool),
-                })
             }
             Token::LeftParen => {
                 self.advance();

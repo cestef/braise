@@ -73,6 +73,12 @@ pub fn get_expression_preview(expr: &Expression) -> String {
                 BinaryOperator::GreaterEqual => ">=",
                 BinaryOperator::And => "&&",
                 BinaryOperator::Or => "||",
+                BinaryOperator::Plus => "+",
+                BinaryOperator::Minus => "-",
+                BinaryOperator::Multiply => "*",
+                BinaryOperator::Divide => "/",
+                BinaryOperator::Modulus => "%",
+                BinaryOperator::Exponent => "**",
             };
             format!(
                 "{} {} {}",
@@ -84,6 +90,7 @@ pub fn get_expression_preview(expr: &Expression) -> String {
         Expression::UnaryOp { op, expr, .. } => {
             let op_str = match op {
                 UnaryOperator::Not => "!",
+                UnaryOperator::Minus => "-",
             };
             format!("{}{}", op_str, get_expression_preview(&expr.value))
         }

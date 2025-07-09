@@ -118,6 +118,20 @@ pub enum Token {
     #[token(">")]
     Greater,
 
+    // Arithmetic operators
+    #[token("+")]
+    Plus,
+    #[token("-")]
+    Minus,
+    #[token("*")]
+    Multiply,
+    #[token("/")]
+    Divide,
+    #[token("%")]
+    Modulus,
+    #[token("**")]
+    Exponent,
+
     // Operators
     #[token("->")]
     Arrow,

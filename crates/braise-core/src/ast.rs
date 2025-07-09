@@ -396,6 +396,12 @@ pub enum BinaryOperator {
     GreaterEqual,
     And,
     Or,
+    Plus,
+    Minus,
+    Multiply,
+    Divide,
+    Modulus,
+    Exponent,
 }
 
 impl BinaryOperator {
@@ -410,6 +416,12 @@ impl BinaryOperator {
             | BinaryOperator::GreaterEqual
             | BinaryOperator::And
             | BinaryOperator::Or => BraiseType::Bool,
+            BinaryOperator::Plus
+            | BinaryOperator::Minus
+            | BinaryOperator::Multiply
+            | BinaryOperator::Divide
+            | BinaryOperator::Modulus
+            | BinaryOperator::Exponent => BraiseType::Number,
         }
     }
 }
@@ -417,6 +429,7 @@ impl BinaryOperator {
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOperator {
     Not,
+    Minus,
 }
 
 impl UnaryOperator {
@@ -424,6 +437,7 @@ impl UnaryOperator {
     pub fn result_type(&self, _operand_type: &BraiseType) -> BraiseType {
         match self {
             UnaryOperator::Not => BraiseType::Bool,
+            UnaryOperator::Minus => BraiseType::Number,
         }
     }
 }

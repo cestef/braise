@@ -573,9 +573,11 @@ impl DiagnosticsProvider {
                 .iter()
                 .any(|inner_type| self.is_expression_compatible_with_type(doc, expr, inner_type)),
             (Expression::Interpolation(_), BraiseType::String) => true,
-            (Expression::BinaryOp { left, right, .. }, e) => {
-                self.is_expression_compatible_with_type(doc, left, e)
-                    && self.is_expression_compatible_with_type(doc, right, e)
+            (Expression::BinaryOp { result_type, .. }, e) => {
+                if let Some(result_type) = result_type {
+                    return result_type.is_compatible_with(e);
+                }
+                false
             }
             e => {
                 dbg!(e);

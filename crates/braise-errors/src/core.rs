@@ -139,7 +139,7 @@ impl miette::Diagnostic for BraiseError {
 
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         match self {
-            BraiseError::Lexer { code, .. } => Some(Box::new(code.clone())),
+            BraiseError::Lexer { .. } => None,
             BraiseError::Parser(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),
             BraiseError::Runtime(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),
             BraiseError::Type(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),

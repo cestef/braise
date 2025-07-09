@@ -115,6 +115,15 @@ pub enum TypeError {
         #[label("constraint violation")]
         span: Option<SourceSpan>,
     },
+
+    #[error("Division by zero is not allowed")]
+    #[diagnostic(code(braise::types::division_by_zero))]
+    DivisionByZero {
+        #[source_code]
+        code: Option<String>,
+        #[label("division by zero")]
+        span: Option<SourceSpan>,
+    },
 }
 
 impl TypeError {
@@ -267,6 +276,13 @@ impl TypeError {
         }
     }
 
+    pub fn division_by_zero() -> Self {
+        Self::DivisionByZero {
+            code: None,
+            span: None,
+        }
+    }
+
     pub fn severity(&self) -> ErrorSeverity {
         match self {
             TypeError::Mismatch { .. } => ErrorSeverity::Error,
@@ -275,6 +291,7 @@ impl TypeError {
             TypeError::InvalidType { .. } => ErrorSeverity::Error,
             TypeError::InferenceFailure { .. } => ErrorSeverity::Warning,
             TypeError::ConstraintViolation { .. } => ErrorSeverity::Error,
+            TypeError::DivisionByZero { .. } => ErrorSeverity::Error,
         }
     }
 
@@ -321,6 +338,10 @@ impl TypeError {
             TypeError::ConstraintViolation {
                 code: c, span: s, ..
             } => {
+                *c = Some(code.into());
+                *s = Some(span);
+            }
+            TypeError::DivisionByZero { code: c, span: s } => {
                 *c = Some(code.into());
                 *s = Some(span);
             }

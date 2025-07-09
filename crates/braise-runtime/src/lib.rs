@@ -875,6 +875,16 @@ impl Runtime {
                 let value = self.evaluate_expression(&expr, context)?;
                 match op {
                     UnaryOperator::Not => Ok(TypedValue::new(!value.to_bool(), BraiseType::Bool)),
+                    UnaryOperator::Minus => {
+                        let num_value = value.to_number().map_err(|e| {
+                            RuntimeError::type_error_with_context(
+                                e.into(),
+                                self.source.to_string(),
+                                (&expr.span).into(),
+                            )
+                        })?;
+                        Ok(TypedValue::new(-num_value, BraiseType::Number))
+                    }
                 }
             }
             Expression::Conditional {
@@ -967,6 +977,69 @@ impl Runtime {
                 left.to_bool() || right.to_bool(),
                 BraiseType::Bool,
             )),
+            BinaryOperator::Plus => {
+                let left_num = left
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let right_num = right
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                Ok(TypedValue::new(left_num + right_num, BraiseType::Number))
+            }
+            BinaryOperator::Minus => {
+                let left_num = left
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let right_num = right
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                Ok(TypedValue::new(left_num - right_num, BraiseType::Number))
+            }
+            BinaryOperator::Multiply => {
+                let left_num = left
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let right_num = right
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                Ok(TypedValue::new(left_num * right_num, BraiseType::Number))
+            }
+            BinaryOperator::Divide => {
+                let left_num = left
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let right_num = right
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                if right_num == 0.0 {
+                    return Err(TypeError::division_by_zero());
+                }
+                Ok(TypedValue::new(left_num / right_num, BraiseType::Number))
+            }
+            BinaryOperator::Modulus => {
+                let left_num = left
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let right_num = right
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                if right_num == 0.0 {
+                    return Err(TypeError::division_by_zero());
+                }
+                Ok(TypedValue::new(left_num % right_num, BraiseType::Number))
+            }
+            BinaryOperator::Exponent => {
+                let left_num = left
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let right_num = right
+                    .to_number()
+                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                Ok(TypedValue::new(
+                    left_num.powf(right_num),
+                    BraiseType::Number,
+                ))
+            }
         }
     }
 
