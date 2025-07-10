@@ -138,10 +138,12 @@ impl Parser {
             if self.match_token(&Token::Shell) {
                 debug!("Found shell configuration");
                 if shell.is_some() {
-                    return Err(self.create_error(
-                        "only one shell command is allowed".to_string(),
-                        Token::Shell,
-                    ));
+                    return Err(self
+                        .create_error(
+                            "only one shell command is allowed".to_string(),
+                            Token::Shell,
+                        )
+                        .boxed());
                 }
                 let s = self.parse_string()?;
                 debug!("Set shell to: {}", s);
@@ -228,12 +230,14 @@ impl Parser {
                     let expr_type = self.type_check_expression(value_expr)?;
 
                     if !expr_type.is_compatible_with(param_type) {
-                        return Err(self.create_type_error(
-                            param_type.to_string(),
-                            expr_type.to_string(),
-                            format!("variable declaration '{name}'"),
-                            &value_expr.span,
-                        ));
+                        return Err(self
+                            .create_type_error(
+                                param_type.to_string(),
+                                expr_type.to_string(),
+                                format!("variable declaration '{name}'"),
+                                &value_expr.span,
+                            )
+                            .boxed());
                     }
 
                     *inferred_type = Some(expr_type.clone());
@@ -249,15 +253,19 @@ impl Parser {
 
                 if let Some(var_type) = self.type_engine.get_variable_type(name) {
                     if !expr_type.is_compatible_with(var_type) {
-                        return Err(self.create_type_error(
-                            var_type.to_string(),
-                            expr_type.to_string(),
-                            format!("assignment to variable '{name}'"),
-                            &value.span,
-                        ));
+                        return Err(self
+                            .create_type_error(
+                                var_type.to_string(),
+                                expr_type.to_string(),
+                                format!("assignment to variable '{name}'"),
+                                &value.span,
+                            )
+                            .boxed());
                     }
                 } else {
-                    return Err(self.create_undefined_variable_error(name, &value.span));
+                    return Err(self
+                        .create_undefined_variable_error(name, &value.span)
+                        .boxed());
                 }
             }
             Statement::If {
@@ -268,12 +276,14 @@ impl Parser {
                 let condition_type = self.type_check_expression(condition)?;
                 let can_convert = condition_type.can_convert_from(&BraiseType::Bool);
                 if !can_convert && !matches!(condition_type, BraiseType::Bool | BraiseType::Any) {
-                    return Err(self.create_type_error(
-                        "boolean or boolean-convertible".to_string(),
-                        condition_type.to_string(),
-                        "if condition".to_string(),
-                        &condition.span,
-                    ));
+                    return Err(self
+                        .create_type_error(
+                            "boolean or boolean-convertible".to_string(),
+                            condition_type.to_string(),
+                            "if condition".to_string(),
+                            &condition.span,
+                        )
+                        .boxed());
                 }
 
                 for stmt in then_block {
@@ -301,21 +311,25 @@ impl Parser {
                         BraiseType::Array(element_type) => (**element_type).clone(),
                         BraiseType::Any => BraiseType::Any,
                         _ => {
-                            return Err(self.create_type_error(
+                            return Err(self
+                                .create_type_error(
+                                    "array".to_string(),
+                                    iterable_type.to_string(),
+                                    "for loop iterable".to_string(),
+                                    &iterable.span,
+                                )
+                                .boxed());
+                        }
+                    },
+                    _ => {
+                        return Err(self
+                            .create_type_error(
                                 "array".to_string(),
                                 iterable_type.to_string(),
                                 "for loop iterable".to_string(),
                                 &iterable.span,
-                            ));
-                        }
-                    },
-                    _ => {
-                        return Err(self.create_type_error(
-                            "array".to_string(),
-                            iterable_type.to_string(),
-                            "for loop iterable".to_string(),
-                            &iterable.span,
-                        ));
+                            )
+                            .boxed());
                     }
                 };
 
@@ -362,12 +376,14 @@ impl Parser {
             Statement::Throw(expr) => {
                 let expr_type = self.type_check_expression(expr)?;
                 if !expr_type.is_compatible_with(&BraiseType::Error) {
-                    return Err(self.create_type_error(
-                        "error".to_string(),
-                        expr_type.to_string(),
-                        "throw expression".to_string(),
-                        &expr.span,
-                    ));
+                    return Err(self
+                        .create_type_error(
+                            "error".to_string(),
+                            expr_type.to_string(),
+                            "throw expression".to_string(),
+                            &expr.span,
+                        )
+                        .boxed());
                 }
             }
             Statement::Try {
@@ -520,12 +536,14 @@ impl Parser {
                 if !condition_type.can_convert_from(&BraiseType::Bool)
                     && !matches!(condition_type, BraiseType::Bool | BraiseType::Any)
                 {
-                    return Err(self.create_type_error(
-                        "boolean or boolean-convertible".to_string(),
-                        condition_type.to_string(),
-                        "conditional expression condition".to_string(),
-                        &condition.span,
-                    ));
+                    return Err(self
+                        .create_type_error(
+                            "boolean or boolean-convertible".to_string(),
+                            condition_type.to_string(),
+                            "conditional expression condition".to_string(),
+                            &condition.span,
+                        )
+                        .boxed());
                 }
 
                 let result_type_resolved = then_type.common_type(&else_type);
@@ -552,10 +570,12 @@ impl Parser {
                 let expr_type = self.type_check_expression(expr)?;
 
                 if arms.is_empty() {
-                    return Err(self.create_error(
-                        "match expression must have at least one arm".to_string(),
-                        Token::Match,
-                    ));
+                    return Err(self
+                        .create_error(
+                            "match expression must have at least one arm".to_string(),
+                            Token::Match,
+                        )
+                        .boxed());
                 }
 
                 let patterns: Vec<MatchPattern> =
@@ -614,7 +634,8 @@ impl Parser {
                         self.source.to_string(),
                         span.into(),
                         Some("patterns for both true and false".to_string()),
-                    ));
+                    )
+                    .boxed());
                 }
             }
 
@@ -633,7 +654,8 @@ impl Parser {
                                 self.source.to_string(),
                                 span.into(),
                                 Some(format!("pattern for enum variant '{variant}'")),
-                            ));
+                            )
+                            .boxed());
                         }
                     }
                 }
@@ -648,8 +670,9 @@ impl Parser {
                     return Err(ParseError::non_exhaustive_match(
                         self.source.to_string(),
                         span.into(),
-                        Some(format!("patterns for type '{}'", e)),
-                    ));
+                        Some(format!("patterns for type '{e}'")),
+                    )
+                    .boxed());
                 }
             }
         }

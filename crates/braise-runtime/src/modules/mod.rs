@@ -9,7 +9,8 @@ pub trait BuiltinModule: Send + Sync {
         Err(RuntimeError::builtin_error(
             format!("Field '{field}' not supported by this module"),
             "module",
-        ))
+        )
+        .boxed())
     }
     fn has_function(&self, _function: &str) -> bool {
         false
@@ -45,7 +46,7 @@ macro_rules! builtin_module {
                     _ => Err(crate::RuntimeError::builtin_error(
                         format!("Unknown function '{}' in module '{}'", function, stringify!($module_name)),
                         stringify!($module_name)
-                    ))
+                    ).boxed())
                 }
             }
 
@@ -67,7 +68,7 @@ macro_rules! builtin_module {
                         _ => Err(crate::RuntimeError::builtin_error(
                             format!("Unknown field '{}' in module '{}'", field, stringify!($module_name)),
                             stringify!($module_name)
-                        ))
+                        ).boxed())
                     }
                 }
 
@@ -90,7 +91,7 @@ macro_rules! builtin_module {
                 return Err(crate::RuntimeError::builtin_error(
                     format!("Function '{}' requires no arguments, got {}", stringify!($func_method), $args.len()),
                     "module"
-                ));
+                ).boxed());
             }
             $self.$func_method()
         }
@@ -107,7 +108,7 @@ macro_rules! builtin_module {
                     format!("Function '{}' requires exactly {} arguments, got {}",
                         stringify!($func_method), EXPECTED_ARGS, $args.len()),
                     "module"
-                ));
+                ).boxed());
             }
 
             // Validate argument types
@@ -123,7 +124,7 @@ macro_rules! builtin_module {
     (@count $head:expr $(, $tail:expr)*) => { 1 + builtin_module!(@count $( $tail ),*) };
 
     // Helper macro to validate argument types
-    (@validate_args $args:ident, $func_name:expr, $index:expr,) => { Ok(()) };
+    (@validate_args $args:ident, $func_name:expr, $index:expr,) => { Ok::<(), crate::RuntimeError>(()) };
     (@validate_args $args:ident, $func_name:expr, $index:expr, $arg_type:expr $(, $rest:expr)*) => {
         {
             if let Some(arg) = $args.get($index) {
@@ -132,7 +133,7 @@ macro_rules! builtin_module {
                         format!("Function '{}' expected argument {} of type {}, got {}",
                             $func_name, $index + 1, $arg_type, arg.value_type),
                         "module"
-                    ));
+                    ).boxed());
                 }
             }
             builtin_module!(@validate_args $args, $func_name, $index + 1, $( $rest ),*)
@@ -210,6 +211,12 @@ macro_rules! register_modules {
 
 pub struct BuiltinModules;
 
+impl Default for BuiltinModules {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BuiltinModules {
     pub fn new() -> Self {
         Self
@@ -225,20 +232,18 @@ impl BuiltinModules {
     ) -> Result<TypedValue> {
         match MODULES.get(module) {
             Some(m) => m.call_function(function, args),
-            None => Err(RuntimeError::builtin_error(
-                format!("Unknown module: {module}"),
-                module,
-            )),
+            None => Err(
+                RuntimeError::builtin_error(format!("Unknown module: {module}"), module).boxed(),
+            ),
         }
     }
 
     pub fn get_field(&self, module: &str, field: &str) -> Result<TypedValue> {
         match MODULES.get(module) {
             Some(m) => m.get_field(field),
-            None => Err(RuntimeError::builtin_error(
-                format!("Unknown module: {module}"),
-                module,
-            )),
+            None => Err(
+                RuntimeError::builtin_error(format!("Unknown module: {module}"), module).boxed(),
+            ),
         }
     }
 }

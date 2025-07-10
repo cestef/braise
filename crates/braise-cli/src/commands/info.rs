@@ -1,5 +1,5 @@
 use braise_errors::RuntimeError;
-use core::{Result, ast::*};
+use core::{BraiseError, Result, ast::*};
 use lexer::tokenize;
 use owo_colors::OwoColorize;
 use parser::Parser as BraiseParser;
@@ -7,13 +7,15 @@ use parser::Parser as BraiseParser;
 pub fn show_recipe_info(contents: &str, file: &str, recipe_name: &str) -> Result<()> {
     let tokens = tokenize(contents)?;
     let mut parser = BraiseParser::new(tokens, contents.to_string().into(), file.to_string());
-    let ast = parser.parse()?;
+    let ast = parser.parse().map_err(|e| BraiseError::from(*e))?;
 
     let recipe = ast
         .recipes
         .iter()
         .find(|r| r.value.name == recipe_name)
-        .ok_or_else(|| RuntimeError::undefined_recipe(recipe_name.to_string()))?;
+        .ok_or_else(|| {
+            BraiseError::Runtime(RuntimeError::undefined_recipe(recipe_name.to_string()).boxed())
+        })?;
 
     println!("{}\n", recipe.value.name.cyan().bold());
 

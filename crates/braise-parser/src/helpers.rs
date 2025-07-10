@@ -188,7 +188,9 @@ impl Parser {
         if self.check(&expected) {
             Ok(self.advance())
         } else {
-            Err(self.create_error(expected.to_string(), self.peek().clone()))
+            Err(self
+                .create_error(expected.to_string(), self.peek().clone())
+                .boxed())
         }
     }
 
@@ -199,7 +201,9 @@ impl Parser {
                 self.advance();
                 Ok(result)
             }
-            _ => Err(self.create_error("identifier".to_string(), self.peek().clone())),
+            _ => Err(self
+                .create_error("identifier".to_string(), self.peek().clone())
+                .boxed()),
         }
     }
 
@@ -210,7 +214,9 @@ impl Parser {
                 self.advance();
                 Ok(result)
             }
-            _ => Err(self.create_error("string".to_string(), self.peek().clone())),
+            _ => Err(self
+                .create_error("string".to_string(), self.peek().clone())
+                .boxed()),
         }
     }
 

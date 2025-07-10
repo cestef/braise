@@ -1,9 +1,11 @@
-use crate::{BraiseType, TypeError, TypedValue, ValueData};
+use braise_errors::TypeError;
+
+use crate::{BraiseType, TypedValue, ValueData};
 use std::collections::HashMap;
 
 impl TypedValue {
     /// Try to convert this value to the target type
-    pub fn convert_to(&self, target_type: &BraiseType) -> Result<TypedValue, TypeError> {
+    pub fn convert_to(&self, target_type: &BraiseType) -> Result<TypedValue, Box<TypeError>> {
         if self.value_type.is_compatible_with(target_type) {
             return Ok(self.clone());
         }
@@ -18,7 +20,7 @@ impl TypedValue {
                         return Ok(value);
                     }
                 }
-                Err(TypeError::cannot_convert(&self.value_type, target_type))
+                Err(TypeError::cannot_convert(&self.value_type, target_type).boxed())
             }
             (ValueData::String(s), BraiseType::Number) => {
                 let num = s.parse::<f64>().map_err(|_| {
@@ -48,7 +50,7 @@ impl TypedValue {
             }
 
             (ValueData::Array(arr), BraiseType::Array(target_inner)) => {
-                let converted: Result<Vec<TypedValue>, TypeError> = arr
+                let converted: Result<Vec<TypedValue>, Box<TypeError>> = arr
                     .iter()
                     .map(|item| item.convert_to(target_inner))
                     .collect();
@@ -66,16 +68,17 @@ impl TypedValue {
                         format!("one of {{{}}}", variants.join(", ")),
                         s,
                         "enum conversion",
-                    ))
+                    )
+                    .boxed())
                 }
             }
 
-            _ => Err(TypeError::cannot_convert(&self.value_type, target_type)),
+            _ => Err(TypeError::cannot_convert(&self.value_type, target_type).boxed()),
         }
     }
 
     /// Type-safe value coercion
-    pub fn coerce_to_type(&self, target_type: &BraiseType) -> Result<TypedValue, TypeError> {
+    pub fn coerce_to_type(&self, target_type: &BraiseType) -> Result<TypedValue, Box<TypeError>> {
         if self.value_type.is_compatible_with(target_type) {
             return Ok(self.clone());
         }
@@ -84,17 +87,14 @@ impl TypedValue {
     }
 
     /// Convert to number (for arithmetic operations)
-    pub fn to_number(&self) -> Result<f64, TypeError> {
+    pub fn to_number(&self) -> Result<f64, Box<TypeError>> {
         match &self.value {
             ValueData::Number(n) => Ok(*n),
-            ValueData::String(s) => s
-                .parse()
-                .map_err(|_| TypeError::cannot_convert(&self.value_type, &BraiseType::Number)),
+            ValueData::String(s) => s.parse().map_err(|_| {
+                TypeError::cannot_convert(&self.value_type, &BraiseType::Number).boxed()
+            }),
             ValueData::Bool(b) => Ok(if *b { 1.0 } else { 0.0 }),
-            _ => Err(TypeError::cannot_convert(
-                &self.value_type,
-                &BraiseType::Number,
-            )),
+            _ => Err(TypeError::cannot_convert(&self.value_type, &BraiseType::Number).boxed()),
         }
     }
 
@@ -103,13 +103,14 @@ impl TypedValue {
         &self,
         expected_type: &BraiseType,
         context: &str,
-    ) -> Result<(), TypeError> {
+    ) -> Result<(), Box<TypeError>> {
         if !self.value_type.is_compatible_with(expected_type) {
             return Err(TypeError::mismatch(
                 expected_type.to_string(),
                 format!("{:?}", self.value),
                 context,
-            ));
+            )
+            .boxed());
         }
         Ok(())
     }
@@ -231,7 +232,7 @@ impl TypeConverter {
         left: &TypedValue,
         right: &TypedValue,
         operation: &str,
-    ) -> Result<(TypedValue, TypedValue), TypeError> {
+    ) -> Result<(TypedValue, TypedValue), Box<TypeError>> {
         // If types are already compatible, no coercion needed
         if left.value_type.is_compatible_with(&right.value_type) {
             return Ok((left.clone(), right.clone()));
@@ -266,11 +267,10 @@ impl TypeConverter {
             ));
         }
 
-        Err(TypeError::unsupported_operation(
-            operation,
-            &left.value_type,
-            &right.value_type,
-        ))
+        Err(
+            TypeError::unsupported_operation(operation, &left.value_type, &right.value_type)
+                .boxed(),
+        )
     }
 }
 

@@ -1,3 +1,4 @@
+pub mod cache;
 pub mod cli;
 pub mod lexer;
 pub mod lsp;
@@ -5,6 +6,7 @@ pub mod parser;
 pub mod runtime;
 pub mod types;
 
+pub use cache::*;
 pub use cli::*;
 pub use lexer::*;
 pub use lsp::*;

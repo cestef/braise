@@ -127,15 +127,15 @@ pub enum TypeError {
 }
 
 impl TypeError {
-    pub fn mismatch(
-        expected: impl Into<String>,
-        got: impl Into<String>,
-        context: impl Into<String>,
-    ) -> Self {
+    pub fn boxed(self) -> Box<Self> {
+        Box::new(self)
+    }
+
+    pub fn mismatch(expected: impl ToString, got: impl ToString, context: impl ToString) -> Self {
         Self::Mismatch {
-            expected: expected.into(),
-            got: got.into(),
-            context: context.into(),
+            expected: expected.to_string(),
+            got: got.to_string(),
+            context: context.to_string(),
             suggestion: None,
             code: None,
             span: None,
@@ -143,73 +143,73 @@ impl TypeError {
     }
 
     pub fn mismatch_with_suggestion(
-        expected: impl Into<String>,
-        got: impl Into<String>,
-        context: impl Into<String>,
-        suggestion: impl Into<String>,
+        expected: impl ToString,
+        got: impl ToString,
+        context: impl ToString,
+        suggestion: impl ToString,
     ) -> Self {
         Self::Mismatch {
-            expected: expected.into(),
-            got: got.into(),
-            context: context.into(),
-            suggestion: Some(suggestion.into()),
+            expected: expected.to_string(),
+            got: got.to_string(),
+            context: context.to_string(),
+            suggestion: Some(suggestion.to_string()),
             code: None,
             span: None,
         }
     }
 
     pub fn mismatch_with_context(
-        expected: impl Into<String>,
-        got: impl Into<String>,
-        context: impl Into<String>,
-        code: impl Into<String>,
+        expected: impl ToString,
+        got: impl ToString,
+        context: impl ToString,
+        code: impl ToString,
         span: SourceSpan,
     ) -> Self {
-        let expected = expected.into();
-        let got = got.into();
+        let expected = expected.to_string();
+        let got = got.to_string();
         Self::Mismatch {
             suggestion: Self::suggest_type_fix(&expected, &got),
             expected,
             got,
-            context: context.into(),
-            code: Some(code.into()),
+            context: context.to_string(),
+            code: Some(code.to_string()),
             span: Some(span),
         }
     }
 
     pub fn unsupported_operation(
-        operation: impl Into<String>,
-        left: impl Into<String>,
-        right: impl Into<String>,
+        operation: impl ToString,
+        left: impl ToString,
+        right: impl ToString,
     ) -> Self {
         Self::UnsupportedOperation {
-            operation: operation.into(),
-            left: left.into(),
-            right: right.into(),
+            operation: operation.to_string(),
+            left: left.to_string(),
+            right: right.to_string(),
             code: None,
             span: None,
         }
     }
 
     pub fn unsupported_operation_with_context(
-        operation: impl Into<String>,
-        left: impl Into<String>,
-        right: impl Into<String>,
-        code: impl Into<String>,
+        operation: impl ToString,
+        left: impl ToString,
+        right: impl ToString,
+        code: impl ToString,
         span: SourceSpan,
     ) -> Self {
         Self::UnsupportedOperation {
-            operation: operation.into(),
-            left: left.into(),
-            right: right.into(),
-            code: Some(code.into()),
+            operation: operation.to_string(),
+            left: left.to_string(),
+            right: right.to_string(),
+            code: Some(code.to_string()),
             span: Some(span),
         }
     }
 
-    pub fn cannot_convert(from: impl Into<String>, to: impl Into<String>) -> Self {
-        let from = from.into();
-        let to = to.into();
+    pub fn cannot_convert(from: impl ToString, to: impl ToString) -> Self {
+        let from = from.to_string();
+        let to = to.to_string();
         Self::CannotConvert {
             suggestion: Self::suggest_conversion_fix(&from, &to),
             from,
@@ -220,57 +220,54 @@ impl TypeError {
     }
 
     pub fn cannot_convert_with_context(
-        from: impl Into<String>,
-        to: impl Into<String>,
-        code: impl Into<String>,
+        from: impl ToString,
+        to: impl ToString,
+        code: impl ToString,
         span: SourceSpan,
     ) -> Self {
-        let from = from.into();
-        let to = to.into();
+        let from = from.to_string();
+        let to = to.to_string();
         Self::CannotConvert {
             suggestion: Self::suggest_conversion_fix(&from, &to),
             from,
             to,
-            code: Some(code.into()),
+            code: Some(code.to_string()),
             span: Some(span),
         }
     }
 
-    pub fn invalid_type(reason: impl Into<String>) -> Self {
+    pub fn invalid_type(reason: impl ToString) -> Self {
         Self::InvalidType {
-            reason: reason.into(),
+            reason: reason.to_string(),
             code: None,
             span: None,
         }
     }
 
     pub fn invalid_type_with_context(
-        reason: impl Into<String>,
-        code: impl Into<String>,
+        reason: impl ToString,
+        code: impl ToString,
         span: SourceSpan,
     ) -> Self {
         Self::InvalidType {
-            reason: reason.into(),
-            code: Some(code.into()),
+            reason: reason.to_string(),
+            code: Some(code.to_string()),
             span: Some(span),
         }
     }
 
-    pub fn inference_failure(reason: impl Into<String>) -> Self {
+    pub fn inference_failure(reason: impl ToString) -> Self {
         Self::InferenceFailure {
-            reason: reason.into(),
+            reason: reason.to_string(),
             code: None,
             span: None,
         }
     }
 
-    pub fn constraint_violation(
-        constraint: impl Into<String>,
-        violating_type: impl Into<String>,
-    ) -> Self {
+    pub fn constraint_violation(constraint: impl ToString, violating_type: impl ToString) -> Self {
         Self::ConstraintViolation {
-            constraint: constraint.into(),
-            violating_type: violating_type.into(),
+            constraint: constraint.to_string(),
+            violating_type: violating_type.to_string(),
             code: None,
             span: None,
         }
@@ -303,46 +300,46 @@ impl TypeError {
         }
     }
 
-    pub fn with_context(mut self, code: impl Into<String>, span: SourceSpan) -> Self {
+    pub fn with_context(mut self, code: impl ToString, span: SourceSpan) -> Self {
         match &mut self {
             TypeError::Mismatch {
                 code: c, span: s, ..
             } => {
-                *c = Some(code.into());
+                *c = Some(code.to_string());
                 *s = Some(span);
             }
             TypeError::UnsupportedOperation {
                 code: c, span: s, ..
             } => {
-                *c = Some(code.into());
+                *c = Some(code.to_string());
                 *s = Some(span);
             }
             TypeError::CannotConvert {
                 code: c, span: s, ..
             } => {
-                *c = Some(code.into());
+                *c = Some(code.to_string());
                 *s = Some(span);
             }
             TypeError::InvalidType {
                 code: c, span: s, ..
             } => {
-                *c = Some(code.into());
+                *c = Some(code.to_string());
                 *s = Some(span);
             }
             TypeError::InferenceFailure {
                 code: c, span: s, ..
             } => {
-                *c = Some(code.into());
+                *c = Some(code.to_string());
                 *s = Some(span);
             }
             TypeError::ConstraintViolation {
                 code: c, span: s, ..
             } => {
-                *c = Some(code.into());
+                *c = Some(code.to_string());
                 *s = Some(span);
             }
             TypeError::DivisionByZero { code: c, span: s } => {
-                *c = Some(code.into());
+                *c = Some(code.to_string());
                 *s = Some(span);
             }
         }

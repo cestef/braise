@@ -51,7 +51,8 @@ impl InputModule {
                 return Err(RuntimeError::builtin_error(
                     "Select function requires at least one option".to_string(),
                     "input",
-                ));
+                )
+                .boxed());
             }
 
             let string_options: Vec<String> = options.iter().map(|opt| opt.to_string()).collect();
@@ -67,7 +68,8 @@ impl InputModule {
             Err(RuntimeError::builtin_error(
                 "Select function requires an array of options".to_string(),
                 "input",
-            ))
+            )
+            .boxed())
         }
     }
 
@@ -77,7 +79,8 @@ impl InputModule {
                 return Err(RuntimeError::builtin_error(
                     "Multiselect function requires at least one option".to_string(),
                     "input",
-                ));
+                )
+                .boxed());
             }
 
             let string_options: Vec<String> = options.iter().map(|opt| opt.to_string()).collect();
@@ -104,7 +107,8 @@ impl InputModule {
             Err(RuntimeError::builtin_error(
                 "Multiselect function requires an array of options".to_string(),
                 "input",
-            ))
+            )
+            .boxed())
         }
     }
 

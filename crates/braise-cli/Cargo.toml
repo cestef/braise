@@ -25,6 +25,7 @@ runtime = { path = "../braise-runtime", package = "braise-runtime" }
 fmt = { path = "../braise-fmt", package = "braise-fmt" }
 lsp = { path = "../braise-lsp", package = "braise-lsp" }
 braise-errors = { path = "../braise-errors" }
+braise-cache = { path = "../braise-cache" }
 
 [[bin]]
 name = "braise"

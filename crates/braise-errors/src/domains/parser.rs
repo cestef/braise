@@ -150,6 +150,10 @@ pub enum ParserError {
 }
 
 impl ParserError {
+    pub fn boxed(self) -> Box<Self> {
+        Box::new(self)
+    }
+
     /// Create an unexpected token error
     pub fn unexpected_token(
         expected: impl Into<String>,

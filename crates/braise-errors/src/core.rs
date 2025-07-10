@@ -18,24 +18,48 @@ pub enum BraiseError {
 
     /// Parsing errors
     #[error(transparent)]
-    Parser(#[from] ParserError),
+    Parser(#[from] Box<ParserError>),
 
     /// Runtime execution errors
     #[error(transparent)]
-    Runtime(#[from] RuntimeError),
+    Runtime(#[from] Box<RuntimeError>),
 
     /// Type system errors
     #[error(transparent)]
-    Type(#[from] TypeError),
+    Type(#[from] Box<TypeError>),
 
     /// Command-line interface errors
     #[error(transparent)]
-    Cli(#[from] CliError),
+    Cli(#[from] Box<CliError>),
 
     /// Language Server Protocol errors
     #[error(transparent)]
-    Lsp(#[from] LspError),
+    Lsp(#[from] Box<LspError>),
+
+    /// Cache errors
+    #[error(transparent)]
+    Cache(#[from] Box<CacheError>),
 }
+
+macro_rules! impl_from_error {
+    ($($error_type:ident: $variant:ident),*) => {
+        $(
+            impl From<$error_type> for BraiseError {
+                fn from(error: $error_type) -> Self {
+                    BraiseError::$variant(error.boxed())
+                }
+            }
+        )*
+    };
+}
+
+impl_from_error!(
+    ParserError: Parser,
+    RuntimeError: Runtime,
+    TypeError: Type,
+    CliError: Cli,
+    LspError: Lsp
+);
 
 impl BraiseError {
     /// Create a lexer error with source context
@@ -72,6 +96,11 @@ impl BraiseError {
         matches!(self, BraiseError::Lsp(_))
     }
 
+    /// Check if this error is a cache error
+    pub fn is_cache_error(&self) -> bool {
+        matches!(self, BraiseError::Cache(_))
+    }
+
     /// Get the error domain as a string
     pub fn domain(&self) -> &'static str {
         match self {
@@ -81,6 +110,7 @@ impl BraiseError {
             BraiseError::Type(_) => "type",
             BraiseError::Cli(_) => "cli",
             BraiseError::Lsp(_) => "lsp",
+            BraiseError::Cache(_) => "cache",
         }
     }
 
@@ -93,6 +123,7 @@ impl BraiseError {
             BraiseError::Type(_) => ErrorSeverity::Error,
             BraiseError::Cli(_) => ErrorSeverity::Error,
             BraiseError::Lsp(_) => ErrorSeverity::Warning,
+            BraiseError::Cache(e) => e.severity(),
         }
     }
 }
@@ -145,17 +176,7 @@ impl miette::Diagnostic for BraiseError {
             BraiseError::Type(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),
             BraiseError::Cli(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),
             BraiseError::Lsp(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),
-        }
-    }
-
-    fn diagnostic_source(&self) -> Option<&dyn miette::Diagnostic> {
-        match self {
-            BraiseError::Lexer { .. } => None,
-            BraiseError::Parser(_) => None,
-            BraiseError::Runtime(_) => None,
-            BraiseError::Type(e) => Some(e),
-            BraiseError::Cli(e) => Some(e),
-            BraiseError::Lsp(e) => Some(e),
+            BraiseError::Cache(e) => e.code().map(|c| Box::new(c) as Box<dyn std::fmt::Display>),
         }
     }
 
@@ -167,6 +188,7 @@ impl miette::Diagnostic for BraiseError {
             BraiseError::Type(e) => e.help().map(|h| Box::new(h) as Box<dyn std::fmt::Display>),
             BraiseError::Cli(e) => e.help().map(|h| Box::new(h) as Box<dyn std::fmt::Display>),
             BraiseError::Lsp(e) => e.help().map(|h| Box::new(h) as Box<dyn std::fmt::Display>),
+            BraiseError::Cache(e) => e.help().map(|h| Box::new(h) as Box<dyn std::fmt::Display>),
         }
     }
 
@@ -178,6 +200,7 @@ impl miette::Diagnostic for BraiseError {
             BraiseError::Type(e) => e.source_code(),
             BraiseError::Cli(e) => e.source_code(),
             BraiseError::Lsp(e) => e.source_code(),
+            BraiseError::Cache(e) => e.source_code(),
         }
     }
 
@@ -191,6 +214,7 @@ impl miette::Diagnostic for BraiseError {
             BraiseError::Type(e) => e.labels(),
             BraiseError::Cli(e) => e.labels(),
             BraiseError::Lsp(e) => e.labels(),
+            BraiseError::Cache(e) => e.labels(),
         }
     }
 }
@@ -208,7 +232,7 @@ mod tests {
 
     #[test]
     fn test_error_type_checking() {
-        let parser_error = BraiseError::Parser(ParserError::other("test"));
+        let parser_error = BraiseError::Parser(ParserError::other("test").boxed());
         assert!(parser_error.is_parser_error());
         assert!(!parser_error.is_runtime_error());
     }

@@ -21,7 +21,11 @@ impl Parser {
             Token::Shell => self.parse_shell_statement()?,
             Token::Try => self.parse_try_statement()?,
             Token::Throw => self.parse_throw_statement()?,
-            e => return Err(self.create_error("statement".to_string(), e.clone())),
+            e => {
+                return Err(self
+                    .create_error("statement".to_string(), e.clone())
+                    .boxed());
+            }
         };
 
         let end_token = self.current;
@@ -59,9 +63,9 @@ impl Parser {
         };
 
         if catch_block.is_none() && finally_block.is_none() {
-            return Err(
-                self.create_error("catch or finally block".to_string(), self.peek().clone())
-            );
+            return Err(self
+                .create_error("catch or finally block".to_string(), self.peek().clone())
+                .boxed());
         }
 
         Ok(Statement::Try {
@@ -115,7 +119,9 @@ impl Parser {
             let value = self.parse_expression()?;
             Ok(Statement::Assign { name, value })
         } else {
-            Err(self.create_error("assignment".to_string(), self.peek().clone()))
+            Err(self
+                .create_error("assignment".to_string(), self.peek().clone())
+                .boxed())
         }
     }
 
@@ -138,12 +144,14 @@ impl Parser {
                 if !matches!(declared_type, BraiseType::Any)
                     && !expr_type.is_compatible_with(&declared_type)
                 {
-                    return Err(self.create_type_error(
-                        declared_type.to_string(),
-                        expr_type.to_string(),
-                        format!("let statement for variable '{name}'"),
-                        &value_expr.span,
-                    ));
+                    return Err(self
+                        .create_type_error(
+                            declared_type.to_string(),
+                            expr_type.to_string(),
+                            format!("let statement for variable '{name}'"),
+                            &value_expr.span,
+                        )
+                        .boxed());
                 }
 
                 inferred_type = Some(expr_type);
@@ -151,10 +159,12 @@ impl Parser {
 
             value = Some(value_expr);
         } else if matches!(declared_type, BraiseType::Any) {
-            return Err(self.create_error(
-                "type annotation or initial value".to_string(),
-                self.peek().clone(),
-            ));
+            return Err(self
+                .create_error(
+                    "type annotation or initial value".to_string(),
+                    self.peek().clone(),
+                )
+                .boxed());
         }
 
         let final_type = if !matches!(declared_type, BraiseType::Any) {
@@ -280,7 +290,7 @@ impl Parser {
             let arm_end = self.current;
             let arm_span = self.span_from_token_range(arm_start, arm_end);
 
-            let bindings = self.extract_pattern_bindings(&pattern)?;
+            let bindings = Self::extract_pattern_bindings(&pattern)?;
 
             let arm = MatchArm {
                 pattern,
@@ -301,10 +311,7 @@ impl Parser {
     }
 
     /// Extract variable bindings from a match pattern with their types
-    fn extract_pattern_bindings(
-        &mut self,
-        pattern: &MatchPattern,
-    ) -> Result<HashMap<String, BraiseType>> {
+    fn extract_pattern_bindings(pattern: &MatchPattern) -> Result<HashMap<String, BraiseType>> {
         let mut bindings = HashMap::new();
 
         match pattern {
@@ -315,7 +322,7 @@ impl Parser {
                 for element in elements {
                     match &element.value {
                         ArrayPatternElement::Pattern(inner_pattern) => {
-                            let inner_bindings = self.extract_pattern_bindings(inner_pattern)?;
+                            let inner_bindings = Self::extract_pattern_bindings(inner_pattern)?;
                             bindings.extend(inner_bindings);
                         }
                         ArrayPatternElement::Rest(Some(name)) => {
@@ -334,12 +341,12 @@ impl Parser {
             }
             MatchPattern::Or(patterns) => {
                 for pattern_node in patterns {
-                    let inner_bindings = self.extract_pattern_bindings(&pattern_node.value)?;
+                    let inner_bindings = Self::extract_pattern_bindings(&pattern_node.value)?;
                     bindings.extend(inner_bindings);
                 }
             }
             MatchPattern::Guard { pattern, .. } => {
-                let inner_bindings = self.extract_pattern_bindings(&pattern.value)?;
+                let inner_bindings = Self::extract_pattern_bindings(&pattern.value)?;
                 bindings.extend(inner_bindings);
             }
             _ => {}
@@ -357,24 +364,24 @@ impl Parser {
         match statement {
             Statement::Let {
                 name,
-                value,
+                value: Some(value),
                 param_type,
                 inferred_type,
             } => {
-                if let Some(value_expr) = value {
-                    let expr_type = self.infer_expression_type(&value_expr.value);
+                let expr_type = self.infer_expression_type(&value.value);
 
-                    if !expr_type.is_compatible_with(param_type) {
-                        return Err(self.create_type_error(
+                if !expr_type.is_compatible_with(param_type) {
+                    return Err(self
+                        .create_type_error(
                             param_type.to_string(),
                             expr_type.to_string(),
                             format!("variable declaration '{name}'"),
-                            &value_expr.span,
-                        ));
-                    }
-
-                    *inferred_type = Some(expr_type);
+                            &value.span,
+                        )
+                        .boxed());
                 }
+
+                *inferred_type = Some(expr_type);
             }
             Statement::Assign { name, value } => {
                 if let Some(var_type) = self.type_engine.get_variable_type(name) {
@@ -382,15 +389,19 @@ impl Parser {
                     let expr_type = self.infer_expression_type(&value.value);
 
                     if !expr_type.is_compatible_with(&var_type_clone) {
-                        return Err(self.create_type_error(
-                            var_type_clone.to_string(),
-                            expr_type.to_string(),
-                            format!("assignment to variable '{name}'"),
-                            &value.span,
-                        ));
+                        return Err(self
+                            .create_type_error(
+                                var_type_clone.to_string(),
+                                expr_type.to_string(),
+                                format!("assignment to variable '{name}'"),
+                                &value.span,
+                            )
+                            .boxed());
                     }
                 } else {
-                    return Err(self.create_undefined_variable_error(name, &value.span));
+                    return Err(self
+                        .create_undefined_variable_error(name, &value.span)
+                        .boxed());
                 }
             }
             _ => {}
@@ -406,9 +417,10 @@ mod tests {
     use std::assert_matches::assert_matches;
 
     use super::*;
+    use braise_errors::ParserError;
     use lexer::tokenize;
 
-    fn parse_statement_string(input: &str) -> Result<Statement> {
+    fn parse_statement_string(input: &str) -> Result<Statement, Box<ParserError>> {
         let tokens = tokenize(input).unwrap();
         let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
         let stmt = parser.parse_statement()?;
@@ -595,7 +607,7 @@ mod tests {
         let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
         let config = parser.parse();
 
-        let config = config?;
+        let config = config.map_err(|e| miette::miette!(e.to_string()))?;
         assert_eq!(config.recipes.len(), 1);
 
         let recipe = &config.recipes[0].value;

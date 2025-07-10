@@ -41,7 +41,8 @@ impl Executor for DefaultExecutor {
             return Err(RuntimeError::command_failed(
                 input.to_string(),
                 status.code().unwrap_or(-1),
-            ));
+            )
+            .boxed());
         }
 
         Ok(())
@@ -90,7 +91,8 @@ impl Executor for StringExecutor {
             return Err(RuntimeError::command_failed(
                 input.to_string(),
                 output.status.code().unwrap_or(-1),
-            ));
+            )
+            .boxed());
         }
 
         let mut out = self.output.lock().unwrap();
@@ -115,5 +117,121 @@ impl StringExecutor {
             dry_run,
             output: Arc::new(Mutex::new(String::new())),
         }
+    }
+}
+
+pub struct CachingExecutor {
+    inner: Box<dyn Executor>,
+    cache_manager: braise_cache::CacheManager,
+}
+
+impl CachingExecutor {
+    pub fn new(inner: Box<dyn Executor>, cache_manager: braise_cache::CacheManager) -> Self {
+        Self {
+            inner,
+            cache_manager,
+        }
+    }
+}
+
+impl Executor for CachingExecutor {
+    fn run(&self, input: &str, shell: Option<&String>) -> Result<()> {
+        use braise_cache::CommandOutput;
+        use std::collections::HashMap;
+        use std::env;
+
+        // Generate cache key for the command
+        let working_dir = env::current_dir().unwrap_or_default();
+        let env_vars: HashMap<String, String> = env::vars().collect();
+
+        // Check cache first
+        if let Ok(Some(cached_output)) =
+            self.cache_manager
+                .get_command_output(input, &working_dir, &env_vars)
+        {
+            use owo_colors::OwoColorize;
+            println!(
+                "    {} {} ({})",
+                "→".cyan(),
+                "Using cached command output".dimmed(),
+                input.dimmed()
+            );
+
+            if cached_output.exit_code == 0 {
+                // Print cached output for consistency
+                if !cached_output.stdout.is_empty() {
+                    print!("{}", cached_output.stdout);
+                }
+                if !cached_output.stderr.is_empty() {
+                    eprint!("{}", cached_output.stderr);
+                }
+                return Ok(());
+            } else {
+                return Err(RuntimeError::command_failed(
+                    input.to_string(),
+                    cached_output.exit_code,
+                )
+                .boxed());
+            }
+        }
+
+        // Execute the command and capture output if possible
+        let result = self.execute_and_capture(input, shell);
+
+        // Cache the result
+        if let Ok(output) = &result {
+            let command_output = CommandOutput {
+                stdout: output.clone().unwrap_or_default(),
+                stderr: String::new(),
+                exit_code: 0,
+            };
+
+            let dependencies = vec![]; // Could add file dependencies here
+
+            let _ = self.cache_manager.set_command_output(
+                input,
+                &working_dir,
+                &env_vars,
+                command_output,
+                dependencies,
+            );
+        } else if let Err(err) = result.as_ref()
+            && let RuntimeError::CommandFailed {
+                command: _,
+                exit_code,
+                ..
+            } = err.as_ref()
+        {
+            let command_output = CommandOutput {
+                stdout: String::new(),
+                stderr: String::new(),
+                exit_code: *exit_code,
+            };
+
+            let dependencies = vec![];
+
+            let _ = self.cache_manager.set_command_output(
+                input,
+                &working_dir,
+                &env_vars,
+                command_output,
+                dependencies,
+            );
+        }
+
+        result.map(|_| ())
+    }
+
+    fn output(&self) -> Option<String> {
+        self.inner.output()
+    }
+}
+
+impl CachingExecutor {
+    fn execute_and_capture(&self, input: &str, shell: Option<&String>) -> Result<Option<String>> {
+        // For now, just delegate to the inner executor
+        // In a more sophisticated implementation, we could capture stdout/stderr
+        self.inner.run(input, shell)?;
+        Ok(self.inner.output())
     }
 }

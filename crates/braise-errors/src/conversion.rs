@@ -27,7 +27,7 @@ impl From<io::Error> for BraiseError {
             _ => "I/O operation",
         };
 
-        BraiseError::Runtime(RuntimeError::io_error(message, operation))
+        BraiseError::Runtime(RuntimeError::io_error(message, operation).boxed())
     }
 }
 
@@ -38,92 +38,68 @@ impl From<std::env::VarError> for BraiseError {
             std::env::VarError::NotPresent => "Environment variable not present",
             std::env::VarError::NotUnicode(_) => "Environment variable contains invalid Unicode",
         };
-        BraiseError::Runtime(RuntimeError::builtin_error(message, "env"))
+        BraiseError::Runtime(RuntimeError::builtin_error(message, "env").boxed())
     }
 }
 
 /// Conversion from string parsing errors
 impl From<std::num::ParseIntError> for BraiseError {
     fn from(error: std::num::ParseIntError) -> Self {
-        BraiseError::Type(TypeError::cannot_convert("string", "number"))
+        BraiseError::Type(TypeError::cannot_convert("string", "number").boxed())
             .with_suggestion(format!("Invalid number format: {error}"))
     }
 }
 
 impl From<std::num::ParseFloatError> for BraiseError {
     fn from(error: std::num::ParseFloatError) -> Self {
-        BraiseError::Type(TypeError::cannot_convert("string", "number"))
+        BraiseError::Type(TypeError::cannot_convert("string", "number").boxed())
             .with_suggestion(format!("Invalid float format: {error}"))
     }
 }
 
 impl From<std::str::ParseBoolError> for BraiseError {
     fn from(_error: std::str::ParseBoolError) -> Self {
-        BraiseError::Type(TypeError::cannot_convert("string", "bool")).with_suggestion(
+        BraiseError::Type(TypeError::cannot_convert("string", "bool").boxed()).with_suggestion(
             "Use 'true', 'false', '1', '0', 'yes', 'no', 'on', or 'off'".to_string(),
         )
-    }
-}
-
-/// Conversion from braise-types TypeError to unified TypeError
-impl From<braise_types::TypeError> for TypeError {
-    fn from(error: braise_types::TypeError) -> Self {
-        match error {
-            braise_types::TypeError::Mismatch {
-                expected,
-                got,
-                context,
-            } => TypeError::mismatch(expected, got, context),
-            braise_types::TypeError::UnsupportedOperation {
-                operation,
-                left,
-                right,
-            } => TypeError::unsupported_operation(operation, left, right),
-            braise_types::TypeError::CannotConvert { from, to } => {
-                TypeError::cannot_convert(from, to)
-            }
-        }
     }
 }
 
 /// Conversion from UTF-8 errors
 impl From<std::str::Utf8Error> for BraiseError {
     fn from(error: std::str::Utf8Error) -> Self {
-        BraiseError::Runtime(RuntimeError::other(format!(
-            "UTF-8 encoding error: {error}"
-        )))
+        BraiseError::Runtime(RuntimeError::other(format!("UTF-8 encoding error: {error}")).boxed())
     }
 }
 
 impl From<std::string::FromUtf8Error> for BraiseError {
     fn from(error: std::string::FromUtf8Error) -> Self {
-        BraiseError::Runtime(RuntimeError::other(format!(
-            "UTF-8 conversion error: {error}"
-        )))
+        BraiseError::Runtime(
+            RuntimeError::other(format!("UTF-8 conversion error: {error}")).boxed(),
+        )
     }
 }
 
 /// Conversion from filesystem errors
 impl From<std::fs::DirBuilder> for BraiseError {
     fn from(_: std::fs::DirBuilder) -> Self {
-        BraiseError::Runtime(RuntimeError::io_error(
-            "Directory creation failed",
-            "create directory",
-        ))
+        BraiseError::Runtime(
+            RuntimeError::io_error("Directory creation failed", "create directory").boxed(),
+        )
     }
 }
 
 /// Conversion from format errors
 impl From<std::fmt::Error> for BraiseError {
     fn from(error: std::fmt::Error) -> Self {
-        BraiseError::Runtime(RuntimeError::other(format!("Formatting error: {error}")))
+        BraiseError::Runtime(RuntimeError::other(format!("Formatting error: {error}")).boxed())
     }
 }
 
 /// Conversion from thread join errors
 impl From<Box<dyn std::any::Any + Send>> for BraiseError {
     fn from(_error: Box<dyn std::any::Any + Send>) -> Self {
-        BraiseError::Runtime(RuntimeError::other("Thread execution failed".to_string()))
+        BraiseError::Runtime(RuntimeError::other("Thread execution failed".to_string()).boxed())
     }
 }
 
@@ -136,13 +112,13 @@ pub trait ResultExt<T> {
     fn with_suggestion(self, suggestion: impl Into<String>) -> Result<T, BraiseError>;
 
     /// Convert to a runtime error with context
-    fn as_runtime_error(self, context: &str) -> Result<T, BraiseError>;
+    fn to_runtime_error(self, context: &str) -> Result<T, BraiseError>;
 
     /// Convert to a parser error with context
-    fn as_parser_error(self, context: &str) -> Result<T, BraiseError>;
+    fn to_parser_error(self, context: &str) -> Result<T, BraiseError>;
 
     /// Convert to a type error with context
-    fn as_type_error(self, expected: &str, got: &str, context: &str) -> Result<T, BraiseError>;
+    fn to_type_error(self, expected: &str, got: &str, context: &str) -> Result<T, BraiseError>;
 }
 
 impl<T, E> ResultExt<T> for Result<T, E>
@@ -165,28 +141,26 @@ where
         })
     }
 
-    fn as_runtime_error(self, context: &str) -> Result<T, BraiseError> {
+    fn to_runtime_error(self, context: &str) -> Result<T, BraiseError> {
         self.map_err(|e| {
-            BraiseError::Runtime(RuntimeError::other(format!(
-                "{}: {}",
-                context,
-                Into::<BraiseError>::into(e)
-            )))
+            BraiseError::Runtime(
+                RuntimeError::other(format!("{}: {}", context, Into::<BraiseError>::into(e)))
+                    .boxed(),
+            )
         })
     }
 
-    fn as_parser_error(self, context: &str) -> Result<T, BraiseError> {
+    fn to_parser_error(self, context: &str) -> Result<T, BraiseError> {
         self.map_err(|e| {
-            BraiseError::Parser(ParserError::other(format!(
-                "{}: {}",
-                context,
-                Into::<BraiseError>::into(e)
-            )))
+            BraiseError::Parser(
+                ParserError::other(format!("{}: {}", context, Into::<BraiseError>::into(e)))
+                    .boxed(),
+            )
         })
     }
 
-    fn as_type_error(self, expected: &str, got: &str, context: &str) -> Result<T, BraiseError> {
-        self.map_err(|_e| BraiseError::Type(TypeError::mismatch(expected, got, context)))
+    fn to_type_error(self, expected: &str, got: &str, context: &str) -> Result<T, BraiseError> {
+        self.map_err(|_e| BraiseError::Type(TypeError::mismatch(expected, got, context).boxed()))
     }
 }
 
@@ -196,14 +170,14 @@ impl BraiseError {
     pub fn with_context(self, context: String) -> Self {
         match self {
             BraiseError::Runtime(mut error) => {
-                match &mut error {
+                match error.as_mut() {
                     RuntimeError::Other { message, .. } => {
                         *message = format!("{context}: {message}");
                     }
                     _ => {
-                        return BraiseError::Runtime(RuntimeError::other(format!(
-                            "{context}: {error}"
-                        )));
+                        return BraiseError::Runtime(
+                            RuntimeError::other(format!("{context}: {error}")).boxed(),
+                        );
                     }
                 }
                 BraiseError::Runtime(error)
@@ -224,22 +198,23 @@ impl BraiseError {
         match self {
             BraiseError::Cli(cli_error) => {
                 matches!(
-                    cli_error,
+                    cli_error.as_ref(),
                     CliError::NoTask | CliError::InvalidArgument { .. }
                 )
             }
-            BraiseError::Parser(_) => false, // Syntax errors are generally not recoverable
+            BraiseError::Parser(_) => false,
             BraiseError::Runtime(runtime_error) => {
                 matches!(
-                    runtime_error,
+                    runtime_error.as_ref(),
                     RuntimeError::CommandFailed { .. }
                         | RuntimeError::InvalidParameter { .. }
                         | RuntimeError::BuiltinError { .. }
                 )
             }
-            BraiseError::Type(_) => false, // Type errors are not recoverable
-            BraiseError::Lexer { .. } => false, // Lexical errors are not recoverable
-            BraiseError::Lsp(_) => true,   // LSP errors are generally recoverable
+            BraiseError::Type(_) => false,
+            BraiseError::Lexer { .. } => false,
+            BraiseError::Lsp(_) => true,
+            BraiseError::Cache(_) => true,
         }
     }
 
@@ -252,6 +227,7 @@ impl BraiseError {
             BraiseError::Type(_) => "types",
             BraiseError::Lexer { .. } => "lexer",
             BraiseError::Lsp(_) => "lsp",
+            BraiseError::Cache(_) => "cache",
         }
     }
 }
@@ -266,10 +242,13 @@ mod tests {
         let braise_error: BraiseError = io_error.into();
 
         match braise_error {
-            BraiseError::Runtime(RuntimeError::IoError { operation, .. }) => {
-                assert_eq!(operation, "file not found");
-            }
-            _ => panic!("Expected IoError"),
+            BraiseError::Runtime(error) => match error.as_ref() {
+                RuntimeError::IoError { operation, .. } => {
+                    assert_eq!(operation, "file not found");
+                }
+                _ => panic!("Expected IoError"),
+            },
+            _ => panic!("Expected Runtime error"),
         }
     }
 
@@ -279,10 +258,13 @@ mod tests {
         let braise_error: BraiseError = parse_error.into();
 
         match braise_error {
-            BraiseError::Type(TypeError::CannotConvert { from, to, .. }) => {
-                assert_eq!(from, "string");
-                assert_eq!(to, "number");
-            }
+            BraiseError::Type(error) => match error.as_ref() {
+                TypeError::CannotConvert { from, to, .. } => {
+                    assert_eq!(from, "string");
+                    assert_eq!(to, "number");
+                }
+                _ => panic!("Expected CannotConvert"),
+            },
             _ => panic!("Expected CannotConvert"),
         }
     }
@@ -297,25 +279,30 @@ mod tests {
 
     #[test]
     fn test_error_recoverability() {
-        assert!(BraiseError::Cli(CliError::no_task()).is_recoverable());
-        assert!(!BraiseError::Parser(ParserError::other("test")).is_recoverable());
-        assert!(BraiseError::Runtime(RuntimeError::command_failed("ls", 1)).is_recoverable());
-        assert!(!BraiseError::Type(TypeError::mismatch("a", "b", "c")).is_recoverable());
+        assert!(BraiseError::Cli(CliError::no_task().boxed()).is_recoverable());
+        assert!(!BraiseError::Parser(ParserError::other("test").boxed()).is_recoverable());
+        assert!(
+            BraiseError::Runtime(RuntimeError::command_failed("ls", 1).boxed()).is_recoverable()
+        );
+        assert!(!BraiseError::Type(TypeError::mismatch("a", "b", "c").boxed()).is_recoverable());
     }
 
     #[test]
     fn test_error_categories() {
-        assert_eq!(BraiseError::Cli(CliError::no_task()).category(), "cli");
         assert_eq!(
-            BraiseError::Parser(ParserError::other("test")).category(),
+            BraiseError::Cli(CliError::no_task().boxed()).category(),
+            "cli"
+        );
+        assert_eq!(
+            BraiseError::Parser(ParserError::other("test").boxed()).category(),
             "parser"
         );
         assert_eq!(
-            BraiseError::Runtime(RuntimeError::other("test")).category(),
+            BraiseError::Runtime(RuntimeError::other("test").boxed()).category(),
             "runtime"
         );
         assert_eq!(
-            BraiseError::Type(TypeError::mismatch("a", "b", "c")).category(),
+            BraiseError::Type(TypeError::mismatch("a", "b", "c").boxed()).category(),
             "types"
         );
     }

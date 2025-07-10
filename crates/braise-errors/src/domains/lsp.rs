@@ -143,6 +143,9 @@ pub enum LspError {
 }
 
 impl LspError {
+    pub fn boxed(self) -> Box<Self> {
+        Box::new(self)
+    }
     /// Create an initialization failed error
     pub fn initialization_failed(reason: impl Into<String>) -> Self {
         Self::InitializationFailed {

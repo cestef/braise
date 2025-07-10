@@ -23,7 +23,8 @@ impl MathModule {
             return Err(RuntimeError::builtin_error(
                 "sqrt expects a non-negative number".to_string(),
                 "math",
-            ));
+            )
+            .boxed());
         }
         Ok(TypedValue::new(num_value.sqrt(), BraiseType::Number))
     }
@@ -36,7 +37,8 @@ impl MathModule {
             return Err(RuntimeError::builtin_error(
                 "rand expects min to be less than max".to_string(),
                 "math",
-            ));
+            )
+            .boxed());
         }
 
         let random_value = rand::random::<f64>() * (max_num - min_num) + min_num;
@@ -72,7 +74,8 @@ impl MathModule {
             return Err(RuntimeError::builtin_error(
                 "ln expects a positive number".to_string(),
                 "math",
-            ));
+            )
+            .boxed());
         }
         Ok(TypedValue::new(num_value.ln(), BraiseType::Number))
     }
@@ -85,7 +88,8 @@ impl MathModule {
             return Err(RuntimeError::builtin_error(
                 "log10 expects a positive number".to_string(),
                 "math",
-            ));
+            )
+            .boxed());
         }
         Ok(TypedValue::new(num_value.log10(), BraiseType::Number))
     }
@@ -98,7 +102,8 @@ impl MathModule {
             return Err(RuntimeError::builtin_error(
                 "log2 expects a positive number".to_string(),
                 "math",
-            ));
+            )
+            .boxed());
         }
         Ok(TypedValue::new(num_value.log2(), BraiseType::Number))
     }
@@ -114,7 +119,8 @@ impl MathModule {
             return Err(RuntimeError::builtin_error(
                 "log expects a positive number and base greater than 1".to_string(),
                 "math",
-            ));
+            )
+            .boxed());
         }
         Ok(TypedValue::new(
             num_value.log(base_value),
@@ -217,7 +223,8 @@ impl MathModule {
             return Err(RuntimeError::builtin_error(
                 "clamp expects min to be less than or equal to max".to_string(),
                 "math",
-            ));
+            )
+            .boxed());
         }
 
         Ok(TypedValue::new(

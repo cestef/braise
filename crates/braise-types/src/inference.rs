@@ -1,4 +1,6 @@
-use crate::{BraiseType, BuiltinTypeRegistry, TypeChecker, TypeError};
+use braise_errors::TypeError;
+
+use crate::{BraiseType, BuiltinTypeRegistry, TypeChecker};
 
 /// Type inference engine for Braise expressions and statements
 #[derive(Debug, Clone)]
@@ -84,13 +86,14 @@ impl TypeInferenceEngine {
         module: &str,
         function: &str,
         _args: &[BraiseType],
-    ) -> Result<BraiseType, TypeError> {
+    ) -> Result<BraiseType, Box<TypeError>> {
         if !self.builtin_registry.has_function(module, function) {
             return Err(TypeError::mismatch(
                 "valid function",
                 format!("{module}.{function}"),
                 "function call",
-            ));
+            )
+            .boxed());
         }
 
         // For now, we don't validate argument types for builtin functions
@@ -104,112 +107,18 @@ impl TypeInferenceEngine {
         &self,
         module: &str,
         field: &str,
-    ) -> Result<BraiseType, TypeError> {
+    ) -> Result<BraiseType, Box<TypeError>> {
         if !self.builtin_registry.has_field(module, field) {
             return Err(TypeError::mismatch(
                 "valid field",
                 format!("{module}.{field}"),
                 "field access",
-            ));
+            )
+            .boxed());
         }
 
         let field_type = self.get_builtin_field_type(module, field);
         Ok(field_type)
-    }
-
-    /// Infer the type of a binary operation
-    pub fn infer_binary_operation_type(
-        &self,
-        left_type: &BraiseType,
-        operator: &str,
-        right_type: &BraiseType,
-    ) -> Result<BraiseType, TypeError> {
-        match operator {
-            // Arithmetic operations
-            "+" | "-" | "*" | "/" | "%" => {
-                if left_type.can_convert_from(&BraiseType::Number)
-                    && right_type.can_convert_from(&BraiseType::Number)
-                {
-                    Ok(BraiseType::Number)
-                } else {
-                    Err(TypeError::unsupported_operation(
-                        operator, left_type, right_type,
-                    ))
-                }
-            }
-
-            // Comparison operations
-            "<" | ">" | "<=" | ">=" => {
-                if left_type.can_convert_from(&BraiseType::Number)
-                    && right_type.can_convert_from(&BraiseType::Number)
-                {
-                    Ok(BraiseType::Bool)
-                } else {
-                    Err(TypeError::unsupported_operation(
-                        operator, left_type, right_type,
-                    ))
-                }
-            }
-
-            // Equality operations
-            "==" | "!=" => Ok(BraiseType::Bool),
-
-            // Logical operations
-            "&&" | "||" => {
-                if left_type.can_convert_from(&BraiseType::Bool)
-                    && right_type.can_convert_from(&BraiseType::Bool)
-                {
-                    Ok(BraiseType::Bool)
-                } else {
-                    Err(TypeError::unsupported_operation(
-                        operator, left_type, right_type,
-                    ))
-                }
-            }
-
-            _ => Err(TypeError::unsupported_operation(
-                operator, left_type, right_type,
-            )),
-        }
-    }
-
-    /// Infer the type of a unary operation
-    pub fn infer_unary_operation_type(
-        &self,
-        operator: &str,
-        operand_type: &BraiseType,
-    ) -> Result<BraiseType, TypeError> {
-        match operator {
-            "!" | "not" => {
-                if operand_type.can_convert_from(&BraiseType::Bool) {
-                    Ok(BraiseType::Bool)
-                } else {
-                    Err(TypeError::mismatch(
-                        "boolean or boolean-convertible",
-                        operand_type.to_string(),
-                        "logical negation",
-                    ))
-                }
-            }
-
-            "-" => {
-                if operand_type.can_convert_from(&BraiseType::Number) {
-                    Ok(BraiseType::Number)
-                } else {
-                    Err(TypeError::mismatch(
-                        "number or number-convertible",
-                        operand_type.to_string(),
-                        "numeric negation",
-                    ))
-                }
-            }
-
-            _ => Err(TypeError::mismatch(
-                "valid unary operator",
-                operator,
-                "unary operation",
-            )),
-        }
     }
 
     /// Check array element type consistency
@@ -227,7 +136,10 @@ impl TypeInferenceEngine {
     }
 
     /// Validate that a type can be used in a conditional context
-    pub fn validate_condition_type(&self, condition_type: &BraiseType) -> Result<(), TypeError> {
+    pub fn validate_condition_type(
+        &self,
+        condition_type: &BraiseType,
+    ) -> Result<(), Box<TypeError>> {
         if !condition_type.can_convert_from(&BraiseType::Bool)
             && !matches!(condition_type, BraiseType::Bool | BraiseType::Any)
         {
@@ -235,7 +147,8 @@ impl TypeInferenceEngine {
                 "boolean or boolean-convertible",
                 condition_type.to_string(),
                 "conditional expression",
-            ));
+            )
+            .boxed());
         }
         Ok(())
     }
@@ -244,7 +157,7 @@ impl TypeInferenceEngine {
     pub fn validate_iterable_type(
         &self,
         iterable_type: &BraiseType,
-    ) -> Result<BraiseType, TypeError> {
+    ) -> Result<BraiseType, Box<TypeError>> {
         match iterable_type {
             BraiseType::Array(element_type) => Ok((**element_type).clone()),
             BraiseType::String => Ok(BraiseType::String),
@@ -255,23 +168,25 @@ impl TypeInferenceEngine {
                     "iterable type (array or string)",
                     iterable_type.to_string(),
                     "for loop",
-                )),
+                )
+                .boxed()),
             },
             BraiseType::Any => Ok(BraiseType::Any),
             _ => Err(TypeError::mismatch(
                 "iterable type (array or string)",
                 iterable_type.to_string(),
                 "for loop",
-            )),
+            )
+            .boxed()),
         }
     }
 
     /// Create a type error with context
     pub fn create_type_error(
         &self,
-        expected: impl Into<String>,
-        got: impl Into<String>,
-        context: impl Into<String>,
+        expected: impl ToString,
+        got: impl ToString,
+        context: impl ToString,
     ) -> TypeError {
         TypeError::mismatch(expected, got, context)
     }
@@ -332,29 +247,6 @@ mod tests {
 
         // Root shouldn't see child variables
         assert!(!root.is_variable_defined("y"));
-    }
-
-    #[test]
-    fn test_binary_operation_inference() {
-        let engine = TypeInferenceEngine::new();
-
-        // Arithmetic operations
-        let result = engine
-            .infer_binary_operation_type(&BraiseType::Number, "+", &BraiseType::Number)
-            .unwrap();
-        assert_eq!(result, BraiseType::Number);
-
-        // Comparison operations
-        let result = engine
-            .infer_binary_operation_type(&BraiseType::Number, "<", &BraiseType::Number)
-            .unwrap();
-        assert_eq!(result, BraiseType::Bool);
-
-        // Equality operations
-        let result = engine
-            .infer_binary_operation_type(&BraiseType::String, "==", &BraiseType::Number)
-            .unwrap();
-        assert_eq!(result, BraiseType::Bool);
     }
 
     #[test]

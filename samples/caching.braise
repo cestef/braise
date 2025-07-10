@@ -1,0 +1,5 @@
+recipe "test_cache" {
+    cache ["input.txt"]
+
+    run "cat input.txt | grep hello > output.txt"
+}

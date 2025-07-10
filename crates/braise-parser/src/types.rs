@@ -93,7 +93,9 @@ impl Parser {
                 Ok(inner_type)
             }
 
-            e => Err(self.create_error("parameter type".to_string(), e.clone())),
+            e => Err(self
+                .create_error("parameter type".to_string(), e.clone())
+                .boxed()),
         }
     }
 
@@ -216,12 +218,14 @@ impl Parser {
             };
 
             if !default_type.is_compatible_with(expected_type) {
-                return Err(self.create_type_error(
-                    expected_type.to_string(),
-                    default_type.to_string(),
-                    format!("default value for parameter '{}'", param.name),
-                    &default_expr.span,
-                ));
+                return Err(self
+                    .create_type_error(
+                        expected_type.to_string(),
+                        default_type.to_string(),
+                        format!("default value for parameter '{}'", param.name),
+                        &default_expr.span,
+                    )
+                    .boxed());
             }
         }
 

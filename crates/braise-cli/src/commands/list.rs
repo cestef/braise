@@ -1,4 +1,4 @@
-use core::Result;
+use core::{BraiseError, Result};
 use lexer::tokenize;
 use owo_colors::OwoColorize;
 use parser::Parser as BraiseParser;
@@ -6,7 +6,7 @@ use parser::Parser as BraiseParser;
 pub fn list_recipes(contents: &str, file: &str) -> Result<()> {
     let tokens = tokenize(contents)?;
     let mut parser = BraiseParser::new(tokens, contents.to_string().into(), file.to_string());
-    let ast = parser.parse()?;
+    let ast = parser.parse().map_err(|e| BraiseError::from(*e))?;
 
     if ast.recipes.is_empty() {
         println!("{} {}", "No recipes found in".dimmed(), file.bold());

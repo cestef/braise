@@ -59,6 +59,9 @@ pub enum CliError {
 }
 
 impl CliError {
+    pub fn boxed(self) -> Box<Self> {
+        Box::new(self)
+    }
     /// Create a read recipe error
     pub fn read_recipe_error(
         src: impl Into<Box<dyn std::error::Error + Send + Sync>>,

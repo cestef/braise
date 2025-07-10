@@ -5,7 +5,6 @@ edition.workspace = true
 authors.workspace = true
 
 [dependencies]
-braise-types = { path = "../braise-types" }
 miette.workspace = true
 thiserror.workspace = true
 owo-colors.workspace = true

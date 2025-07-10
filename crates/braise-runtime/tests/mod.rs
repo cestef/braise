@@ -2,7 +2,7 @@
 mod tests {
     use braise_errors::RuntimeError;
     use braise_runtime::{Runtime, StringExecutor};
-    use core::{BraiseType, TypedValue};
+    use core::{BraiseError, BraiseType, TypedValue};
     use lexer::tokenize;
     use miette::Result;
     use parser::Parser;
@@ -11,7 +11,7 @@ mod tests {
     fn create_runtime(input: &str) -> Result<Runtime> {
         let tokens = tokenize(&input)?;
         let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
-        let ast = parser.parse()?;
+        let ast = parser.parse().map_err(|e| BraiseError::from(*e))?;
         Ok(Runtime::new(ast, input.to_string().into()).with_executor(StringExecutor::new(false)))
     }
 
@@ -34,7 +34,7 @@ mod tests {
         let result = runtime.execute_recipe("a", HashMap::new());
         assert!(result.is_err());
 
-        match result.unwrap_err() {
+        match *result.unwrap_err() {
             RuntimeError::CircularDependency { recipe, stack, .. } => {
                 assert_eq!(recipe, "a");
                 assert!(stack.contains("a"));
@@ -71,7 +71,7 @@ mod tests {
         let runtime = create_runtime(input)?;
         let result = runtime.execute_recipe("undefined_recipe", HashMap::new());
         assert!(result.is_err());
-        match result.unwrap_err() {
+        match *result.unwrap_err() {
             RuntimeError::UndefinedRecipe { name, .. } => {
                 assert_eq!(name, "undefined_recipe");
             }
@@ -139,7 +139,7 @@ mod tests {
         let result = runtime.execute_recipe("greet", HashMap::new());
         assert!(result.is_err());
 
-        match result.unwrap_err() {
+        match *result.unwrap_err() {
             RuntimeError::MissingRequiredParameter {
                 name,
                 expected_type,

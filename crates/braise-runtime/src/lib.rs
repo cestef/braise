@@ -1,10 +1,11 @@
-use braise_types::TypeError as LegacyTypeError;
+use braise_cache::{CacheConfig, CacheManager};
 use core::error::TypeError;
 use core::error::runtime::*;
 use core::{BraiseType, Spanned, TypedValue, ValueData, ast::*};
 use owo_colors::OwoColorize;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use tracing::{debug, trace, warn};
 
@@ -21,6 +22,7 @@ pub struct Runtime {
     config: Config,
     builtins: BuiltinModules,
     pub executor: Box<dyn Executor>,
+    pub cache_manager: Option<CacheManager>,
     dry_run: bool,
     source: Arc<String>,
     stack: Arc<RwLock<HashSet<String>>>,
@@ -32,6 +34,7 @@ impl Runtime {
             config,
             builtins: BuiltinModules::new(),
             executor: Box::new(executor::DefaultExecutor::new(false)),
+            cache_manager: None,
             dry_run: false,
             source,
             stack: Default::default(),
@@ -46,6 +49,39 @@ impl Runtime {
     pub fn with_dry_run(mut self) -> Self {
         self.executor = Box::new(executor::DefaultExecutor::new(true));
         self.dry_run = true;
+        self
+    }
+
+    pub fn with_cache(mut self, cache_config: CacheConfig) -> Self {
+        match CacheManager::new(cache_config.clone()) {
+            Ok(cache_manager) => {
+                debug!("Cache enabled for runtime");
+
+                // Wrap the executor with caching if command caching is enabled
+                if cache_config.command_cache {
+                    let caching_executor = executor::CachingExecutor::new(
+                        std::mem::replace(
+                            &mut self.executor,
+                            Box::new(executor::DefaultExecutor::new(false)),
+                        ),
+                        cache_manager.clone(),
+                    );
+                    self.executor = Box::new(caching_executor);
+                    debug!("Command caching enabled");
+                }
+
+                self.cache_manager = Some(cache_manager);
+            }
+            Err(e) => {
+                warn!("Failed to initialize cache manager: {}", e);
+                debug!("Runtime will continue without caching");
+            }
+        }
+        self
+    }
+
+    pub fn disable_cache(mut self) -> Self {
+        self.cache_manager = None;
         self
     }
 
@@ -69,7 +105,8 @@ impl Runtime {
                 return Err(RuntimeError::circular_dependency(
                     name.to_string(),
                     stack.iter().cloned().collect(),
-                ));
+                )
+                .boxed());
             }
         }
 
@@ -108,6 +145,34 @@ impl Runtime {
             recipe.value.body.len()
         );
 
+        // Check cache if available and cache files are specified
+        if let Some(cache_manager) = &self.cache_manager
+            && !recipe.value.cache.is_empty()
+        {
+            if let Ok(Some(cached_result)) =
+                self.try_get_cached_recipe(name, &user_params, &recipe.value, cache_manager)
+            {
+                debug!("Recipe '{}' found in cache", name);
+                let cache_files = recipe.value.cache.join(", ");
+                println!(
+                    "  {} {} ({})",
+                    "→".cyan(),
+                    "Using cached result".dimmed(),
+                    cache_files.dimmed()
+                );
+                return cached_result;
+            } else {
+                debug!("Recipe '{}' not found in cache, executing", name);
+                let cache_files = recipe.value.cache.join(", ");
+                println!(
+                    "  {} {} ({})",
+                    "→".dimmed(),
+                    "Caching recipe result".dimmed(),
+                    cache_files.dimmed()
+                );
+            }
+        }
+
         if !recipe.value.dependencies.is_empty() {
             debug!("Executing dependencies: {:?}", recipe.value.dependencies);
         }
@@ -116,24 +181,40 @@ impl Runtime {
             self.execute_recipe(dep, HashMap::new())?;
         }
 
-        let mut context = self.resolve_parameters(&recipe.value, user_params)?;
+        let mut context = self.resolve_parameters(&recipe.value, &user_params)?;
         debug!("Resolved {} context variables", context.len());
 
         println!("{}", name.cyan().bold());
 
         debug!("Executing {} statements", recipe.value.body.len());
-        for (i, statement) in recipe.value.body.iter().enumerate() {
-            trace!("Executing statement {}: {:?}", i + 1, statement.value);
-            self.execute_statement(statement, &mut context)?;
+        let execution_result = (|| {
+            for (i, statement) in recipe.value.body.iter().enumerate() {
+                trace!("Executing statement {}: {:?}", i + 1, statement.value);
+                self.execute_statement(statement, &mut context)?;
+            }
+            Ok::<(), Box<RuntimeError>>(())
+        })();
+
+        // Cache the result if cache manager is available and cache files are specified
+        if let Some(cache_manager) = &self.cache_manager
+            && !recipe.value.cache.is_empty()
+        {
+            let _ = self.try_cache_recipe_result(
+                name,
+                &user_params,
+                &recipe.value,
+                &execution_result,
+                cache_manager,
+            );
         }
 
-        Ok(())
+        execution_result
     }
 
     fn resolve_parameters(
         &self,
         recipe: &Recipe,
-        user_params: HashMap<String, TypedValue>,
+        user_params: &HashMap<String, TypedValue>,
     ) -> Result<ExecutionContext> {
         let mut context = ExecutionContext::new();
         let mut provided_params = user_params.clone();
@@ -146,7 +227,7 @@ impl Runtime {
 
                 evaluated.convert_to(&param.value.param_type).map_err(|e| {
                     RuntimeError::type_error_with_context(
-                        e.into(),
+                        e,
                         self.source.to_string(),
                         (&default_expr.span).into(),
                     )
@@ -157,7 +238,8 @@ impl Runtime {
                 return Err(RuntimeError::missing_required_parameter(
                     param.value.name.clone(),
                     param.value.param_type.to_string(),
-                ));
+                )
+                .boxed());
             };
 
             context.set(param.value.name.clone(), value);
@@ -178,7 +260,8 @@ impl Runtime {
                     .map(|p| format!("{}: {}", p.value.name.bold(), p.value.param_type.dimmed()))
                     .collect::<Vec<_>>()
                     .join(", ")
-            )));
+            ))
+            .boxed());
         }
 
         Ok(context)
@@ -188,10 +271,8 @@ impl Runtime {
         &self,
         value: &TypedValue,
         expected_type: &BraiseType,
-    ) -> Result<TypedValue, TypeError> {
-        let converted_value = value
-            .convert_to(expected_type)
-            .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+    ) -> Result<TypedValue, Box<TypeError>> {
+        let converted_value = value.convert_to(expected_type)?;
 
         Ok(converted_value)
     }
@@ -317,10 +398,12 @@ impl Runtime {
                             "iterable",
                             iterable_value.value_type.to_string(),
                             format!("For loop variable '{var}'"),
-                        ),
+                        )
+                        .boxed(),
                         self.source.to_string(),
                         (&iterable.span).into(),
-                    ));
+                    )
+                    .boxed());
                 }
             }
             Statement::Print(expr) => {
@@ -340,7 +423,8 @@ impl Runtime {
                                 "number",
                                 value.value_type.to_string(),
                                 "exit code",
-                            ),
+                            )
+                            .boxed(),
                             self.source.to_string(),
                             (&expr.span).into(),
                         )
@@ -354,7 +438,7 @@ impl Runtime {
                         exit_code.to_string().dimmed()
                     );
                 } else {
-                    return Err(RuntimeError::exit(exit_code));
+                    return Err(RuntimeError::exit(exit_code).boxed());
                 }
             }
             Statement::Let {
@@ -371,7 +455,7 @@ impl Runtime {
 
                 let value = self.try_match_type(&value, param_type).map_err(|e| {
                     RuntimeError::type_error_with_context(
-                        e,
+                        e.boxed(),
                         self.source.to_string(),
                         if let Some(expr) = orig_value {
                             (&expr.span).into()
@@ -386,7 +470,7 @@ impl Runtime {
             Statement::Assign { name, value } => {
                 let value = self.evaluate_expression(value, context)?;
                 if !context.contains(name) {
-                    return Err(RuntimeError::undefined_variable(name.clone()));
+                    return Err(RuntimeError::undefined_variable(name.clone()).boxed());
                 }
                 context.set(name.clone(), value);
             }
@@ -445,7 +529,8 @@ impl Runtime {
                     code,
                     self.source.to_string(),
                     (&expr.span).into(),
-                ));
+                )
+                .boxed());
             }
         }
         Ok(())
@@ -554,7 +639,7 @@ impl Runtime {
             }
         }
 
-        Err(RuntimeError::match_no_arm(match_value.to_string()))
+        Err(RuntimeError::match_no_arm(match_value.to_string()).boxed())
     }
 
     fn evaluate_match_expression(
@@ -589,7 +674,7 @@ impl Runtime {
             }
         }
 
-        Err(RuntimeError::match_no_arm(match_value.to_string()))
+        Err(RuntimeError::match_no_arm(match_value.to_string()).boxed())
     }
 
     /// Core pattern matching implementation
@@ -806,7 +891,7 @@ impl Runtime {
             Expression::Variable(name) => context
                 .get(name)
                 .cloned()
-                .ok_or_else(|| RuntimeError::undefined_variable(name.clone())),
+                .ok_or_else(|| RuntimeError::undefined_variable(name.clone()).boxed()),
             Expression::FunctionCall {
                 module,
                 function,
@@ -869,6 +954,7 @@ impl Runtime {
                             self.source.to_string(),
                             (&expr.span).into(),
                         )
+                        .boxed()
                     })
             }
             Expression::UnaryOp { op, expr, .. } => {
@@ -878,7 +964,7 @@ impl Runtime {
                     UnaryOperator::Minus => {
                         let num_value = value.to_number().map_err(|e| {
                             RuntimeError::type_error_with_context(
-                                e.into(),
+                                e.boxed(),
                                 self.source.to_string(),
                                 (&expr.span).into(),
                             )
@@ -923,7 +1009,7 @@ impl Runtime {
         left: &TypedValue,
         op: &BinaryOperator,
         right: &TypedValue,
-    ) -> Result<TypedValue, TypeError> {
+    ) -> Result<TypedValue, Box<TypeError>> {
         match op {
             BinaryOperator::Equal => Ok(TypedValue::new(
                 Self::values_equal(left, right),
@@ -934,39 +1020,23 @@ impl Runtime {
                 BraiseType::Bool,
             )),
             BinaryOperator::Less => {
-                let left_num = left
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left.to_number()?;
+                let right_num = right.to_number()?;
                 Ok(TypedValue::new(left_num < right_num, BraiseType::Bool))
             }
             BinaryOperator::LessEqual => {
-                let left_num = left
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left.to_number()?;
+                let right_num = right.to_number()?;
                 Ok(TypedValue::new(left_num <= right_num, BraiseType::Bool))
             }
             BinaryOperator::Greater => {
-                let left_num = left
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left.to_number()?;
+                let right_num = right.to_number()?;
                 Ok(TypedValue::new(left_num > right_num, BraiseType::Bool))
             }
             BinaryOperator::GreaterEqual => {
-                let left_num = left
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left.to_number()?;
+                let right_num = right.to_number()?;
                 Ok(TypedValue::new(left_num >= right_num, BraiseType::Bool))
             }
             BinaryOperator::And => Ok(TypedValue::new(
@@ -978,63 +1048,39 @@ impl Runtime {
                 BraiseType::Bool,
             )),
             BinaryOperator::Plus => {
-                let left_num = left
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left.to_number()?;
+                let right_num = right.to_number()?;
                 Ok(TypedValue::new(left_num + right_num, BraiseType::Number))
             }
             BinaryOperator::Minus => {
-                let left_num = left
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left.to_number()?;
+                let right_num = right.to_number()?;
                 Ok(TypedValue::new(left_num - right_num, BraiseType::Number))
             }
             BinaryOperator::Multiply => {
-                let left_num = left
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left.to_number()?;
+                let right_num = right.to_number()?;
                 Ok(TypedValue::new(left_num * right_num, BraiseType::Number))
             }
             BinaryOperator::Divide => {
-                let left_num = left
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left.to_number()?;
+                let right_num = right.to_number()?;
                 if right_num == 0.0 {
-                    return Err(TypeError::division_by_zero());
+                    return Err(TypeError::division_by_zero().boxed());
                 }
                 Ok(TypedValue::new(left_num / right_num, BraiseType::Number))
             }
             BinaryOperator::Modulus => {
-                let left_num = left
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left.to_number()?;
+                let right_num = right.to_number()?;
                 if right_num == 0.0 {
-                    return Err(TypeError::division_by_zero());
+                    return Err(TypeError::division_by_zero().boxed());
                 }
                 Ok(TypedValue::new(left_num % right_num, BraiseType::Number))
             }
             BinaryOperator::Exponent => {
-                let left_num = left
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
-                let right_num = right
-                    .to_number()
-                    .map_err(|e: LegacyTypeError| -> TypeError { e.into() })?;
+                let left_num = left.to_number()?;
+                let right_num = right.to_number()?;
                 Ok(TypedValue::new(
                     left_num.powf(right_num),
                     BraiseType::Number,
@@ -1072,5 +1118,132 @@ impl Runtime {
         println!("  {} {}", "→".blue(), command);
 
         self.executor.run(command, shell)
+    }
+
+    // Cache helper methods
+    fn try_get_cached_recipe(
+        &self,
+        name: &str,
+        user_params: &HashMap<String, TypedValue>,
+        recipe: &Recipe,
+        cache_manager: &CacheManager,
+    ) -> Result<Option<Result<()>>> {
+        // Generate file hashes for cache key
+        let file_hashes = self.generate_file_hashes_for_recipe(recipe)?;
+
+        match cache_manager.get_recipe_result(name, user_params, &file_hashes) {
+            Ok(Some(cached_result)) => {
+                debug!("Cache hit for recipe '{}'", name);
+                Ok(Some(
+                    cached_result.map_err(|e| RuntimeError::other(e).boxed()),
+                ))
+            }
+            Ok(None) => {
+                debug!("Cache miss for recipe '{}'", name);
+                Ok(None)
+            }
+            Err(e) => {
+                warn!("Cache lookup error for recipe '{}': {}", name, e);
+                Ok(None)
+            }
+        }
+    }
+
+    fn try_cache_recipe_result(
+        &self,
+        name: &str,
+        user_params: &HashMap<String, TypedValue>,
+        recipe: &Recipe,
+        result: &Result<()>,
+        cache_manager: &CacheManager,
+    ) -> Result<()> {
+        // Generate file hashes for cache key
+        let file_hashes = self.generate_file_hashes_for_recipe(recipe)?;
+
+        // Create cache dependencies for the recipe
+        let dependencies = self.generate_cache_dependencies_for_recipe(recipe);
+
+        // Convert the result for caching
+        let cache_result = match result {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        };
+
+        match cache_manager.set_recipe_result(
+            name,
+            user_params,
+            &file_hashes,
+            cache_result,
+            dependencies,
+        ) {
+            Ok(_) => {
+                debug!("Cached result for recipe '{}'", name);
+            }
+            Err(e) => {
+                warn!("Failed to cache result for recipe '{}': {}", name, e);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn generate_file_hashes_for_recipe(&self, recipe: &Recipe) -> Result<HashMap<PathBuf, String>> {
+        use braise_cache::CacheKeyGenerator;
+        use std::path::PathBuf;
+
+        let mut file_hashes = HashMap::new();
+
+        // Use recipe's cache directive files if specified, otherwise use common files
+        let cache_files = if !recipe.cache.is_empty() {
+            recipe.cache.iter().map(PathBuf::from).collect()
+        } else {
+            // Default common files when no cache directive is specified
+            vec![PathBuf::from("Braisefile"), PathBuf::from(".braise")]
+        };
+
+        for file_path in cache_files {
+            if file_path.exists() {
+                match CacheKeyGenerator::hash_file_metadata(&file_path) {
+                    Ok(hash) => {
+                        file_hashes.insert(file_path, hash);
+                    }
+                    Err(e) => {
+                        debug!("Failed to hash file {:?}: {}", file_path, e);
+                    }
+                }
+            }
+        }
+
+        Ok(file_hashes)
+    }
+
+    fn generate_cache_dependencies_for_recipe(
+        &self,
+        recipe: &Recipe,
+    ) -> Vec<braise_cache::CacheDependency> {
+        use braise_cache::{CacheDependency, DependencyType};
+        use std::path::PathBuf;
+
+        let mut dependencies = Vec::new();
+
+        // Use recipe's cache directive files if specified, otherwise use common files
+        let cache_files = if !recipe.cache.is_empty() {
+            recipe.cache.iter().map(PathBuf::from).collect()
+        } else {
+            // Default common files when no cache directive is specified
+            vec![PathBuf::from("Braisefile"), PathBuf::from(".braise")]
+        };
+
+        for file_path in cache_files {
+            if file_path.exists() {
+                dependencies.push(CacheDependency {
+                    dependency_type: DependencyType::File,
+                    path: file_path,
+                    hash: String::new(), // Hash will be generated when needed
+                });
+            }
+        }
+
+        dependencies
     }
 }

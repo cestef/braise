@@ -10,6 +10,7 @@ members = [
     "crates/braise-cli",
     "crates/braise-lsp",
     "crates/braise-fmt",
+    "crates/braise-cache",
     "crates/integration-tests",
     "crates/logos-display",
 ]

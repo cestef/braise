@@ -585,11 +585,11 @@ impl DiagnosticsProvider {
     fn is_valid_builtin_function(&self, module: &str, function: &str) -> bool {
         MODULES
             .get(module)
-            .map_or(false, |m| m.has_function(function))
+            .is_some_and(|m| m.has_function(function))
     }
 
     fn is_valid_builtin_field(&self, module: &str, field: &str) -> bool {
-        MODULES.get(module).map_or(false, |m| m.has_field(field))
+        MODULES.get(module).is_some_and(|m| m.has_field(field))
     }
 
     fn offset_to_position(&self, offset: usize, text: &str) -> Position {
@@ -639,7 +639,7 @@ impl DiagnosticsProvider {
                 source: Some("braise".to_string()),
                 ..Default::default()
             },
-            BraiseError::Parser(parse_error) => match parse_error {
+            BraiseError::Parser(parse_error) => match parse_error.as_ref() {
                 ParserError::UnexpectedToken {
                     expected,
                     found,

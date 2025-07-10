@@ -1,4 +1,6 @@
-use crate::{BraiseType, TypeError, TypeInferenceEngine, TypedValue};
+use braise_errors::TypeError;
+
+use crate::{BraiseType, TypeInferenceEngine, TypedValue};
 
 /// Type validation utilities for the Braise language
 pub struct TypeValidator {
@@ -34,13 +36,14 @@ impl TypeValidator {
         value: &TypedValue,
         expected_type: &BraiseType,
         context: &str,
-    ) -> Result<(), TypeError> {
+    ) -> Result<(), Box<TypeError>> {
         if !value.value_type.is_compatible_with(expected_type) {
             return Err(TypeError::mismatch(
                 expected_type.to_string(),
                 value.value_type.to_string(),
                 context,
-            ));
+            )
+            .boxed());
         }
         Ok(())
     }
@@ -51,13 +54,11 @@ impl TypeValidator {
         expected: &BraiseType,
         actual: &BraiseType,
         context: &str,
-    ) -> Result<(), TypeError> {
+    ) -> Result<(), Box<TypeError>> {
         if !actual.is_compatible_with(expected) {
-            return Err(TypeError::mismatch(
-                expected.to_string(),
-                actual.to_string(),
-                context,
-            ));
+            return Err(
+                TypeError::mismatch(expected.to_string(), actual.to_string(), context).boxed(),
+            );
         }
         Ok(())
     }
@@ -68,13 +69,14 @@ impl TypeValidator {
         from: &BraiseType,
         to: &BraiseType,
         context: &str,
-    ) -> Result<(), TypeError> {
+    ) -> Result<(), Box<TypeError>> {
         if !to.can_convert_from(from) {
             return Err(TypeError::mismatch(
                 format!("type convertible to {to}"),
                 from.to_string(),
                 context,
-            ));
+            )
+            .boxed());
         }
         Ok(())
     }
@@ -85,13 +87,14 @@ impl TypeValidator {
         default_type: &BraiseType,
         param_type: &BraiseType,
         param_name: &str,
-    ) -> Result<(), TypeError> {
+    ) -> Result<(), Box<TypeError>> {
         if !default_type.is_compatible_with(param_type) {
             return Err(TypeError::mismatch(
                 param_type.to_string(),
                 default_type.to_string(),
                 format!("default value for parameter '{param_name}'"),
-            ));
+            )
+            .boxed());
         }
         Ok(())
     }
@@ -102,14 +105,15 @@ impl TypeValidator {
         element_types: &[BraiseType],
         expected_element_type: &BraiseType,
         context: &str,
-    ) -> Result<(), TypeError> {
+    ) -> Result<(), Box<TypeError>> {
         for (i, element_type) in element_types.iter().enumerate() {
             if !element_type.is_compatible_with(expected_element_type) {
                 return Err(TypeError::mismatch(
                     expected_element_type.to_string(),
                     element_type.to_string(),
                     format!("{context} element {i}"),
-                ));
+                )
+                .boxed());
             }
         }
         Ok(())
@@ -121,7 +125,7 @@ impl TypeValidator {
         module: &str,
         function: &str,
         arg_types: &[BraiseType],
-    ) -> Result<BraiseType, TypeError> {
+    ) -> Result<BraiseType, Box<TypeError>> {
         // For now, we use the inference engine's validation
         // This could be extended with more sophisticated argument checking
         self.engine
@@ -133,7 +137,7 @@ impl TypeValidator {
         &self,
         module: &str,
         field: &str,
-    ) -> Result<BraiseType, TypeError> {
+    ) -> Result<BraiseType, Box<TypeError>> {
         self.engine.validate_field_access(module, field)
     }
 
@@ -142,7 +146,7 @@ impl TypeValidator {
         &self,
         condition_type: &BraiseType,
         context: &str,
-    ) -> Result<(), TypeError> {
+    ) -> Result<(), Box<TypeError>> {
         if !condition_type.can_convert_from(&BraiseType::Bool)
             && !matches!(condition_type, BraiseType::Bool | BraiseType::Any)
         {
@@ -150,7 +154,8 @@ impl TypeValidator {
                 "boolean or boolean-convertible",
                 condition_type.to_string(),
                 context,
-            ));
+            )
+            .boxed());
         }
         Ok(())
     }
@@ -160,7 +165,7 @@ impl TypeValidator {
         &self,
         iterable_type: &BraiseType,
         context: &str,
-    ) -> Result<BraiseType, TypeError> {
+    ) -> Result<BraiseType, Box<TypeError>> {
         match iterable_type {
             BraiseType::Array(element_type) => Ok((**element_type).clone()),
             BraiseType::String => Ok(BraiseType::String),
@@ -171,14 +176,16 @@ impl TypeValidator {
                     "iterable type (array or string)",
                     iterable_type.to_string(),
                     context,
-                )),
+                )
+                .boxed()),
             },
             BraiseType::Any => Ok(BraiseType::Any),
             _ => Err(TypeError::mismatch(
                 "iterable type (array or string)",
                 iterable_type.to_string(),
                 context,
-            )),
+            )
+            .boxed()),
         }
     }
 
@@ -187,13 +194,14 @@ impl TypeValidator {
         &self,
         types: &[BraiseType],
         context: &str,
-    ) -> Result<(), TypeError> {
+    ) -> Result<(), Box<TypeError>> {
         if types.is_empty() {
             return Err(TypeError::mismatch(
                 "non-empty type list",
                 "empty list",
                 format!("{context} union type"),
-            ));
+            )
+            .boxed());
         }
 
         // Check for redundant types in union
@@ -214,13 +222,14 @@ impl TypeValidator {
         &self,
         variants: &[String],
         context: &str,
-    ) -> Result<(), TypeError> {
+    ) -> Result<(), Box<TypeError>> {
         if variants.is_empty() {
             return Err(TypeError::mismatch(
                 "non-empty variant list",
                 "empty list",
                 format!("{context} enum type"),
-            ));
+            )
+            .boxed());
         }
 
         // Check for duplicate variants
@@ -231,7 +240,8 @@ impl TypeValidator {
                         "unique enum variants",
                         format!("duplicate variant '{variant1}'"),
                         format!("{context} enum type"),
-                    ));
+                    )
+                    .boxed());
                 }
             }
         }
@@ -245,7 +255,7 @@ impl TypeValidator {
         actual_type: &BraiseType,
         expected_type: Option<&BraiseType>,
         context: &str,
-    ) -> Result<BraiseType, TypeError> {
+    ) -> Result<BraiseType, Box<TypeError>> {
         if let Some(expected) = expected_type {
             self.validate_type_compatibility(expected, actual_type, context)?;
             Ok(expected.clone())

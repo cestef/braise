@@ -304,13 +304,14 @@ impl BraiseError {
             BraiseError::Type(_) => Some("braise::types".to_string()),
             BraiseError::Lexer { .. } => Some("braise::lexer".to_string()),
             BraiseError::Lsp(_) => Some("braise::lsp".to_string()),
+            BraiseError::Cache(_) => Some("braise::cache".to_string()),
         }
     }
 
     /// Get help text for this error (if available)
     pub fn help_text(&self) -> Option<String> {
         match self {
-            BraiseError::Cli(cli_error) => match cli_error {
+            BraiseError::Cli(cli_error) => match cli_error.as_ref() {
                 crate::domains::CliError::NoTask => Some(
                     "Specify a recipe name to run, or use --list to see available recipes"
                         .to_string(),
@@ -331,6 +332,9 @@ impl BraiseError {
                 Some("Check for invalid characters or token sequences".to_string())
             }
             BraiseError::Lsp(_) => Some("This is an LSP protocol error".to_string()),
+            BraiseError::Cache(_) => Some(
+                "This is a cache-related error. Cache functionality will be disabled.".to_string(),
+            ),
         }
     }
 }
@@ -394,7 +398,7 @@ mod tests {
     #[test]
     fn test_error_formatter_basic() {
         let formatter = ErrorFormatter::new();
-        let error = BraiseError::Cli(CliError::no_task());
+        let error = BraiseError::Cli(CliError::no_task().boxed());
 
         let formatted = formatter.format_error(&error);
         assert!(!formatted.is_empty());
@@ -407,7 +411,7 @@ mod tests {
         config.use_colors = false;
 
         let formatter = ErrorFormatter::with_config(config);
-        let error = BraiseError::Runtime(RuntimeError::undefined_variable("test"));
+        let error = BraiseError::Runtime(RuntimeError::undefined_variable("test").boxed());
 
         let formatted = formatter.format_error(&error);
         assert!(!formatted.is_empty());
@@ -419,8 +423,8 @@ mod tests {
     fn test_multiple_errors_formatting() {
         let formatter = ErrorFormatter::new();
         let errors = vec![
-            BraiseError::Cli(CliError::no_task()),
-            BraiseError::Runtime(RuntimeError::undefined_variable("x")),
+            BraiseError::Cli(CliError::no_task().boxed()),
+            BraiseError::Runtime(RuntimeError::undefined_variable("x").boxed()),
         ];
 
         let formatted = formatter.format_errors(&errors);
@@ -432,7 +436,7 @@ mod tests {
     #[test]
     fn test_error_summary() {
         let formatter = ErrorFormatter::new();
-        let error = BraiseError::Type(TypeError::mismatch("string", "number", "test"));
+        let error = BraiseError::Type(TypeError::mismatch("string", "number", "test").boxed());
 
         let summary = formatter.format_error_summary(&error);
         assert!(!summary.is_empty());
@@ -444,7 +448,7 @@ mod tests {
         let formatter = ErrorFormatter::new();
         let error = BraiseError::Runtime(RuntimeError::other(
             "A very long error message that should be truncated because it exceeds the maximum length for compact display",
-        ));
+        ).boxed());
 
         let compact = formatter.format_compact(&error);
         assert!(compact.len() < 100); // Should be truncated

@@ -39,14 +39,28 @@ async fn main() -> miette::Result<()> {
                 .map_err(|e| CliError::read_recipe_error(e, file.clone()))?;
 
             match cli.command {
-                Some(Commands::List) => list_recipes(&contents, &file)?,
-                Some(Commands::Format { stdout }) => format_recipe(&contents, &file, stdout)?,
-                Some(Commands::Info { recipe }) => show_recipe_info(&contents, &file, &recipe)?,
+                Some(Commands::List) => list_recipes(&contents, &file).map_err(|e| *e)?,
+                Some(Commands::Format { stdout }) => {
+                    format_recipe(&contents, &file, stdout).map_err(|e| *e)?
+                }
+                Some(Commands::Info { recipe }) => {
+                    show_recipe_info(&contents, &file, &recipe).map_err(|e| *e)?
+                }
                 None => {
                     if let Some(recipe_name) = cli.recipe {
-                        run_recipe(&contents, &file, &recipe_name, &cli.args, cli.dry)?;
+                        let cache_enabled = !cli.no_cache;
+                        run_recipe(
+                            &contents,
+                            &file,
+                            &recipe_name,
+                            &cli.args,
+                            cli.dry,
+                            cache_enabled,
+                            cli.cache_dir,
+                        )
+                        .map_err(|e| *e)?;
                     } else {
-                        list_recipes(&contents, &file)?;
+                        list_recipes(&contents, &file).map_err(|e| *e)?;
                     }
                 }
                 _ => unreachable!(),

@@ -1,7 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Core type system for Braise
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BraiseType {
     String,
     Number,
@@ -148,13 +149,13 @@ impl std::fmt::Display for BraiseType {
 }
 
 /// A value with its associated type information
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TypedValue {
     pub value: ValueData,
     pub value_type: BraiseType,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ValueData {
     String(String),
     Number(f64),
@@ -171,6 +172,32 @@ impl TypedValue {
             value: value.into(),
             value_type,
         }
+    }
+
+    pub fn string(value: impl Into<String>) -> Self {
+        Self::new(ValueData::String(value.into()), BraiseType::String)
+    }
+
+    pub fn number(value: f64) -> Self {
+        Self::new(ValueData::Number(value), BraiseType::Number)
+    }
+
+    pub fn bool(value: bool) -> Self {
+        Self::new(ValueData::Bool(value), BraiseType::Bool)
+    }
+
+    pub fn array(values: Vec<TypedValue>) -> Self {
+        let value_type = if values.is_empty() {
+            BraiseType::Array(Box::new(BraiseType::Any))
+        } else {
+            let first_type = values[0].infer_type();
+            let common = values
+                .iter()
+                .skip(1)
+                .fold(first_type, |acc, item| acc.common_type(&item.infer_type()));
+            BraiseType::Array(Box::new(common))
+        };
+        Self::new(ValueData::Array(values), value_type)
     }
 
     /// Get the actual runtime type of this value

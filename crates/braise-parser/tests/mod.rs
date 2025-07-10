@@ -8,7 +8,7 @@ mod tests {
     use lexer::tokenize;
     use std::assert_matches::assert_matches;
 
-    fn parse_input(input: &str) -> Result<Config, ParserError> {
+    fn parse_input(input: &str) -> Result<Config, Box<ParserError>> {
         let tokens = tokenize(input).map_err(|_| ParserError::other("Tokenization failed"))?;
         let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
         parser.parse()
@@ -98,7 +98,7 @@ mod tests {
     }
 
     #[test]
-    fn test_control_flow_statements() -> miette::Result<()> {
+    fn test_control_flow_statements() -> Result<()> {
         let input = r#"
         recipe "test" {
             let condition: bool = true
@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn test_expressions() -> miette::Result<()> {
+    fn test_expressions() -> Result<()> {
         let input = r#"
         recipe "test" {
             let condition: bool = true
@@ -315,7 +315,7 @@ mod tests {
     }
 
     #[test]
-    fn test_match_expression() -> miette::Result<()> {
+    fn test_match_expression() -> Result<()> {
         let input = r#"
         recipe "test" {
             let value: string = "a"

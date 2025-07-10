@@ -48,7 +48,7 @@ pub enum RuntimeError {
     Type {
         /// The underlying type error
         #[source]
-        source: TypeError,
+        source: Box<TypeError>,
         /// Source code context
         #[source_code]
         code: Option<String>,
@@ -257,6 +257,9 @@ pub enum RuntimeError {
 }
 
 impl RuntimeError {
+    pub fn boxed(self) -> Box<Self> {
+        Box::new(self)
+    }
     /// Create an undefined variable error
     pub fn undefined_variable(name: impl Into<String>) -> Self {
         Self::UndefinedVariable {
@@ -289,7 +292,7 @@ impl RuntimeError {
     }
 
     /// Create a type error
-    pub fn type_error(source: TypeError) -> Self {
+    pub fn type_error(source: Box<TypeError>) -> Self {
         Self::Type {
             source,
             code: None,
@@ -299,7 +302,7 @@ impl RuntimeError {
 
     /// Create a type error with context
     pub fn type_error_with_context(
-        source: TypeError,
+        source: Box<TypeError>,
         code: impl Into<String>,
         span: SourceSpan,
     ) -> Self {

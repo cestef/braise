@@ -100,10 +100,12 @@ impl Parser {
                         "bool" => BraiseType::Bool,
                         "any" => BraiseType::Any,
                         _ => {
-                            return Err(self.create_error(
-                                "valid type name".to_string(),
-                                Token::Identifier(name),
-                            ));
+                            return Err(self
+                                .create_error(
+                                    "valid type name".to_string(),
+                                    Token::Identifier(name),
+                                )
+                                .boxed());
                         }
                     };
 
@@ -125,7 +127,9 @@ impl Parser {
                 Ok(pattern)
             }
 
-            _ => Err(self.create_error("match pattern".to_string(), self.peek().clone())),
+            _ => Err(self
+                .create_error("match pattern".to_string(), self.peek().clone())
+                .boxed()),
         }
     }
 
@@ -152,10 +156,12 @@ impl Parser {
                             self.get_current_span(),
                         ));
                     } else {
-                        return Err(self.create_error(
-                            "rest pattern variable or _".to_string(),
-                            self.peek().clone(),
-                        ));
+                        return Err(self
+                            .create_error(
+                                "rest pattern variable or _".to_string(),
+                                self.peek().clone(),
+                            )
+                            .boxed());
                     }
                     break;
                 } else if self.check_wildcard() {

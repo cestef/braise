@@ -27,6 +27,14 @@ pub struct Cli {
     #[arg(long)]
     pub debug: bool,
 
+    /// Disable caching entirely
+    #[arg(long)]
+    pub no_cache: bool,
+
+    /// Cache directory path
+    #[arg(long)]
+    pub cache_dir: Option<String>,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 

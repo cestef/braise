@@ -368,7 +368,7 @@ impl Parser {
                 })
             }
             Token::Match => self.parse_match_expression(),
-            e => Err(self.create_error("expression".to_string(), e)),
+            e => Err(self.create_error("expression".to_string(), e).boxed()),
         }
     }
 
@@ -398,7 +398,7 @@ impl Parser {
             let arm_end = self.current;
             let arm_span = self.span_from_token_range(arm_start, arm_end);
 
-            let bindings = self.extract_pattern_bindings_for_expression(&pattern)?;
+            let bindings = Self::extract_pattern_bindings_for_expression(&pattern)?;
 
             let arm = MatchExpressionArm {
                 pattern,
@@ -436,7 +436,6 @@ impl Parser {
 
     /// Extract pattern bindings for expression match arms
     fn extract_pattern_bindings_for_expression(
-        &self,
         pattern: &MatchPattern,
     ) -> Result<HashMap<String, BraiseType>> {
         let mut bindings = HashMap::new();
@@ -450,7 +449,7 @@ impl Parser {
                     match &element.value {
                         ArrayPatternElement::Pattern(inner_pattern) => {
                             let inner_bindings =
-                                self.extract_pattern_bindings_for_expression(inner_pattern)?;
+                                Self::extract_pattern_bindings_for_expression(inner_pattern)?;
                             bindings.extend(inner_bindings);
                         }
                         ArrayPatternElement::Rest(Some(name)) => {
@@ -470,13 +469,12 @@ impl Parser {
             MatchPattern::Or(patterns) => {
                 for pattern_node in patterns {
                     let inner_bindings =
-                        self.extract_pattern_bindings_for_expression(&pattern_node.value)?;
+                        Self::extract_pattern_bindings_for_expression(&pattern_node.value)?;
                     bindings.extend(inner_bindings);
                 }
             }
             MatchPattern::Guard { pattern, .. } => {
-                let inner_bindings =
-                    self.extract_pattern_bindings_for_expression(&pattern.value)?;
+                let inner_bindings = Self::extract_pattern_bindings_for_expression(&pattern.value)?;
                 bindings.extend(inner_bindings);
             }
             _ => {}
@@ -549,12 +547,14 @@ impl Parser {
                         if !matches!(left_type, BraiseType::Number | BraiseType::Any)
                             || !matches!(right_type, BraiseType::Number | BraiseType::Any)
                         {
-                            return Err(self.create_type_error(
-                                "number".to_string(),
-                                format!("{left_type} and {right_type}"),
-                                "comparison operation".to_string(),
-                                &left.span,
-                            ));
+                            return Err(self
+                                .create_type_error(
+                                    "number".to_string(),
+                                    format!("{left_type} and {right_type}"),
+                                    "comparison operation".to_string(),
+                                    &left.span,
+                                )
+                                .boxed());
                         }
                     }
                     _ => {}
@@ -591,12 +591,14 @@ impl Parser {
                 if !condition_type.can_convert_from(&BraiseType::Bool)
                     && !matches!(condition_type, BraiseType::Bool | BraiseType::Any)
                 {
-                    return Err(self.create_type_error(
-                        "boolean or boolean-convertible".to_string(),
-                        condition_type.to_string(),
-                        "conditional expression condition".to_string(),
-                        &condition.span,
-                    ));
+                    return Err(self
+                        .create_type_error(
+                            "boolean or boolean-convertible".to_string(),
+                            condition_type.to_string(),
+                            "conditional expression condition".to_string(),
+                            &condition.span,
+                        )
+                        .boxed());
                 }
             }
 
