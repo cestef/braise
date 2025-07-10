@@ -23,6 +23,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub dry: bool,
 
+    /// Quiet mode - don't show command execution
+    #[arg(short, long)]
+    pub quiet: bool,
+
     /// Enable debug logging
     #[arg(long)]
     pub debug: bool,
@@ -34,6 +38,10 @@ pub struct Cli {
     /// Cache directory path
     #[arg(long)]
     pub cache_dir: Option<String>,
+
+    /// Shell configuration: 'isolated', 'persistent', custom shell command, or 'mode:shell' (overrides shell statements)
+    #[arg(long)]
+    pub shell: Option<String>,
 
     #[command(subcommand)]
     pub command: Option<Commands>,

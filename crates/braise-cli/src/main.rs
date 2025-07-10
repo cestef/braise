@@ -29,8 +29,8 @@ async fn main() -> miette::Result<()> {
     match cli.command {
         Some(Commands::Lsp) => start_lsp().await?,
         _ => {
-            let file = if let Some(file) = cli.file {
-                file
+            let file = if let Some(ref file) = cli.file {
+                file.clone()
             } else {
                 utils::find_first_existing_file(DEFAULT_FILES).ok_or(CliError::NoRecipeFileFound)?
             };
@@ -46,22 +46,13 @@ async fn main() -> miette::Result<()> {
                 Some(Commands::Info { recipe }) => {
                     show_recipe_info(&contents, &file, &recipe).map_err(|e| *e)?
                 }
-                Some(Commands::External(ext)) => {
+                Some(Commands::External(ref ext)) => {
                     let (recipe, args): (Option<String>, Vec<String>) =
                         ext.split_first().map_or((None, vec![]), |(first, rest)| {
                             (Some(first.to_string()), rest.to_vec())
                         });
                     if let Some(recipe) = recipe {
-                        run_recipe(
-                            &contents,
-                            &file,
-                            &recipe,
-                            &args,
-                            cli.dry,
-                            cli.no_cache,
-                            cli.cache_dir,
-                        )
-                        .map_err(|e| *e)?;
+                        run_recipe(&contents, &file, &recipe, &args, &cli).map_err(|e| *e)?;
                     } else {
                         list_recipes(&contents, &file).map_err(|e| *e)?;
                     }

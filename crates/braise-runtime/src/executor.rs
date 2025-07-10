@@ -1,9 +1,63 @@
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::io::{BufRead, BufReader, Write};
 
 use crate::Result;
 use crate::RuntimeError;
+
+#[derive(Debug, Clone)]
+pub enum ShellMode {
+    /// Each command runs in a separate process (original behavior)
+    Isolated,
+    /// Commands run in a persistent shell session (new behavior)
+    Persistent,
+}
+
+impl Default for ShellMode {
+    fn default() -> Self {
+        ShellMode::Persistent
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ShellConfig {
+    pub mode: ShellMode,
+    pub shell: Option<String>,
+    pub dry_run: bool,
+    pub quiet: bool,
+}
+
+impl ShellConfig {
+    pub fn new() -> Self {
+        Self {
+            mode: ShellMode::default(),
+            shell: None,
+            dry_run: false,
+            quiet: false,
+        }
+    }
+
+    pub fn with_mode(mut self, mode: ShellMode) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    pub fn with_shell(mut self, shell: String) -> Self {
+        self.shell = Some(shell);
+        self
+    }
+
+    pub fn with_dry_run(mut self, dry_run: bool) -> Self {
+        self.dry_run = dry_run;
+        self
+    }
+
+    pub fn with_quiet(mut self, quiet: bool) -> Self {
+        self.quiet = quiet;
+        self
+    }
+}
 
 pub trait Executor: Send + Sync {
     fn run(&self, cmd: &str, shell: Option<&String>) -> Result<()>;
@@ -123,13 +177,15 @@ impl StringExecutor {
 pub struct CachingExecutor {
     inner: Box<dyn Executor>,
     cache_manager: braise_cache::CacheManager,
+    quiet: bool,
 }
 
 impl CachingExecutor {
-    pub fn new(inner: Box<dyn Executor>, cache_manager: braise_cache::CacheManager) -> Self {
+    pub fn new(inner: Box<dyn Executor>, cache_manager: braise_cache::CacheManager, quiet: bool) -> Self {
         Self {
             inner,
             cache_manager,
+            quiet,
         }
     }
 }
@@ -150,12 +206,14 @@ impl Executor for CachingExecutor {
                 .get_command_output(input, &working_dir, &env_vars)
         {
             use owo_colors::OwoColorize;
-            println!(
-                "    {} {} ({})",
-                "→".cyan(),
-                "Using cached command output".dimmed(),
-                input.dimmed()
-            );
+            if !self.quiet {
+                println!(
+                    "    {} {} ({})",
+                    "→".cyan(),
+                    "Using cached command output".dimmed(),
+                    input.dimmed()
+                );
+            }
 
             if cached_output.exit_code == 0 {
                 // Print cached output for consistency
@@ -233,5 +291,179 @@ impl CachingExecutor {
         // In a more sophisticated implementation, we could capture stdout/stderr
         self.inner.run(input, shell)?;
         Ok(self.inner.output())
+    }
+}
+
+pub struct PersistentShellExecutor {
+    pub dry_run: bool,
+    shell_process: Arc<Mutex<Option<std::process::Child>>>,
+    shell_command: String,
+}
+
+impl PersistentShellExecutor {
+    pub fn new(dry_run: bool, shell: Option<&String>) -> Self {
+        let shell_command = if let Some(shell) = shell {
+            shell.clone()
+        } else if cfg!(target_os = "windows") {
+            "cmd".to_string()
+        } else {
+            "bash".to_string()
+        };
+
+        PersistentShellExecutor {
+            dry_run,
+            shell_process: Arc::new(Mutex::new(None)),
+            shell_command,
+        }
+    }
+
+    fn ensure_shell_process(&self) -> Result<()> {
+        let mut process_guard = self.shell_process.lock().unwrap();
+        
+        if process_guard.is_none() {
+            let mut cmd = if cfg!(target_os = "windows") {
+                Command::new("cmd")
+            } else {
+                Command::new(&self.shell_command)
+            };
+            
+            let child = cmd
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| RuntimeError::other(format!("Failed to start shell process: {}", e)).boxed())?;
+            
+            *process_guard = Some(child);
+        }
+        
+        Ok(())
+    }
+
+    fn execute_in_shell(&self, command: &str) -> Result<()> {
+        self.ensure_shell_process()?;
+        
+        let mut process_guard = self.shell_process.lock().unwrap();
+        if let Some(ref mut child) = *process_guard {
+            let stdin = child.stdin.as_mut().unwrap();
+            
+            // Write the command followed by a unique delimiter
+            let delimiter = "__BRAISE_COMMAND_END__";
+            let full_command = if cfg!(target_os = "windows") {
+                format!("{}\necho {}\n", command, delimiter)
+            } else {
+                format!("{}; echo {}\n", command, delimiter)
+            };
+            
+            stdin.write_all(full_command.as_bytes())
+                .map_err(|e| RuntimeError::other(format!("Failed to write command to shell: {}", e)).boxed())?;
+            
+            stdin.flush()
+                .map_err(|e| RuntimeError::other(format!("Failed to flush shell stdin: {}", e)).boxed())?;
+            
+            // Read output until we see our delimiter
+            let stdout = child.stdout.as_mut().unwrap();
+            let mut reader = BufReader::new(stdout);
+            let mut output = String::new();
+            
+            loop {
+                let mut line = String::new();
+                match reader.read_line(&mut line) {
+                    Ok(0) => break, // EOF
+                    Ok(_) => {
+                        if line.trim() == delimiter {
+                            break;
+                        }
+                        print!("{}", line);
+                        output.push_str(&line);
+                    }
+                    Err(e) => {
+                        return Err(RuntimeError::other(format!("Failed to read shell output: {}", e)).boxed());
+                    }
+                }
+            }
+            
+            Ok(())
+        } else {
+            Err(RuntimeError::other("Shell process not available".to_string()).boxed())
+        }
+    }
+}
+
+impl Executor for PersistentShellExecutor {
+    fn run(&self, input: &str, _shell: Option<&String>) -> Result<()> {
+        if self.dry_run {
+            println!("Dry run: {}", input);
+            return Ok(());
+        }
+
+        self.execute_in_shell(input)
+    }
+}
+
+impl Drop for PersistentShellExecutor {
+    fn drop(&mut self) {
+        if let Ok(mut process_guard) = self.shell_process.lock() {
+            if let Some(mut child) = process_guard.take() {
+                if let Some(stdin) = child.stdin.as_mut() {
+                    let _ = stdin.write_all(b"exit\n");
+                    let _ = stdin.flush();
+                }
+                let _ = child.wait();
+            }
+        }
+    }
+}
+
+pub struct ConfigurableShellExecutor {
+    config: ShellConfig,
+    persistent_executor: Option<PersistentShellExecutor>,
+    default_executor: Option<DefaultExecutor>,
+}
+
+impl ConfigurableShellExecutor {
+    pub fn new(config: ShellConfig) -> Self {
+        let persistent_executor = match config.mode {
+            ShellMode::Persistent => {
+                Some(PersistentShellExecutor::new(config.dry_run, config.shell.as_ref()))
+            }
+            ShellMode::Isolated => None,
+        };
+        
+        let default_executor = match config.mode {
+            ShellMode::Isolated => Some(DefaultExecutor::new(config.dry_run)),
+            ShellMode::Persistent => None,
+        };
+
+        Self {
+            config,
+            persistent_executor,
+            default_executor,
+        }
+    }
+}
+
+impl Executor for ConfigurableShellExecutor {
+    fn run(&self, cmd: &str, shell: Option<&String>) -> Result<()> {
+        match &self.config.mode {
+            ShellMode::Isolated => {
+                if let Some(executor) = &self.default_executor {
+                    // Use the shell from config if available, otherwise use the passed shell
+                    let effective_shell = self.config.shell.as_ref().or(shell);
+                    executor.run(cmd, effective_shell)
+                } else {
+                    Err(RuntimeError::other("Isolated executor not available".to_string()).boxed())
+                }
+            }
+            ShellMode::Persistent => {
+                if let Some(executor) = &self.persistent_executor {
+                    // Use the shell from config if available, otherwise use the passed shell
+                    let effective_shell = self.config.shell.as_ref().or(shell);
+                    executor.run(cmd, effective_shell)
+                } else {
+                    Err(RuntimeError::other("Persistent executor not available".to_string()).boxed())
+                }
+            }
+        }
     }
 }

@@ -16,7 +16,7 @@ mod modules;
 pub use modules::*;
 
 mod executor;
-pub use executor::*;
+pub use executor::{Executor, ShellConfig, ShellMode, StringExecutor};
 
 pub struct Runtime {
     config: Config,
@@ -24,6 +24,7 @@ pub struct Runtime {
     pub executor: Box<dyn Executor>,
     pub cache_manager: Option<CacheManager>,
     dry_run: bool,
+    quiet: bool,
     source: Arc<String>,
     stack: Arc<RwLock<HashSet<String>>>,
 }
@@ -33,12 +34,18 @@ impl Runtime {
         Self {
             config,
             builtins: BuiltinModules::new(),
-            executor: Box::new(executor::DefaultExecutor::new(false)),
+            executor: Box::new(executor::PersistentShellExecutor::new(false, None)),
             cache_manager: None,
             dry_run: false,
+            quiet: false,
             source,
             stack: Default::default(),
         }
+    }
+
+    pub fn with_shell_config(mut self, shell_config: executor::ShellConfig) -> Self {
+        self.executor = Box::new(executor::ConfigurableShellExecutor::new(shell_config));
+        self
     }
 
     pub fn with_executor<E: Executor + 'static>(mut self, executor: E) -> Self {
@@ -47,8 +54,13 @@ impl Runtime {
     }
 
     pub fn with_dry_run(mut self) -> Self {
-        self.executor = Box::new(executor::DefaultExecutor::new(true));
+        self.executor = Box::new(executor::PersistentShellExecutor::new(true, None));
         self.dry_run = true;
+        self
+    }
+
+    pub fn with_quiet(mut self) -> Self {
+        self.quiet = true;
         self
     }
 
@@ -62,9 +74,10 @@ impl Runtime {
                     let caching_executor = executor::CachingExecutor::new(
                         std::mem::replace(
                             &mut self.executor,
-                            Box::new(executor::DefaultExecutor::new(false)),
+                            Box::new(executor::PersistentShellExecutor::new(false, None)),
                         ),
                         cache_manager.clone(),
+                        self.quiet,
                     );
                     self.executor = Box::new(caching_executor);
                     debug!("Command caching enabled");
@@ -154,22 +167,26 @@ impl Runtime {
             {
                 debug!("Recipe '{}' found in cache", name);
                 let cache_files = recipe.value.cache.join(", ");
-                println!(
-                    "  {} {} ({})",
-                    "→".cyan(),
-                    "Using cached result".dimmed(),
-                    cache_files.dimmed()
-                );
+                if !self.quiet {
+                    println!(
+                        "  {} {} ({})",
+                        "→".cyan(),
+                        "Using cached result".dimmed(),
+                        cache_files.dimmed()
+                    );
+                }
                 return cached_result;
             } else {
                 debug!("Recipe '{}' not found in cache, executing", name);
                 let cache_files = recipe.value.cache.join(", ");
-                println!(
-                    "  {} {} ({})",
-                    "→".dimmed(),
-                    "Caching recipe result".dimmed(),
-                    cache_files.dimmed()
-                );
+                if !self.quiet {
+                    println!(
+                        "  {} {} ({})",
+                        "→".dimmed(),
+                        "Caching recipe result".dimmed(),
+                        cache_files.dimmed()
+                    );
+                }
             }
         }
 
@@ -184,7 +201,9 @@ impl Runtime {
         let mut context = self.resolve_parameters(&recipe.value, &user_params)?;
         debug!("Resolved {} context variables", context.len());
 
-        println!("{}", name.cyan().bold());
+        if !self.quiet {
+            println!("{}", name.cyan().bold());
+        }
 
         debug!("Executing {} statements", recipe.value.body.len());
         let execution_result = (|| {
@@ -337,18 +356,20 @@ impl Runtime {
                     );
                     if *is_async {
                         debug!("Running parallel for loop");
-                        if self.dry_run {
-                            println!(
-                                "  {} Would run {} iterations in parallel",
-                                "‖".dimmed(),
-                                items.len().to_string().dimmed()
-                            );
-                        } else {
-                            println!(
-                                "  {} Running {} iterations in parallel",
-                                "‖".yellow(),
-                                items.len().to_string().bold()
-                            );
+                        if !self.quiet {
+                            if self.dry_run {
+                                println!(
+                                    "  {} Would run {} iterations in parallel",
+                                    "‖".dimmed(),
+                                    items.len().to_string().dimmed()
+                                );
+                            } else {
+                                println!(
+                                    "  {} Running {} iterations in parallel",
+                                    "‖".yellow(),
+                                    items.len().to_string().bold()
+                                );
+                            }
                         }
 
                         let context_arc = Arc::new(Mutex::new(context.clone()));
@@ -409,7 +430,9 @@ impl Runtime {
             Statement::Print(expr) => {
                 let value = self.evaluate_expression(expr, context)?;
                 if self.dry_run {
-                    println!("  {} {}", "print".dimmed(), value.to_string().italic());
+                    if !self.quiet {
+                        println!("  {} {}", "print".dimmed(), value.to_string().italic());
+                    }
                 } else {
                     println!("{value}");
                 }
@@ -1111,11 +1134,15 @@ impl Runtime {
     }
 
     fn show_command(&self, command: &str) {
-        println!("  {} {}", "→".dimmed(), command.italic());
+        if !self.quiet {
+            println!("  {} {}", "→".dimmed(), command.italic());
+        }
     }
 
     fn run_command(&self, command: &str, shell: Option<&String>) -> Result<()> {
-        println!("  {} {}", "→".blue(), command);
+        if !self.quiet {
+            println!("  {} {}", "→".blue(), command);
+        }
 
         self.executor.run(command, shell)
     }
