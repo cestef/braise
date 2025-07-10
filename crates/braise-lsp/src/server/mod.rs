@@ -122,7 +122,7 @@ impl BraiseLspServer {
 #[tower_lsp::async_trait]
 impl LanguageServer for BraiseLspServer {
     async fn initialize(&self, _params: InitializeParams) -> jsonrpc::Result<InitializeResult> {
-        tracing::info!("Braise LSP Server initializing...");
+        log::info!("Braise LSP Server initializing...");
 
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
@@ -172,7 +172,7 @@ impl LanguageServer for BraiseLspServer {
     }
 
     async fn initialized(&self, _: InitializedParams) {
-        tracing::info!("Braise LSP Server initialized!");
+        log::info!("Braise LSP Server initialized!");
 
         self.client
             .log_message(MessageType::INFO, "Braise LSP Server initialized")
@@ -180,7 +180,7 @@ impl LanguageServer for BraiseLspServer {
     }
 
     async fn shutdown(&self) -> jsonrpc::Result<()> {
-        tracing::info!("Braise LSP Server shutting down...");
+        log::info!("Braise LSP Server shutting down...");
         Ok(())
     }
 

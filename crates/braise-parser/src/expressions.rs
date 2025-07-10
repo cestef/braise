@@ -15,7 +15,7 @@ impl Parser {
 
         Ok(spanned_expr)
     }
-    #[tracing::instrument(skip(self))]
+
     fn parse_conditional(&mut self) -> Result<Expression> {
         if self.check(&Token::If) {
             self.advance(); // consume if

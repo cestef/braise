@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use tracing::{debug, info, warn};
+use log::{debug, info, warn};
 
 use crate::{
     CacheConfig, CacheDependency, CacheEntry, CacheKeyGenerator, CacheLevel, CacheResult,

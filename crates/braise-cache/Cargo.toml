@@ -8,14 +8,14 @@ description = "Caching system for Braise task runner"
 repository.workspace = true
 
 [dependencies]
-tracing.workspace = true
+log.workspace = true
 
 braise-types = { path = "../braise-types" }
 braise-errors = { path = "../braise-errors" }
 
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sled = "0.34"
+sled = { version = "0.34", default-features = false }
 sha2 = "0.10"
 hex = "0.4"
 dirs = "6.0"

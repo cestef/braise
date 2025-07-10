@@ -3,7 +3,7 @@
 use ::lexer::{SpannedToken, Token};
 use core::{ast::*, error::parser::ParseError, error::parser::Result, *};
 use std::sync::Arc;
-use tracing::debug;
+use log::debug;
 
 mod expressions;
 mod helpers;

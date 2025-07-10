@@ -1,8 +1,8 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use log::debug;
 use sled::Db;
-use tracing::debug;
 
 use crate::{CacheEntry, CacheResult};
 use braise_errors::CacheError;

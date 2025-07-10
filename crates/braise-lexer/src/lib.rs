@@ -1,8 +1,8 @@
 use std::ops::Range;
 
 use braise_core::BraiseError;
+use log::debug;
 use logos::{Lexer, Logos, Skip};
-use tracing::debug;
 
 pub use crate::{
     extras::LexerExtras,

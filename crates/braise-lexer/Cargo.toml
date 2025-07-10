@@ -7,7 +7,7 @@ authors.workspace = true
 [dependencies]
 logos.workspace = true
 miette.workspace = true
-tracing.workspace = true
+log.workspace = true
 
 logos-display = { path = "../logos-display" }
 braise-core = { path = "../braise-core" }

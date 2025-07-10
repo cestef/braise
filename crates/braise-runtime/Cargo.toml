@@ -13,7 +13,7 @@ rand = "0.9.1"
 glob = "0.3.2"
 ureq = "3"
 owo-colors.workspace = true
-tracing.workspace = true
+log.workspace = true
 
 core = { path = "../braise-core", package = "braise-core" }
 braise-cache = { path = "../braise-cache" }

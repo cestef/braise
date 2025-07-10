@@ -37,14 +37,6 @@ pub struct Cli {
 
     #[command(subcommand)]
     pub command: Option<Commands>,
-
-    /// Recipe name (when no subcommand is used)
-    #[arg(value_name = "RECIPE")]
-    pub recipe: Option<String>,
-
-    /// Recipe parameters
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-    pub args: Vec<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -63,4 +55,6 @@ pub enum Commands {
     Lsp,
     /// Show recipe info
     Info { recipe: String },
+    #[command(external_subcommand)]
+    External(Vec<String>),
 }

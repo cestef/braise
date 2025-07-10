@@ -7,7 +7,7 @@ mod display;
 mod utils;
 
 use commands::{Cli, Commands, format_recipe, list_recipes, run_recipe, show_recipe_info};
-use display::init_tracing;
+use display::init_log;
 
 #[tokio::main]
 async fn main() -> miette::Result<()> {
@@ -19,8 +19,8 @@ async fn main() -> miette::Result<()> {
 
     // Initialize tracing subscriber (but not for LSP to avoid stdout pollution)
     if !matches!(cli.command, Some(Commands::Lsp)) {
-        init_tracing(cli.debug);
-        tracing::debug!(
+        init_log(cli.debug);
+        log::debug!(
             "Starting braise CLI with args: {:?}",
             std::env::args().collect::<Vec<_>>()
         );
@@ -46,22 +46,28 @@ async fn main() -> miette::Result<()> {
                 Some(Commands::Info { recipe }) => {
                     show_recipe_info(&contents, &file, &recipe).map_err(|e| *e)?
                 }
-                None => {
-                    if let Some(recipe_name) = cli.recipe {
-                        let cache_enabled = !cli.no_cache;
+                Some(Commands::External(ext)) => {
+                    let (recipe, args): (Option<String>, Vec<String>) =
+                        ext.split_first().map_or((None, vec![]), |(first, rest)| {
+                            (Some(first.to_string()), rest.to_vec())
+                        });
+                    if let Some(recipe) = recipe {
                         run_recipe(
                             &contents,
                             &file,
-                            &recipe_name,
-                            &cli.args,
+                            &recipe,
+                            &args,
                             cli.dry,
-                            cache_enabled,
+                            cli.no_cache,
                             cli.cache_dir,
                         )
                         .map_err(|e| *e)?;
                     } else {
                         list_recipes(&contents, &file).map_err(|e| *e)?;
                     }
+                }
+                None => {
+                    list_recipes(&contents, &file).map_err(|e| *e)?;
                 }
                 _ => unreachable!(),
             }

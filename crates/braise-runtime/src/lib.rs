@@ -2,12 +2,12 @@ use braise_cache::{CacheConfig, CacheManager};
 use core::error::TypeError;
 use core::error::runtime::*;
 use core::{BraiseType, Spanned, TypedValue, ValueData, ast::*};
+use log::{debug, trace, warn};
 use owo_colors::OwoColorize;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
-use tracing::{debug, trace, warn};
 
 mod context;
 use context::*;
