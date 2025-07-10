@@ -241,6 +241,8 @@ impl Runtime {
         for param in &recipe.parameters {
             let value = if let Some(user_value) = provided_params.remove(&param.value.name) {
                 user_value
+                    .convert_to(&param.value.param_type)
+                    .map_err(|e| RuntimeError::type_error(e))?
             } else if let Some(default_expr) = &param.value.default {
                 let evaluated = self.evaluate_expression(default_expr, &context)?;
 
