@@ -20,11 +20,10 @@ owo-colors.workspace = true
 tracing.workspace = true
 
 core = { path = "../braise-core", package = "braise-core" }
-braise-types = { path = "../braise-types" }
 braise-cache = { path = "../braise-cache" }
-parser = { path = "../braise-parser", package = "braise-parser" }
-lexer = { path = "../braise-lexer", package = "braise-lexer" }
 
 [dev-dependencies]
 miette.workspace = true
 braise-errors = { path = "../braise-errors" }
+parser = { path = "../braise-parser", package = "braise-parser" }
+lexer = { path = "../braise-lexer", package = "braise-lexer" }

@@ -7,7 +7,6 @@ authors.workspace = true
 [dependencies]
 braise-errors = { path = "../braise-errors" }
 miette.workspace = true
-thiserror.workspace = true
 tracing.workspace = true
 
 lexer = { path = "../braise-lexer", package = "braise-lexer" }

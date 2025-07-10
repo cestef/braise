@@ -26,7 +26,6 @@ repository = "https://github.com/cestef/braise"
 [workspace.dependencies]
 miette = { version = "7.6.0", features = ["fancy", "syntect-highlighter"] }
 owo-colors = "4.2.2"
-thiserror = "2.0.12"
 logos = { git = "https://github.com/maciejhirsz/logos.git", rev = "274c7a0" }
 tracing = { version = "0.1", features = ["std"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -8,5 +8,3 @@ authors.workspace = true
 braise-errors = { path = "../braise-errors" }
 braise-types = { path = "../braise-types" }
 miette.workspace = true
-thiserror.workspace = true
-owo-colors.workspace = true
