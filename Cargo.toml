@@ -16,7 +16,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.3.1-dev"
+version = "0.3.2-dev"
 edition = "2024"
 authors = ["cstef <hi@cstef.dev>"]
 homepage = "https://github.com/cestef/braise"
