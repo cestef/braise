@@ -318,7 +318,7 @@ impl Parser {
             MatchPattern::Variable(name) => {
                 bindings.insert(name.clone(), BraiseType::Any);
             }
-            MatchPattern::Array { elements, rest } => {
+            MatchPattern::Array { elements } => {
                 for element in elements {
                     match &element.value {
                         ArrayPatternElement::Pattern(inner_pattern) => {
@@ -331,12 +331,6 @@ impl Parser {
                         }
                         _ => {}
                     }
-                }
-                if let Some(rest_name) = rest {
-                    bindings.insert(
-                        rest_name.clone(),
-                        BraiseType::Array(Box::new(BraiseType::Any)),
-                    );
                 }
             }
             MatchPattern::Or(patterns) => {

@@ -131,7 +131,7 @@ param color: ["red", "green", "blue"] = "red"
 
 You can define variables using the `let` keyword. Variables can be used to store values that you want to reuse within a recipe:
 
-```braise
+```braise, copy
 recipe "calculate" {
     let a = 5
     let b = 10
@@ -142,7 +142,7 @@ recipe "calculate" {
 
 Variable types are inferred from the assigned value, but you can also specify a type explicitly:
 
-```braise
+```braise, copy
 recipe "calculate" {
     let a = "5"
     let b = "10"
@@ -158,3 +158,127 @@ The sum of 5 and 10 is 15.
 ```
 
 That's because Braisé will automatically try and match the types of the variables. If they are not compatible, it will throw a type error.
+
+## Control Flow
+
+Braisé supports basic control flow constructs like `if`, `else`, `for` and `match`.
+
+### If-Else
+
+You can use `if` statements to conditionally execute code:
+
+```braise, copy
+recipe "check-number" {
+    param num: number = 10
+    if num > 0 {
+        print "${num} is positive."
+    } else if num < 0 {
+        print "${num} is negative."
+    } else {
+        print "${num} is zero."
+    }
+}
+```
+
+```bash
+braise check-number --num -5
+# -5 is negative.
+```
+
+### For Loop
+
+You can iterate over an array of elements using a `for` loop:
+
+```braise, copy
+recipe "print-numbers" {
+    param numbers: [number] = [1, 2, 3]
+    for num in numbers {
+        print "Number: ${num}"
+    }
+}
+```
+
+```bash
+braise print-numbers
+# Number: 1
+# Number: 2
+# Number: 3
+```
+
+You can also iterate in parallel using the `async` keyword at the end of the statement:
+
+```braise, copy
+recipe "print-numbers" {
+    param numbers: [number] = [1, 2, 3]
+    for num in numbers {
+        print "Number: ${num}"
+    } async
+}
+```
+
+### Match
+
+Match is probably the most powerful control flow construct in Braisé. It allows you to match a value against multiple patterns and execute code based on the matched pattern:
+
+```braise, copy
+recipe "match-example" {
+    param value: string = "apple"
+    match value {
+        "apple" => {
+            print "It's an apple!"
+        },
+        e => {
+            print "It's something else: ${e}"
+        }
+    }
+}
+```
+
+They also work with arrays:
+
+```braise, copy
+recipe "match-array" {
+    param items: [string] = ["apple", "banana", "cherry"]
+    match items {
+        ["apple", ..rest] => {
+            print "The first item is an apple and the rest are: ${rest}"
+        },
+        e => {
+            print "The items are: ${e}"
+        }
+    }
+}
+```
+
+```bash
+braise match-array
+# The first item is an apple and the rest are: [banana, cherry]
+```
+```bash
+braise match-array items=1,2,3
+# The items are: [1, 2, 3]
+```
+
+For numeric values, you can use ranges:
+
+```braise, copy
+recipe "match-range" {
+    param value: number = 5
+    match value {
+        1..10 => {
+            print "${value} is between 1 and 10."
+        },
+        11..20 => {
+            print "${value} is between 11 and 20."
+        },
+        _ => {
+            print "${value} is outside the range."
+        }
+    }
+}
+```
+
+```bash
+braise match-range --value 15
+# 15 is between 11 and 20.
+```

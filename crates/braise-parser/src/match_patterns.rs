@@ -136,7 +136,6 @@ impl Parser {
     fn parse_array_pattern(&mut self) -> Result<MatchPattern> {
         self.advance();
         let mut elements = Vec::new();
-        let mut rest = None;
 
         if !self.check(&Token::RightBracket) {
             loop {
@@ -150,7 +149,6 @@ impl Parser {
                             self.get_current_span(),
                         ));
                     } else if let Some(name) = self.match_identifier() {
-                        rest = Some(name.clone());
                         elements.push(SpannedNode::new(
                             ArrayPatternElement::Rest(Some(name)),
                             self.get_current_span(),
@@ -191,7 +189,7 @@ impl Parser {
         }
 
         self.consume_token(Token::RightBracket)?;
-        Ok(MatchPattern::Array { elements, rest })
+        Ok(MatchPattern::Array { elements })
     }
 
     fn parse_range_pattern_from_dot(&mut self) -> Result<MatchPattern> {

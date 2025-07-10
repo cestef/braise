@@ -2,8 +2,8 @@
 
 use ::lexer::{SpannedToken, Token};
 use core::{ast::*, error::parser::ParseError, error::parser::Result, *};
-use std::sync::Arc;
 use log::debug;
+use std::sync::Arc;
 
 mod expressions;
 mod helpers;
@@ -431,7 +431,22 @@ impl Parser {
             MatchPattern::Guard { pattern, .. } => {
                 self.bind_pattern_variables(&pattern.value, expr_type)?;
             }
-            MatchPattern::Array { .. } => todo!(),
+            MatchPattern::Array { elements } => {
+                for elem in elements {
+                    match &elem.value {
+                        ArrayPatternElement::Pattern(match_pattern) => {
+                            self.bind_pattern_variables(&match_pattern, expr_type)?;
+                        }
+                        ArrayPatternElement::Wildcard => {}
+                        ArrayPatternElement::Rest(rest_var) => {
+                            if let Some(rest_var) = rest_var {
+                                self.type_engine
+                                    .define_variable(rest_var.clone(), expr_type.clone());
+                            }
+                        }
+                    }
+                }
+            }
             _ => {}
         }
         Ok(())

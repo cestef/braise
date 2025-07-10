@@ -343,7 +343,6 @@ pub enum MatchPattern {
     },
     Array {
         elements: Vec<SpannedNode<ArrayPatternElement>>,
-        rest: Option<String>,
     },
     Guard {
         pattern: Box<SpannedNode<MatchPattern>>,

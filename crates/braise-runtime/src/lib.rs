@@ -678,6 +678,7 @@ impl Runtime {
         for arm in arms {
             let pattern_match = self.match_pattern(&arm.value.pattern, &match_value, context)?;
             if pattern_match.matched {
+                dbg!(&pattern_match.bindings);
                 if let Some(ref guard) = arm.value.guard {
                     let mut guard_context = context.clone();
                     for (name, value) in &pattern_match.bindings {
@@ -692,6 +693,7 @@ impl Runtime {
 
                 let mut expr_context = context.clone();
                 for (name, value) in pattern_match.bindings {
+                    dbg!(&value);
                     expr_context.set(name, value);
                 }
 
@@ -789,9 +791,9 @@ impl Runtime {
                 }),
             },
 
-            MatchPattern::Array { elements, rest } => {
+            MatchPattern::Array { elements } => {
                 if let ValueData::Array(ref array_values) = value.value {
-                    self.match_array_pattern(elements, rest.as_ref(), array_values, context)
+                    self.match_array_pattern(elements, array_values, context)
                 } else {
                     Ok(PatternMatch {
                         matched: false,
@@ -833,7 +835,6 @@ impl Runtime {
     fn match_array_pattern(
         &self,
         elements: &[SpannedNode<ArrayPatternElement>],
-        rest: Option<&String>,
         array_values: &[TypedValue],
         context: &ExecutionContext,
     ) -> Result<PatternMatch<TypedValue>> {
@@ -889,16 +890,8 @@ impl Runtime {
             }
         }
 
-        if rest.is_none() && array_index != array_values.len() {
+        if array_index != array_values.len() {
             matched = false;
-        }
-
-        if let Some(rest_name) = rest {
-            let remaining: Vec<TypedValue> = array_values[array_index..].to_vec();
-            bindings.insert(
-                rest_name.clone(),
-                TypedValue::new(remaining, BraiseType::Array(Box::new(BraiseType::Any))),
-            );
         }
 
         Ok(PatternMatch { matched, bindings })

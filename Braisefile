@@ -69,3 +69,60 @@ recipe "calculate" {
     let sum = a + b
     print "The sum of ${a} and ${b} is ${sum}."
 }
+
+recipe "check-number" {
+    param num: number = 10
+    if num > 0 {
+        print "${num} is positive."
+    } else if num < 0 {
+        print "${num} is negative."
+    } else {
+        print "${num} is zero."
+    }
+}
+
+recipe "print-numbers" {
+    param numbers: [number] = [1, 2, 3, 4, 5]
+    for num in numbers {
+        print "Number: ${num}"
+    } async
+}
+
+recipe "match-example" {
+    param value: string = "apple"
+    match value {
+        "apple" => {
+            print "It's an apple!"
+        },
+        e => {
+            print "It's something else: ${e}"
+        }
+    }
+}
+
+recipe "match-array" {
+    param items: [string] = ["apple", "banana", "cherry"]
+    match items {
+        ["apple", ..rest] => {
+            print "The first item is an apple and the rest are: ${rest}"
+        },
+        e => {
+            print "The items are: ${e}"
+        }
+    }
+}
+
+recipe "match-range" {
+    param value: number = 5
+    match value {
+        1..10 => {
+            print "${value} is between 1 and 10."
+        },
+        11..20 => {
+            print "${value} is between 11 and 20."
+        },
+        _ => {
+            print "${value} is outside the range."
+        }
+    }
+}
