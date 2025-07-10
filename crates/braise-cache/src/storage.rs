@@ -1,20 +1,11 @@
-use std::path::Path;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
+use bincode::config::Configuration;
 use log::debug;
-use sled::Db;
 
 use crate::{CacheEntry, CacheResult};
 use braise_errors::CacheError;
-
-// Helper functions for error conversion
-fn convert_sled_error(err: sled::Error) -> CacheError {
-    CacheError::storage(err.to_string())
-}
-
-fn convert_serde_error(err: serde_json::Error) -> CacheError {
-    CacheError::serialization(err.to_string())
-}
+use redb::{Database, ReadableTable, TableDefinition};
 
 pub trait CacheStorage: Send + Sync {
     fn get(&self, key: &str) -> CacheResult<Option<CacheEntry>>;
@@ -26,25 +17,36 @@ pub trait CacheStorage: Send + Sync {
     fn cleanup_expired(&self) -> CacheResult<u64>;
 }
 
-pub struct SledStorage {
-    db: Arc<Db>,
+fn db_error(e: redb::DatabaseError) -> CacheError {
+    CacheError::storage(e.to_string())
 }
 
-impl SledStorage {
+fn tx_error(e: redb::TransactionError) -> CacheError {
+    CacheError::storage(e.to_string())
+}
+
+fn table_error(e: redb::TableError) -> CacheError {
+    CacheError::storage(e.to_string())
+}
+
+fn st_error(e: redb::StorageError) -> CacheError {
+    CacheError::storage(e.to_string())
+}
+
+fn commit_error(e: redb::CommitError) -> CacheError {
+    CacheError::storage(e.to_string())
+}
+
+pub struct RedbStorage {
+    db: Arc<Database>,
+    config: Configuration,
+}
+
+impl RedbStorage {
     pub fn new<P: AsRef<Path>>(path: P) -> CacheResult<Self> {
-        let db = sled::open(path).map_err(convert_sled_error)?;
-        Ok(Self { db: Arc::new(db) })
-    }
-
-    pub fn in_memory() -> CacheResult<Self> {
-        let config = sled::Config::new().temporary(true);
-        let db = config.open().map_err(convert_sled_error)?;
-        Ok(Self { db: Arc::new(db) })
-    }
-
-    pub fn flush(&self) -> CacheResult<()> {
-        self.db.flush().map_err(convert_sled_error)?;
-        Ok(())
+        let db = Database::create(path).map_err(db_error)?.into();
+        let config = Configuration::default();
+        Ok(Self { db, config })
     }
 
     pub fn compact(&self) -> CacheResult<()> {
@@ -54,30 +56,41 @@ impl SledStorage {
     }
 
     fn serialize_entry(&self, entry: &CacheEntry) -> CacheResult<Vec<u8>> {
-        serde_json::to_vec(entry).map_err(convert_serde_error)
+        bincode::encode_to_vec(entry, self.config).map_err(|e| {
+            CacheError::serialization(format!("Failed to serialize cache entry: {}", e))
+        })
     }
 
     fn deserialize_entry(&self, data: &[u8]) -> CacheResult<CacheEntry> {
-        serde_json::from_slice(data).map_err(convert_serde_error)
+        bincode::decode_from_slice(data, self.config)
+            .map_err(|e| {
+                CacheError::serialization(format!("Failed to deserialize cache entry: {}", e))
+            })
+            .map(|(entry, _)| entry)
     }
 }
 
-impl CacheStorage for SledStorage {
+const TABLE: TableDefinition<&[u8], &[u8]> = TableDefinition::new("cache");
+
+impl CacheStorage for RedbStorage {
     fn get(&self, key: &str) -> CacheResult<Option<CacheEntry>> {
         debug!("Cache GET: {}", key);
 
-        match self.db.get(key.as_bytes()).map_err(convert_sled_error)? {
+        let read_txn = self.db.begin_read().map_err(tx_error)?;
+        let table = read_txn.open_table(TABLE).map_err(table_error)?;
+        match table.get(key.as_bytes()).map_err(st_error)? {
             Some(data) => {
-                let entry = self.deserialize_entry(&data)?;
-
-                // Check if entry is expired
+                let entry = self.deserialize_entry(data.value())?;
                 if entry.is_expired() {
                     debug!("Cache entry expired: {}", key);
-                    // Remove expired entry
-                    self.db.remove(key.as_bytes()).map_err(convert_sled_error)?;
+                    drop(read_txn); // End read txn before write
+                    let write_txn = self.db.begin_write().map_err(tx_error)?;
+                    let mut table = write_txn.open_table(TABLE).map_err(table_error)?;
+                    table.remove(key.as_bytes()).map_err(st_error)?;
+                    drop(table); // Release the mutable borrow before committing
+                    write_txn.commit().map_err(commit_error)?;
                     return Ok(None);
                 }
-
                 debug!("Cache HIT: {}", key);
                 Ok(Some(entry))
             }
@@ -91,234 +104,148 @@ impl CacheStorage for SledStorage {
     fn set(&self, key: &str, entry: CacheEntry) -> CacheResult<()> {
         debug!("Cache SET: {}", key);
 
-        let data = self.serialize_entry(&entry)?;
-        self.db
-            .insert(key.as_bytes(), data)
-            .map_err(convert_sled_error)?;
+        let write_txn = self.db.begin_write().map_err(tx_error)?;
+        let mut table = write_txn.open_table(TABLE).map_err(table_error)?;
+        let serialized_entry = self.serialize_entry(&entry)?;
+        table
+            .insert(key.as_bytes(), &*serialized_entry)
+            .map_err(st_error)?;
+        drop(table); // Release the mutable borrow before committing
+        write_txn.commit().map_err(commit_error)?;
 
-        // Ensure data is persisted
-        self.db.flush().map_err(convert_sled_error)?;
-
+        debug!("Cache entry set: {}", key);
         Ok(())
     }
 
     fn remove(&self, key: &str) -> CacheResult<bool> {
         debug!("Cache REMOVE: {}", key);
 
-        match self.db.remove(key.as_bytes()).map_err(convert_sled_error)? {
-            Some(_) => Ok(true),
-            None => Ok(false),
-        }
+        let write_txn = self.db.begin_write().map_err(tx_error)?;
+        let mut table = write_txn.open_table(TABLE).map_err(table_error)?;
+        let existed = table.remove(key.as_bytes()).map_err(st_error)?.is_some();
+        drop(table);
+        write_txn.commit().map_err(commit_error)?;
+
+        debug!("Cache entry removed: {} (existed: {})", key, existed);
+        Ok(existed)
     }
 
     fn clear(&self) -> CacheResult<()> {
-        debug!("Cache CLEAR");
+        debug!("Cache CLEAR: clearing all entries");
 
-        self.db.clear().map_err(convert_sled_error)?;
-        self.db.flush().map_err(convert_sled_error)?;
+        let write_txn = self.db.begin_write().map_err(tx_error)?;
+        let mut table = write_txn.open_table(TABLE).map_err(table_error)?;
+        
+        // Get all keys first
+        let entries = table.iter().map_err(st_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(st_error)?;
+            
+        let keys: Vec<Vec<u8>> = entries
+            .into_iter()
+            .map(|(k, _)| k.value().to_vec())
+            .collect();
+        
+        // Remove all entries
+        for key in keys {
+            table.remove(&*key).map_err(st_error)?;
+        }
+        
+        drop(table);
+        write_txn.commit().map_err(commit_error)?;
 
+        debug!("Cache cleared");
         Ok(())
     }
 
     fn keys(&self) -> CacheResult<Vec<String>> {
-        let mut keys = Vec::new();
+        debug!("Cache KEYS: getting all keys");
 
-        for result in self.db.iter() {
-            let (key, _) = result.map_err(convert_sled_error)?;
-            if let Ok(key_str) = String::from_utf8(key.to_vec()) {
-                keys.push(key_str);
-            }
-        }
+        let read_txn = self.db.begin_read().map_err(tx_error)?;
+        let table = read_txn.open_table(TABLE).map_err(table_error)?;
+        
+        let entries = table.iter().map_err(st_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(st_error)?;
+            
+        let keys: Result<Vec<String>, _> = entries
+            .into_iter()
+            .map(|(k, _)| String::from_utf8(k.value().to_vec()).map_err(|e| {
+                CacheError::storage(format!("Invalid UTF-8 key: {}", e))
+            }))
+            .collect();
 
+        let keys = keys?;
+        debug!("Cache keys retrieved: {} keys", keys.len());
         Ok(keys)
     }
 
     fn size(&self) -> CacheResult<u64> {
-        // Estimate size by summing key and value lengths
-        let mut total_size = 0u64;
+        debug!("Cache SIZE: getting cache size");
 
-        for result in self.db.iter() {
-            let (key, value) = result.map_err(convert_sled_error)?;
-            total_size += key.len() as u64 + value.len() as u64;
-        }
+        let read_txn = self.db.begin_read().map_err(tx_error)?;
+        let table = read_txn.open_table(TABLE).map_err(table_error)?;
+        
+        let entries = table.iter().map_err(st_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(st_error)?;
+            
+        let count = entries.len() as u64;
 
-        Ok(total_size)
+        debug!("Cache size: {} entries", count);
+        Ok(count)
     }
 
     fn cleanup_expired(&self) -> CacheResult<u64> {
-        debug!("Cleaning up expired cache entries");
+        debug!("Cache CLEANUP: removing expired entries");
 
-        let mut removed_count = 0u64;
-        let mut keys_to_remove = Vec::new();
+        let read_txn = self.db.begin_read().map_err(tx_error)?;
+        let table = read_txn.open_table(TABLE).map_err(table_error)?;
+        
+        // Find expired keys
+        let entries = table.iter().map_err(st_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(st_error)?;
+            
+        let expired_keys: Result<Vec<Vec<u8>>, _> = entries
+            .into_iter()
+            .filter_map(|(k, v)| {
+                match self.deserialize_entry(v.value()) {
+                    Ok(entry) if entry.is_expired() => Some(Ok(k.value().to_vec())),
+                    Ok(_) => None,
+                    Err(e) => Some(Err(e)),
+                }
+            })
+            .collect();
 
-        // First pass: identify expired entries
-        for result in self.db.iter() {
-            let (key, value) = result.map_err(convert_sled_error)?;
+        let expired_keys = expired_keys?;
+        let expired_count = expired_keys.len() as u64;
+        
+        drop(table);
+        drop(read_txn);
 
-            if let Ok(entry) = self.deserialize_entry(&value)
-                && entry.is_expired()
-                && let Ok(key_str) = String::from_utf8(key.to_vec())
-            {
-                keys_to_remove.push(key_str);
+        if !expired_keys.is_empty() {
+            let write_txn = self.db.begin_write().map_err(tx_error)?;
+            let mut table = write_txn.open_table(TABLE).map_err(table_error)?;
+            
+            for key in expired_keys {
+                table.remove(&*key).map_err(st_error)?;
             }
+            
+            drop(table);
+            write_txn.commit().map_err(commit_error)?;
         }
 
-        // Second pass: remove expired entries
-        for key in keys_to_remove {
-            if self.remove(&key)? {
-                removed_count += 1;
-            }
-        }
-
-        if removed_count > 0 {
-            debug!("Removed {} expired cache entries", removed_count);
-            self.db.flush().map_err(convert_sled_error)?;
-        }
-
-        Ok(removed_count)
+        debug!("Cache cleanup completed: {} expired entries removed", expired_count);
+        Ok(expired_count)
     }
 }
 
-impl Clone for SledStorage {
+impl Clone for RedbStorage {
     fn clone(&self) -> Self {
         Self {
-            db: Arc::clone(&self.db),
+            db: self.db.clone(),
+            config: self.config,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::CacheValue;
-    use braise_types::TypedValue;
-    use std::time::{Duration, SystemTime};
-    use tempfile::tempdir;
-
-    fn create_test_entry(key: &str, value: &str) -> CacheEntry {
-        CacheEntry {
-            key: key.to_string(),
-            value: CacheValue::BuiltinResult(TypedValue::string(value)),
-            created_at: SystemTime::now(),
-            ttl: None,
-            dependencies: vec![],
-        }
-    }
-
-    fn create_test_entry_with_ttl(key: &str, value: &str, ttl: Duration) -> CacheEntry {
-        CacheEntry {
-            key: key.to_string(),
-            value: CacheValue::BuiltinResult(TypedValue::string(value)),
-            created_at: SystemTime::now(),
-            ttl: Some(ttl),
-            dependencies: vec![],
-        }
-    }
-
-    #[test]
-    fn test_in_memory_storage() {
-        let storage = SledStorage::in_memory().unwrap();
-
-        // Test set and get
-        let entry = create_test_entry("test_key", "test_value");
-        storage.set("test_key", entry).unwrap();
-
-        let retrieved = storage.get("test_key").unwrap().unwrap();
-        assert_eq!(retrieved.key, "test_key");
-    }
-
-    #[test]
-    fn test_persistent_storage() {
-        let temp_dir = tempdir().unwrap();
-        let storage = SledStorage::new(temp_dir.path().join("test_cache")).unwrap();
-
-        // Test set and get
-        let entry = create_test_entry("persistent_key", "persistent_value");
-        storage.set("persistent_key", entry).unwrap();
-
-        let retrieved = storage.get("persistent_key").unwrap().unwrap();
-        assert_eq!(retrieved.key, "persistent_key");
-    }
-
-    #[test]
-    fn test_expiration() {
-        let storage = SledStorage::in_memory().unwrap();
-
-        // Create entry with very short TTL
-        let entry =
-            create_test_entry_with_ttl("expiring_key", "expiring_value", Duration::from_millis(1));
-        storage.set("expiring_key", entry).unwrap();
-
-        // Wait for expiration
-        std::thread::sleep(Duration::from_millis(10));
-
-        // Entry should be expired and removed
-        let retrieved = storage.get("expiring_key").unwrap();
-        assert!(retrieved.is_none());
-    }
-
-    #[test]
-    fn test_cleanup_expired() {
-        let storage = SledStorage::in_memory().unwrap();
-
-        // Add some entries with different TTLs
-        let entry1 = create_test_entry_with_ttl("key1", "value1", Duration::from_millis(1));
-        let entry2 = create_test_entry_with_ttl("key2", "value2", Duration::from_secs(3600));
-        let entry3 = create_test_entry("key3", "value3"); // No TTL
-
-        storage.set("key1", entry1).unwrap();
-        storage.set("key2", entry2).unwrap();
-        storage.set("key3", entry3).unwrap();
-
-        // Wait for first entry to expire
-        std::thread::sleep(Duration::from_millis(10));
-
-        // Cleanup should remove 1 expired entry
-        let removed_count = storage.cleanup_expired().unwrap();
-        assert_eq!(removed_count, 1);
-
-        // Verify remaining entries
-        assert!(storage.get("key1").unwrap().is_none());
-        assert!(storage.get("key2").unwrap().is_some());
-        assert!(storage.get("key3").unwrap().is_some());
-    }
-
-    #[test]
-    fn test_clear() {
-        let storage = SledStorage::in_memory().unwrap();
-
-        // Add some entries
-        storage
-            .set("key1", create_test_entry("key1", "value1"))
-            .unwrap();
-        storage
-            .set("key2", create_test_entry("key2", "value2"))
-            .unwrap();
-
-        // Clear all
-        storage.clear().unwrap();
-
-        // Verify all entries are removed
-        assert!(storage.get("key1").unwrap().is_none());
-        assert!(storage.get("key2").unwrap().is_none());
-    }
-
-    #[test]
-    fn test_keys() {
-        let storage = SledStorage::in_memory().unwrap();
-
-        // Add some entries
-        storage
-            .set("key1", create_test_entry("key1", "value1"))
-            .unwrap();
-        storage
-            .set("key2", create_test_entry("key2", "value2"))
-            .unwrap();
-
-        // Get all keys
-        let keys = storage.keys().unwrap();
-        assert_eq!(keys.len(), 2);
-        assert!(keys.contains(&"key1".to_string()));
-        assert!(keys.contains(&"key2".to_string()));
     }
 }

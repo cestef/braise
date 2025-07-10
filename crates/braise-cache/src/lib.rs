@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
+use bincode::{Decode, Encode};
 use braise_errors::{CacheError, Result};
 use braise_types::TypedValue;
-use serde::{Deserialize, Serialize};
 
 pub mod config;
 pub mod keys;
@@ -13,9 +13,9 @@ pub mod storage;
 pub use config::CacheConfig;
 pub use keys::CacheKeyGenerator;
 pub use manager::CacheManager;
-pub use storage::{CacheStorage, SledStorage};
+pub use storage::{CacheStorage, RedbStorage};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct CacheEntry {
     pub key: String,
     pub value: CacheValue,
@@ -55,7 +55,7 @@ impl CacheEntry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub enum CacheValue {
     RecipeResult(Result<(), String>),
     CommandOutput {
@@ -98,21 +98,21 @@ impl CacheValue {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct CommandOutput {
     pub stdout: String,
     pub stderr: String,
     pub exit_code: i32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct CacheDependency {
     pub dependency_type: DependencyType,
     pub path: PathBuf,
     pub hash: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub enum DependencyType {
     File,
     Directory,
@@ -120,7 +120,7 @@ pub enum DependencyType {
     Environment,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub enum CacheLevel {
     Recipe,
     Command,

@@ -6,7 +6,7 @@ use log::{debug, info, warn};
 
 use crate::{
     CacheConfig, CacheDependency, CacheEntry, CacheKeyGenerator, CacheLevel, CacheResult,
-    CacheStorage, CacheValue, SledStorage,
+    CacheStorage, CacheValue, RedbStorage,
 };
 use braise_errors::CacheError;
 use braise_types::TypedValue;
@@ -46,7 +46,7 @@ impl CacheStats {
 
 impl CacheManager {
     pub fn new(config: CacheConfig) -> CacheResult<Self> {
-        let storage = Arc::new(SledStorage::new(&config.storage_path)?);
+        let storage = Arc::new(RedbStorage::new(&config.storage_path)?);
         let stats = Arc::new(Mutex::new(CacheStats::default()));
 
         Ok(Self {

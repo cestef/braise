@@ -1,8 +1,7 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Core type system for Braise
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, bincode::Encode, bincode::Decode)]
 pub enum BraiseType {
     String,
     Number,
@@ -149,13 +148,13 @@ impl std::fmt::Display for BraiseType {
 }
 
 /// A value with its associated type information
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, bincode::Encode, bincode::Decode)]
 pub struct TypedValue {
     pub value: ValueData,
     pub value_type: BraiseType,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, bincode::Encode, bincode::Decode)]
 pub enum ValueData {
     String(String),
     Number(f64),
