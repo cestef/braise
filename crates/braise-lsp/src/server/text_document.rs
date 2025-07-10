@@ -391,11 +391,7 @@ impl TextDocumentProvider {
                 3 // FUNCTION (default)
             }
             Token::Bool(_) => 2, // NUMBER (treating bool as number type)
-            Token::StringType
-            | Token::NumberType
-            | Token::IntType
-            | Token::BoolType
-            | Token::ArrayType => 6, // TYPE
+            Token::StringType | Token::NumberType | Token::BoolType | Token::ArrayType => 6, // TYPE
             _ => 4,              // VARIABLE (default)
         };
 

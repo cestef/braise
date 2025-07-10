@@ -91,8 +91,7 @@ pub enum Token {
     StringType,
     #[token("number")]
     NumberType,
-    #[token("int")]
-    IntType,
+
     #[token("bool")]
     BoolType,
     #[token("array")]

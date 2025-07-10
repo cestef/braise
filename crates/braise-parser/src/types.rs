@@ -38,7 +38,7 @@ impl Parser {
                 self.advance();
                 Ok(BraiseType::String)
             }
-            Token::NumberType | Token::IntType => {
+            Token::NumberType => {
                 self.advance();
                 Ok(BraiseType::Number)
             }
