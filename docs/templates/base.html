@@ -19,9 +19,9 @@
         <nav class="flex justify-between items-center p-4">
             <span class="flex items-center gap-4">
                 {%block nav_button %}{%endblock%}
-                <a href="{{ get_url(path='') | safe }}" class="text-2xl font-bold">braisé <img src="/icon.svg" class="inline-block h-[1.5em]"></a>
+                <a href="{{ get_url(path='') | safe }}" class="text-xl md:text-2xl font-bold">braisé <img src="/icon.svg" class="inline-block h-[1.5em]"></a>
             </span>
-            <div class="flex gap-4">
+            <div class="flex gap-4 items-center">
                 <a href="{{ get_url(path='@/docs/get-started.md') | safe }}" class="text-lg hover:font-bold">Docs</a> |
                 <a href="https://github.com/cestef/braise" class="text-lg hover:font-bold">GitHub</a>
             </div>
