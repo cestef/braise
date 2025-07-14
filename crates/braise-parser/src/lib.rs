@@ -675,6 +675,38 @@ impl<'input> Parser<'input> {
                 }
             }
 
+            BraiseType::Optional(inner) => {
+                self.check_match_exhaustiveness(inner, patterns, span)?
+            }
+
+            BraiseType::Number => {
+                // has both -inf and +inf
+                let range_patterns = patterns
+                    .iter()
+                    .filter(|p| matches!(p, MatchPattern::Range { .. }))
+                    .collect::<Vec<_>>();
+                // range.start is none for -inf
+                let has_neg_inf = range_patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Range { start: None, .. }));
+                // range.end is none for +inf
+                let has_pos_inf = range_patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Range { end: None, .. }));
+                let has_wildcard = patterns
+                    .iter()
+                    .any(|p| matches!(p, MatchPattern::Wildcard | MatchPattern::Variable(_)));
+
+                if !has_wildcard && !(has_neg_inf && has_pos_inf) {
+                    return Err(ParseError::non_exhaustive_match(
+                        self.source,
+                        span.into(),
+                        Some("patterns for both negative and positive infinity".to_string()),
+                    )
+                    .boxed());
+                }
+            }
+
             e => {
                 let has_wildcard = patterns
                     .iter()

@@ -3,7 +3,6 @@ recipe "basic" {
     param count: number = 5
     param enabled: bool = true
 
-
     match status {
         "success" => print "✅ Operation completed successfully!",
         "error" => print "❌ Operation failed!",
@@ -11,14 +10,12 @@ recipe "basic" {
         _ => print "❓ Unknown status"
     }
 
-
     match count {
         0 => print "No items",
         1 => print "Single item",
         5 => print "Five items",
         _ => print "Multiple items"
     }
-
 
     match enabled {
         true => print "Feature is enabled",
@@ -41,7 +38,7 @@ recipe "variable" {
 
 recipe "range" {
     print match cpu.count() {
-        1 => "single core",
+        ..1 => "single core",
         2..4 => "few cores",
         5..=8 => "many cores",
         9.. => "lots of cores"
