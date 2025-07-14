@@ -40,3 +40,11 @@ jobs:
       with:
         tool: 'cargo'
         output-file-path: output.txt
+        fail-on-alert: true
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        comment-on-alert: true
+        summary-always: true
+        alert-comment-cc-users: '@cestef'
+        auto-push: true
+        gh-pages-branch: 'dev'
+        benchmark-data-dir-path: 'docs/benchmarks'
