@@ -407,9 +407,10 @@ mod tests {
 
     #[test]
     fn test_error_formatter_without_colors() {
-        let mut config = FormattingConfig::default();
-        config.use_colors = false;
-
+        let config = FormattingConfig {
+            use_colors: false,
+            ..FormattingConfig::default()
+        };
         let formatter = ErrorFormatter::with_config(config);
         let error = BraiseError::Runtime(RuntimeError::undefined_variable("test").boxed());
 

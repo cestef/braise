@@ -115,7 +115,7 @@ mod tests {
     fn test_param_type_default_values() {
         assert!(matches!(
             BraiseType::String.default_value(),
-            TypedValue { value, value_type } if matches!(&value, ValueData::String(s) if s == "") && value_type == BraiseType::String
+            TypedValue { value, value_type } if matches!(&value, ValueData::String(s) if s.is_empty()) && value_type == BraiseType::String
         ));
 
         assert!(matches!(

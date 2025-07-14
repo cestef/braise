@@ -33,7 +33,7 @@ mod tests {
         let input = "string number bool array";
         let tokens = tokenize(input).unwrap();
 
-        let expected = vec![
+        let expected = [
             Token::StringType,
             Token::NumberType,
             Token::BoolType,
@@ -47,12 +47,12 @@ mod tests {
 
     #[test]
     fn test_literals() {
-        let input = r#""hello world" 42 3.14 true false"#;
+        let input = r#""hello world" 42 1.234 true false"#;
         let tokens = tokenize(input).unwrap();
 
         assert_eq!(tokens[0].token, Token::String("hello world".to_string()));
         assert_eq!(tokens[1].token, Token::Number(42.0));
-        assert_eq!(tokens[2].token, Token::Number(3.14));
+        assert_eq!(tokens[2].token, Token::Number(1.234));
         assert_eq!(tokens[3].token, Token::Bool(true));
         assert_eq!(tokens[4].token, Token::Bool(false));
     }
@@ -126,7 +126,7 @@ mod tests {
                 */
             }
         "#;
-        let tokens = tokenize(&input)?;
+        let tokens = tokenize(input)?;
 
         assert_eq!(tokens[0].token, Token::Recipe);
         assert_eq!(tokens[1].token, Token::String("test".to_string()));
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn test_position_tracking() -> miette::Result<()> {
         let input = "recipe\n\"test\"";
-        let tokens = tokenize(&input)?;
+        let tokens = tokenize(input)?;
 
         assert_eq!(tokens[0].span.start.line, 1);
         assert_eq!(tokens[0].span.start.column, 1);

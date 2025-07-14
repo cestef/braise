@@ -9,8 +9,8 @@ fn load_samples() -> Vec<(String, String)> {
     ["simple", "web", "rust", "complex"]
         .iter()
         .map(|name| {
-            let path = format!("{}/{}.braise", BENCH_DIR, name);
-            let content = fs::read_to_string(&path).expect(&format!("Failed to read {}", path));
+            let path = format!("{BENCH_DIR}/{name}.braise");
+            let content = fs::read_to_string(&path).unwrap_or_else(|_| panic!("Failed to read {path}"));
             (name.to_string(), content)
         })
         .collect()
@@ -20,15 +20,14 @@ fn gen_scale_sample(count: usize) -> String {
     (0..count)
         .map(|i| {
             format!(
-                r#"recipe "task_{}" {{
-    param count: number = {}
+                r#"recipe "task_{i}" {{
+    param count: number = {i}
     if count > 10 {{
-        run "echo {}"
+        run "echo {i}"
     }}
 }}
 
-"#,
-                i, i, i
+"#
             )
         })
         .collect()
