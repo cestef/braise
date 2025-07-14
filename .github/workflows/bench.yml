@@ -32,8 +32,9 @@ jobs:
         key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Run benchmarks
-      run: cargo bench --bench parser_benchmarks -- --quick --output-format bencher | tee output.txt
-    
+      run: cargo bench --bench parser_benchmarks -- --output-format bencher | tee output.txt
+    - run: cat output.txt
+
     - name: Store benchmark result
       uses: benchmark-action/github-action-benchmark@v1
       with:
