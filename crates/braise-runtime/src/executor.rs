@@ -6,8 +6,7 @@ use std::sync::Mutex;
 use crate::Result;
 use crate::RuntimeError;
 
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub enum ShellMode {
     /// Each command runs in a separate process (original behavior)
     Isolated,
@@ -15,7 +14,6 @@ pub enum ShellMode {
     #[default]
     Persistent,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct ShellConfig {
@@ -418,13 +416,14 @@ impl Executor for PersistentShellExecutor {
 impl Drop for PersistentShellExecutor {
     fn drop(&mut self) {
         if let Ok(mut process_guard) = self.shell_process.lock()
-            && let Some(mut child) = process_guard.take() {
-                if let Some(stdin) = child.stdin.as_mut() {
-                    let _ = stdin.write_all(b"exit\n");
-                    let _ = stdin.flush();
-                }
-                let _ = child.wait();
+            && let Some(mut child) = process_guard.take()
+        {
+            if let Some(stdin) = child.stdin.as_mut() {
+                let _ = stdin.write_all(b"exit\n");
+                let _ = stdin.flush();
             }
+            let _ = child.wait();
+        }
     }
 }
 

@@ -175,9 +175,7 @@ impl CacheManager {
             }
         }
 
-        info!(
-            "Cleared {removed_count} cache entries matching pattern: {pattern}"
-        );
+        info!("Cleared {removed_count} cache entries matching pattern: {pattern}");
         Ok(removed_count)
     }
 

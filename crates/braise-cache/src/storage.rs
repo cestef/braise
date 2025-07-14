@@ -67,9 +67,8 @@ impl RedbStorage {
     }
 
     fn serialize_entry(&self, entry: &CacheEntry) -> CacheResult<Vec<u8>> {
-        bincode::encode_to_vec(entry, self.config).map_err(|e| {
-            CacheError::serialization(format!("Failed to serialize cache entry: {e}"))
-        })
+        bincode::encode_to_vec(entry, self.config)
+            .map_err(|e| CacheError::serialization(format!("Failed to serialize cache entry: {e}")))
     }
 
     fn deserialize_entry(&self, data: &[u8]) -> CacheResult<CacheEntry> {
@@ -254,9 +253,7 @@ impl CacheStorage for RedbStorage {
             write_txn.commit().map_err(commit_error)?;
         }
 
-        debug!(
-            "Cache cleanup completed: {expired_count} expired entries removed"
-        );
+        debug!("Cache cleanup completed: {expired_count} expired entries removed");
         Ok(expired_count)
     }
 }
