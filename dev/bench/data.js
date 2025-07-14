@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752489627377,
+  "lastUpdate": 1752489863082,
   "repoUrl": "https://github.com/cestef/braise",
   "entries": {
     "Benchmark": [
@@ -341,6 +341,120 @@ window.BENCHMARK_DATA = {
             "name": "scale/recipes/200",
             "value": 836677,
             "range": "± 14290",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "root@cstef.dev",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "committer": {
+            "email": "root@cstef.dev",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "distinct": true,
+          "id": "a81166387ee9f30fb374221aae839fcfe7269527",
+          "message": "fix: clippy warning",
+          "timestamp": "2025-07-14T12:40:23+02:00",
+          "tree_id": "4560a85cc46523bc0f65fbe7db829e02ca617454",
+          "url": "https://github.com/cestef/braise/commit/a81166387ee9f30fb374221aae839fcfe7269527"
+        },
+        "date": 1752489862393,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "tokenize/tokenize/simple",
+            "value": 1367,
+            "range": "± 11",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "tokenize/tokenize/web",
+            "value": 3416,
+            "range": "± 15",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "tokenize/tokenize/rust",
+            "value": 7807,
+            "range": "± 99",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "tokenize/tokenize/complex",
+            "value": 12976,
+            "range": "± 59",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse/parse/simple",
+            "value": 16409,
+            "range": "± 77",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse/parse/web",
+            "value": 30453,
+            "range": "± 166",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse/parse/rust",
+            "value": 62762,
+            "range": "± 159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse/parse/complex",
+            "value": 159786,
+            "range": "± 447",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/simple",
+            "value": 20025,
+            "range": "± 52",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/web",
+            "value": 35202,
+            "range": "± 160",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/rust",
+            "value": 74300,
+            "range": "± 341",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/complex",
+            "value": 180692,
+            "range": "± 2383",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scale/recipes/50",
+            "value": 217444,
+            "range": "± 2195",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scale/recipes/100",
+            "value": 428026,
+            "range": "± 1254",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scale/recipes/200",
+            "value": 836944,
+            "range": "± 15774",
             "unit": "ns/iter"
           }
         ]
