@@ -10,7 +10,8 @@ fn load_samples() -> Vec<(String, String)> {
         .iter()
         .map(|name| {
             let path = format!("{BENCH_DIR}/{name}.braise");
-            let content = fs::read_to_string(&path).unwrap_or_else(|_| panic!("Failed to read {path}"));
+            let content =
+                fs::read_to_string(&path).unwrap_or_else(|_| panic!("Failed to read {path}"));
             (name.to_string(), content)
         })
         .collect()

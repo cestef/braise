@@ -148,9 +148,7 @@ mod tests {
                 assert_eq!(name, "name");
                 assert_eq!(expected_type, "string");
             }
-            e => panic!(
-                "Expected missing parameter or circular dependency error, got {e:?}"
-            ),
+            e => panic!("Expected missing parameter or circular dependency error, got {e:?}"),
         }
         Ok(())
     }
