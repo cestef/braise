@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752488100728,
+  "lastUpdate": 1752489627377,
   "repoUrl": "https://github.com/cestef/braise",
   "entries": {
     "Benchmark": [
@@ -227,6 +227,120 @@ window.BENCHMARK_DATA = {
             "name": "scale/recipes/200",
             "value": 832162,
             "range": "± 2615",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "root@cstef.dev",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "committer": {
+            "email": "root@cstef.dev",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "distinct": true,
+          "id": "719c7c35100f03576e067d7aea8205f4d7e84ac4",
+          "message": "fix: enhance match pattern handling for optional and number types",
+          "timestamp": "2025-07-14T12:36:27+02:00",
+          "tree_id": "ac3ff0c4023bc301fba4e243ef3e8e8d154f78f4",
+          "url": "https://github.com/cestef/braise/commit/719c7c35100f03576e067d7aea8205f4d7e84ac4"
+        },
+        "date": 1752489627007,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "tokenize/tokenize/simple",
+            "value": 1369,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "tokenize/tokenize/web",
+            "value": 3435,
+            "range": "± 42",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "tokenize/tokenize/rust",
+            "value": 8273,
+            "range": "± 233",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "tokenize/tokenize/complex",
+            "value": 13230,
+            "range": "± 417",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse/parse/simple",
+            "value": 16413,
+            "range": "± 51",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse/parse/web",
+            "value": 30633,
+            "range": "± 99",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse/parse/rust",
+            "value": 62414,
+            "range": "± 266",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parse/parse/complex",
+            "value": 160439,
+            "range": "± 2367",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/simple",
+            "value": 20022,
+            "range": "± 174",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/web",
+            "value": 35759,
+            "range": "± 181",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/rust",
+            "value": 73320,
+            "range": "± 224",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/complex",
+            "value": 180911,
+            "range": "± 762",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scale/recipes/50",
+            "value": 216483,
+            "range": "± 888",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scale/recipes/100",
+            "value": 427833,
+            "range": "± 4037",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "scale/recipes/200",
+            "value": 836677,
+            "range": "± 14290",
             "unit": "ns/iter"
           }
         ]
