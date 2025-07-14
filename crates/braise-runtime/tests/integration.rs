@@ -101,7 +101,7 @@ mod tests {
         recipe "shell" {
             shell "bash -c"
             run "echo using $0"
-            shell "zsh -c"
+            shell "sh -c"
             run "echo using $0"
         }"#;
         let runtime = create_runtime(input)?;
@@ -110,10 +110,10 @@ mod tests {
         let output = runtime.executor.output().unwrap();
 
         let bash_pos = output.find("bash").expect("Output should contain 'bash'");
-        let zsh_pos = output.find("zsh").expect("Output should contain 'zsh'");
+        let zsh_pos = output.find("sh").expect("Output should contain 'sh'");
         assert!(
             bash_pos < zsh_pos,
-            "bash should appear before zsh in the output"
+            "bash should appear before sh in the output"
         );
 
         Ok(())
