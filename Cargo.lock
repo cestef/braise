@@ -198,6 +198,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "braise-bench"
+version = "0.3.2-dev"
+dependencies = [
+ "braise-core",
+ "braise-lexer",
+ "braise-parser",
+ "braise-runtime",
+ "criterion",
+]
+
+[[package]]
 name = "braise-cache"
 version = "0.3.2-dev"
 dependencies = [
@@ -293,7 +304,6 @@ dependencies = [
  "braise-core",
  "braise-errors",
  "braise-lexer",
- "criterion",
  "log",
  "miette",
 ]
@@ -317,6 +327,16 @@ dependencies = [
  "rand",
  "rayon",
  "ureq",
+]
+
+[[package]]
+name = "braise-tests"
+version = "0.3.2-dev"
+dependencies = [
+ "braise-core",
+ "braise-lexer",
+ "braise-parser",
+ "braise-runtime",
 ]
 
 [[package]]
@@ -987,16 +1007,6 @@ dependencies = [
  "once_cell",
  "unicode-segmentation",
  "unicode-width 0.1.14",
-]
-
-[[package]]
-name = "integration-tests"
-version = "0.3.2-dev"
-dependencies = [
- "braise-core",
- "braise-lexer",
- "braise-parser",
- "braise-runtime",
 ]
 
 [[package]]

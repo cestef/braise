@@ -431,12 +431,12 @@ impl Runtime {
             }
             Statement::Print(expr) => {
                 let value = self.evaluate_expression(expr, context)?;
-                if self.dry_run {
-                    if !self.quiet {
+                if !self.quiet {
+                    if self.dry_run {
                         println!("  {} {}", "print".dimmed(), value.to_string().italic());
+                    } else {
+                        self.executor.print_output(&value.to_string());
                     }
-                } else {
-                    println!("{value}");
                 }
             }
             Statement::Exit(expr) => {

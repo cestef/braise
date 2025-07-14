@@ -3,10 +3,6 @@ recipe "hello" {
     print "Hello, ${name}!"
 }
 
-recipe "build" -> ["test"] {
-    run "cargo build --release"
-}
-
 recipe "test" {
     run "cargo test"
 }

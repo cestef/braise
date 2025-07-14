@@ -1,0 +1,84 @@
+recipe "setup" {
+    param env: string = "development"
+    param clean: bool = false
+
+    if clean {
+        print "Cleaning previous setup..."
+        run "rm -rf ./build ./dist"
+    }
+
+    print "Setting up ${env} environment..."
+}
+
+recipe "deps" -> ["setup"] {
+    param update: bool = false
+
+    print "Installing dependencies..."
+
+    if update {
+        run "cargo update"
+        run "npm update"
+    }
+
+    run "cargo build"
+}
+
+recipe "test" -> ["deps"] {
+    param pattern: string = ""
+    param coverage: bool = false
+
+    if pattern != "" {
+        run "cargo test ${pattern}"
+    } else {
+        run "cargo test"
+    }
+
+    if coverage {
+        run "cargo tarpaulin --out Html"
+    }
+}
+
+recipe "build" -> ["test"] {
+    param target: string = "debug"
+
+    match target {
+        "debug" => {
+            run "cargo build"
+        },
+        "release" => {
+            run "cargo build --release"
+        },
+        _ => {
+            print "Unknown target: ${target}"
+            exit 1
+        }
+    }
+}
+
+recipe "deploy" -> ["build"] {
+    param env: string = "staging"
+
+    match env {
+        "production" => {
+            run "kubectl apply -f prod.yaml"
+        },
+        "staging" => {
+            run "kubectl apply -f staging.yaml"
+        },
+        _ => {
+            print "Unknown environment: ${env}"
+            exit 1
+        }
+    }
+}
+
+recipe "cleanup" {
+    try {
+        run "echo 'Doing work'"
+        throw "Something went wrong"
+    } catch e {
+        print "Caught an error: ${e}"
+    } finally {
+        run "echo 'Cleaning up'"
+    }
+}

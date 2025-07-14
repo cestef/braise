@@ -1,0 +1,28 @@
+recipe "build" -> ["test"] {
+    param profile: ["debug", "release"] = "debug"
+    param jobs: number = 4
+    
+    match profile {
+        "debug" => run "cargo build",
+        "release" => run "cargo build --release",
+        _ => {
+            print "Unknown profile: ${profile}"
+            exit 1
+        }
+    }
+}
+
+recipe "test" {
+    run "cargo test"
+}
+
+recipe "deploy" {
+    param env: string = "dev"
+    param replicas: number = 3
+    
+    print "Deploying to ${env} with ${replicas} replicas"
+    
+    for i in [1, 2, 3] {
+        print "Step ${i}"
+    }
+}

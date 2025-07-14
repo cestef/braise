@@ -1,0 +1,29 @@
+[package]
+name = "braise-bench"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+braise-lexer = { path = "../braise-lexer" }
+braise-parser = { path = "../braise-parser" }
+braise-runtime = { path = "../braise-runtime" }
+braise-core = { path = "../braise-core" }
+criterion = { version = "0.6", features = ["html_reports"] }
+
+[[bench]]
+name = "lexer"
+harness = false
+
+[[bench]]
+name = "parser"
+harness = false
+
+[[bench]]
+name = "runtime"
+harness = false
+
+[[bench]]
+name = "pipeline"
+harness = false

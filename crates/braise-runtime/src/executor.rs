@@ -66,6 +66,10 @@ pub trait Executor: Send + Sync {
     fn output(&self) -> Option<String> {
         None
     }
+
+    fn print_output(&self, message: &str) {
+        println!("{message}");
+    }
 }
 
 pub struct DefaultExecutor {
@@ -163,6 +167,12 @@ impl Executor for StringExecutor {
         } else {
             Some(output.clone())
         }
+    }
+
+    fn print_output(&self, message: &str) {
+        let mut output = self.output.lock().unwrap();
+        output.push_str(message);
+        output.push('\n');
     }
 }
 
