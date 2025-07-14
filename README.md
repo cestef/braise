@@ -45,7 +45,7 @@ curl -sSL https://braise.cstef.dev/install.sh | INCLUDE_DEV=true bash
 <p>
 
 ```bash
-cargo install --git https://github.com/cestef/braise --branch dev --bins
+cargo install --git https://github.com/cestef/braise --branch main --bins
 ```
 </p>
 </details>
