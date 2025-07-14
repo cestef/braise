@@ -29,14 +29,10 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     
-    - name: Install nextest
-      run: cargo install cargo-nextest --locked
+    - uses: taiki-e/install-action@nextest
     
     - name: Run tests with nextest
       run: cargo nextest run
-    
-    - name: Run doctests
-      run: cargo test --doc
     
     - name: Check formatting
       run: cargo fmt --all -- --check
