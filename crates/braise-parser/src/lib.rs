@@ -697,7 +697,7 @@ impl<'input> Parser<'input> {
                     .iter()
                     .any(|p| matches!(p, MatchPattern::Wildcard | MatchPattern::Variable(_)));
 
-                if !has_wildcard && !(has_neg_inf && has_pos_inf) {
+                if !has_wildcard && (!has_neg_inf || !has_pos_inf) {
                     return Err(ParseError::non_exhaustive_match(
                         self.source,
                         span.into(),
