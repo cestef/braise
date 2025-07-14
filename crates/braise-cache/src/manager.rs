@@ -89,12 +89,12 @@ impl CacheManager {
 
         match self.storage.get(key)? {
             Some(entry) => {
-                debug!("Cache HIT for key: {}", key);
+                debug!("Cache HIT for key: {key}");
                 self.increment_hits();
                 Ok(Some(entry.value))
             }
             None => {
-                debug!("Cache MISS for key: {}", key);
+                debug!("Cache MISS for key: {key}");
                 self.increment_misses();
                 Ok(None)
             }
@@ -139,12 +139,12 @@ impl CacheManager {
         // Store the entry
         self.storage.set(key, entry)?;
 
-        debug!("Cache SET for key: {}", key);
+        debug!("Cache SET for key: {key}");
         Ok(())
     }
 
     pub fn invalidate(&self, key: &str) -> CacheResult<bool> {
-        debug!("Invalidating cache key: {}", key);
+        debug!("Invalidating cache key: {key}");
 
         self.storage.remove(key)
     }
@@ -164,7 +164,7 @@ impl CacheManager {
     }
 
     pub fn clear_by_pattern(&self, pattern: &str) -> CacheResult<u64> {
-        debug!("Clearing cache entries matching pattern: {}", pattern);
+        debug!("Clearing cache entries matching pattern: {pattern}");
 
         let keys = self.storage.keys()?;
         let mut removed_count = 0;
@@ -176,8 +176,7 @@ impl CacheManager {
         }
 
         info!(
-            "Cleared {} cache entries matching pattern: {}",
-            removed_count, pattern
+            "Cleared {removed_count} cache entries matching pattern: {pattern}"
         );
         Ok(removed_count)
     }
@@ -188,7 +187,7 @@ impl CacheManager {
         let removed_count = self.storage.cleanup_expired()?;
 
         if removed_count > 0 {
-            info!("Cleaned up {} expired cache entries", removed_count);
+            info!("Cleaned up {removed_count} expired cache entries");
 
             if let Ok(mut stats) = self.stats.lock() {
                 stats.evictions += removed_count;
@@ -249,7 +248,7 @@ impl CacheManager {
             let removed_count = self.cleanup_expired()?;
 
             if removed_count > 0 {
-                debug!("Removed {} expired entries to free space", removed_count);
+                debug!("Removed {removed_count} expired entries to free space");
             }
 
             // If still over limit, we could implement LRU or other strategies
@@ -406,11 +405,12 @@ impl CacheManager {
 mod tests {
     use super::*;
     use braise_types::TypedValue;
-    use tempfile::tempdir;
+    use tempfile::NamedTempFile;
 
     fn create_test_manager() -> CacheManager {
-        let temp_dir = tempdir().unwrap();
-        let config = CacheConfig::default().with_storage_path(temp_dir.path().to_path_buf());
+        let temp = NamedTempFile::new().unwrap();
+        let path = temp.path().to_path_buf();
+        let config = CacheConfig::default().with_storage_path(path);
         CacheManager::new(config).unwrap()
     }
 

@@ -44,9 +44,20 @@ pub struct RedbStorage {
 
 impl RedbStorage {
     pub fn new<P: AsRef<Path>>(path: P) -> CacheResult<Self> {
-        let db = Database::create(path).map_err(db_error)?.into();
+        let db = Database::create(path).map_err(db_error)?;
         let config = Configuration::default();
-        Ok(Self { db, config })
+
+        // Initialize the table
+        let write_txn = db.begin_write().map_err(tx_error)?;
+        {
+            let _table = write_txn.open_table(TABLE).map_err(table_error)?;
+        }
+        write_txn.commit().map_err(commit_error)?;
+
+        Ok(Self {
+            db: Arc::new(db),
+            config,
+        })
     }
 
     pub fn compact(&self) -> CacheResult<()> {
@@ -57,14 +68,14 @@ impl RedbStorage {
 
     fn serialize_entry(&self, entry: &CacheEntry) -> CacheResult<Vec<u8>> {
         bincode::encode_to_vec(entry, self.config).map_err(|e| {
-            CacheError::serialization(format!("Failed to serialize cache entry: {}", e))
+            CacheError::serialization(format!("Failed to serialize cache entry: {e}"))
         })
     }
 
     fn deserialize_entry(&self, data: &[u8]) -> CacheResult<CacheEntry> {
         bincode::decode_from_slice(data, self.config)
             .map_err(|e| {
-                CacheError::serialization(format!("Failed to deserialize cache entry: {}", e))
+                CacheError::serialization(format!("Failed to deserialize cache entry: {e}"))
             })
             .map(|(entry, _)| entry)
     }
@@ -74,7 +85,7 @@ const TABLE: TableDefinition<&[u8], &[u8]> = TableDefinition::new("cache");
 
 impl CacheStorage for RedbStorage {
     fn get(&self, key: &str) -> CacheResult<Option<CacheEntry>> {
-        debug!("Cache GET: {}", key);
+        debug!("Cache GET: {key}");
 
         let read_txn = self.db.begin_read().map_err(tx_error)?;
         let table = read_txn.open_table(TABLE).map_err(table_error)?;
@@ -82,7 +93,7 @@ impl CacheStorage for RedbStorage {
             Some(data) => {
                 let entry = self.deserialize_entry(data.value())?;
                 if entry.is_expired() {
-                    debug!("Cache entry expired: {}", key);
+                    debug!("Cache entry expired: {key}");
                     drop(read_txn); // End read txn before write
                     let write_txn = self.db.begin_write().map_err(tx_error)?;
                     let mut table = write_txn.open_table(TABLE).map_err(table_error)?;
@@ -91,18 +102,18 @@ impl CacheStorage for RedbStorage {
                     write_txn.commit().map_err(commit_error)?;
                     return Ok(None);
                 }
-                debug!("Cache HIT: {}", key);
+                debug!("Cache HIT: {key}");
                 Ok(Some(entry))
             }
             None => {
-                debug!("Cache MISS: {}", key);
+                debug!("Cache MISS: {key}");
                 Ok(None)
             }
         }
     }
 
     fn set(&self, key: &str, entry: CacheEntry) -> CacheResult<()> {
-        debug!("Cache SET: {}", key);
+        debug!("Cache SET: {key}");
 
         let write_txn = self.db.begin_write().map_err(tx_error)?;
         let mut table = write_txn.open_table(TABLE).map_err(table_error)?;
@@ -113,12 +124,12 @@ impl CacheStorage for RedbStorage {
         drop(table); // Release the mutable borrow before committing
         write_txn.commit().map_err(commit_error)?;
 
-        debug!("Cache entry set: {}", key);
+        debug!("Cache entry set: {key}");
         Ok(())
     }
 
     fn remove(&self, key: &str) -> CacheResult<bool> {
-        debug!("Cache REMOVE: {}", key);
+        debug!("Cache REMOVE: {key}");
 
         let write_txn = self.db.begin_write().map_err(tx_error)?;
         let mut table = write_txn.open_table(TABLE).map_err(table_error)?;
@@ -126,7 +137,7 @@ impl CacheStorage for RedbStorage {
         drop(table);
         write_txn.commit().map_err(commit_error)?;
 
-        debug!("Cache entry removed: {} (existed: {})", key, existed);
+        debug!("Cache entry removed: {key} (existed: {existed})");
         Ok(existed)
     }
 
@@ -135,22 +146,24 @@ impl CacheStorage for RedbStorage {
 
         let write_txn = self.db.begin_write().map_err(tx_error)?;
         let mut table = write_txn.open_table(TABLE).map_err(table_error)?;
-        
+
         // Get all keys first
-        let entries = table.iter().map_err(st_error)?
+        let entries = table
+            .iter()
+            .map_err(st_error)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(st_error)?;
-            
+
         let keys: Vec<Vec<u8>> = entries
             .into_iter()
             .map(|(k, _)| k.value().to_vec())
             .collect();
-        
+
         // Remove all entries
         for key in keys {
             table.remove(&*key).map_err(st_error)?;
         }
-        
+
         drop(table);
         write_txn.commit().map_err(commit_error)?;
 
@@ -163,16 +176,19 @@ impl CacheStorage for RedbStorage {
 
         let read_txn = self.db.begin_read().map_err(tx_error)?;
         let table = read_txn.open_table(TABLE).map_err(table_error)?;
-        
-        let entries = table.iter().map_err(st_error)?
+
+        let entries = table
+            .iter()
+            .map_err(st_error)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(st_error)?;
-            
+
         let keys: Result<Vec<String>, _> = entries
             .into_iter()
-            .map(|(k, _)| String::from_utf8(k.value().to_vec()).map_err(|e| {
-                CacheError::storage(format!("Invalid UTF-8 key: {}", e))
-            }))
+            .map(|(k, _)| {
+                String::from_utf8(k.value().to_vec())
+                    .map_err(|e| CacheError::storage(format!("Invalid UTF-8 key: {e}")))
+            })
             .collect();
 
         let keys = keys?;
@@ -185,14 +201,16 @@ impl CacheStorage for RedbStorage {
 
         let read_txn = self.db.begin_read().map_err(tx_error)?;
         let table = read_txn.open_table(TABLE).map_err(table_error)?;
-        
-        let entries = table.iter().map_err(st_error)?
+
+        let entries = table
+            .iter()
+            .map_err(st_error)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(st_error)?;
-            
+
         let count = entries.len() as u64;
 
-        debug!("Cache size: {} entries", count);
+        debug!("Cache size: {count} entries");
         Ok(count)
     }
 
@@ -201,42 +219,44 @@ impl CacheStorage for RedbStorage {
 
         let read_txn = self.db.begin_read().map_err(tx_error)?;
         let table = read_txn.open_table(TABLE).map_err(table_error)?;
-        
+
         // Find expired keys
-        let entries = table.iter().map_err(st_error)?
+        let entries = table
+            .iter()
+            .map_err(st_error)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(st_error)?;
-            
+
         let expired_keys: Result<Vec<Vec<u8>>, _> = entries
             .into_iter()
-            .filter_map(|(k, v)| {
-                match self.deserialize_entry(v.value()) {
-                    Ok(entry) if entry.is_expired() => Some(Ok(k.value().to_vec())),
-                    Ok(_) => None,
-                    Err(e) => Some(Err(e)),
-                }
+            .filter_map(|(k, v)| match self.deserialize_entry(v.value()) {
+                Ok(entry) if entry.is_expired() => Some(Ok(k.value().to_vec())),
+                Ok(_) => None,
+                Err(e) => Some(Err(e)),
             })
             .collect();
 
         let expired_keys = expired_keys?;
         let expired_count = expired_keys.len() as u64;
-        
+
         drop(table);
         drop(read_txn);
 
         if !expired_keys.is_empty() {
             let write_txn = self.db.begin_write().map_err(tx_error)?;
             let mut table = write_txn.open_table(TABLE).map_err(table_error)?;
-            
+
             for key in expired_keys {
                 table.remove(&*key).map_err(st_error)?;
             }
-            
+
             drop(table);
             write_txn.commit().map_err(commit_error)?;
         }
 
-        debug!("Cache cleanup completed: {} expired entries removed", expired_count);
+        debug!(
+            "Cache cleanup completed: {expired_count} expired entries removed"
+        );
         Ok(expired_count)
     }
 }

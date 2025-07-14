@@ -3,7 +3,7 @@ use core::{ast::*, error::parser::Result, *};
 
 use crate::Parser;
 
-impl Parser {
+impl<'input> Parser<'input> {
     /// Parse a match pattern with full support for all pattern types
     pub fn parse_match_pattern(&mut self) -> Result<MatchPattern> {
         self.parse_or_pattern()

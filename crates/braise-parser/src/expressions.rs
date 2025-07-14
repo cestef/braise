@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::Parser;
 
-impl Parser {
+impl<'input> Parser<'input> {
     pub fn parse_expression(&mut self) -> Result<SpannedNode<Expression>> {
         let start_token = self.current;
         let expr = self.parse_conditional()?;
@@ -480,7 +480,7 @@ impl Parser {
     /// Parse interpolated string using recursive lexing
     fn parse_interpolation(&mut self, s: &str) -> Result<InterpolatedStringExpr> {
         let current_span = self.get_current_span();
-        let interpolated = lex_interpolated_string(s, &self.source, current_span.start.offset)
+        let interpolated = lex_interpolated_string(s, self.source, current_span.start.offset)
             .map_err(|_err| {
                 self.create_error(
                     "interpolation parsing".to_string(),
@@ -498,8 +498,8 @@ impl Parser {
                 InterpolationSegment::Expression(tokens) => {
                     // Create a new parser for the expression tokens
                     let mut expr_parser = Parser::new(
-                        tokens,
-                        self.source.clone(),
+                        &tokens,
+                        self.source,
                         format!("interpolation_{}", current_span.start.offset),
                     );
                     expr_parser.enable_type_checking = self.enable_type_checking;
@@ -629,7 +629,7 @@ mod tests {
 
     fn parse_expression_string(input: &str) -> Result<Expression> {
         let tokens = tokenize(input).unwrap();
-        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
+        let mut parser = Parser::new(&tokens, input, "test.braise".to_string());
         let expr = parser.parse_expression()?;
         Ok(expr.value)
     }

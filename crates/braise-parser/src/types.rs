@@ -3,7 +3,7 @@ use core::{BraiseType, ast::*, error::parser::Result};
 
 use crate::Parser;
 
-impl Parser {
+impl<'input> Parser<'input> {
     /// Parse a parameter type with support for new type system features
     pub fn parse_param_type(&mut self) -> Result<BraiseType> {
         let base_type = self.parse_base_type()?;
@@ -242,7 +242,7 @@ mod tests {
 
     fn parse_type_string(input: &str) -> Result<BraiseType> {
         let tokens = tokenize(input).unwrap();
-        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
+        let mut parser = Parser::new(&tokens, input, "test.braise".to_string());
         parser.parse_param_type()
     }
 
@@ -365,7 +365,7 @@ mod tests {
         "#;
 
         let tokens = tokenize(input)?;
-        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
+        let mut parser = Parser::new(&tokens, input, "test.braise".to_string());
         let config = parser.parse();
 
         assert!(config.is_ok(), "Parser should handle enhanced types");

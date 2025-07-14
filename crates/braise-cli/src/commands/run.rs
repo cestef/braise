@@ -3,7 +3,6 @@ use lexer::tokenize;
 use parser::Parser as BraiseParser;
 use runtime::{Runtime, ShellConfig, ShellMode as RuntimeShellMode};
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use crate::commands::Cli;
 use crate::utils;
@@ -16,8 +15,7 @@ pub fn run_recipe(
     cli: &Cli,
 ) -> Result<()> {
     let tokens = tokenize(contents)?;
-    let source = Arc::new(contents.to_string());
-    let mut parser = BraiseParser::new(tokens, source.clone(), file.to_string());
+    let mut parser = BraiseParser::new(&tokens, contents, file.to_string());
     let ast = parser.parse().map_err(|e| BraiseError::from(*e))?;
 
     // Configure shell execution
@@ -45,7 +43,8 @@ pub fn run_recipe(
         shell_config = shell_config.with_shell(shell_cmd);
     }
 
-    let mut runtime = Runtime::new(ast, source).with_shell_config(shell_config);
+    let mut runtime =
+        Runtime::new(ast, contents.to_string().into()).with_shell_config(shell_config);
 
     if cli.dry {
         runtime = runtime.with_dry_run();

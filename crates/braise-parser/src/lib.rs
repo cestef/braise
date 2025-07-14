@@ -3,7 +3,6 @@
 use ::lexer::{SpannedToken, Token};
 use core::{ast::*, error::parser::ParseError, error::parser::Result, *};
 use log::debug;
-use std::sync::Arc;
 
 mod expressions;
 mod helpers;
@@ -12,17 +11,17 @@ mod statements;
 mod types;
 
 #[derive(Debug, Clone)]
-pub struct Parser {
-    pub tokens: Vec<SpannedToken>,
-    pub source: Arc<String>,
+pub struct Parser<'input> {
+    pub tokens: &'input [SpannedToken],
+    pub source: &'input str,
     pub current: usize,
     pub file_id: FileId,
     pub type_engine: TypeInferenceEngine,
     pub enable_type_checking: bool,
 }
 
-impl Parser {
-    pub fn new(tokens: Vec<SpannedToken>, source: Arc<String>, filename: String) -> Self {
+impl<'input> Parser<'input> {
+    pub fn new(tokens: &'input [SpannedToken], source: &'input str, filename: String) -> Self {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         filename.hash(&mut hasher);
@@ -43,7 +42,7 @@ impl Parser {
         self.consume_token(Token::Recipe)?;
 
         let name = self.parse_string()?;
-        debug!("Parsing recipe: {}", name);
+        debug!("Parsing recipe: {name}");
 
         let dependencies = if self.match_token(&Token::Arrow) {
             self.consume_token(Token::LeftBracket)?;
@@ -110,8 +109,8 @@ impl Parser {
 
     /// Create parser with type checking disabled
     pub fn new_without_type_checking(
-        tokens: Vec<SpannedToken>,
-        source: Arc<String>,
+        tokens: &'input [SpannedToken],
+        source: &'input str,
         filename: String,
     ) -> Self {
         let mut parser = Self::new(tokens, source, filename);
@@ -146,7 +145,7 @@ impl Parser {
                         .boxed());
                 }
                 let s = self.parse_string()?;
-                debug!("Set shell to: {}", s);
+                debug!("Set shell to: {s}");
                 shell = Some(s);
                 continue;
             }
@@ -435,7 +434,7 @@ impl Parser {
                 for elem in elements {
                     match &elem.value {
                         ArrayPatternElement::Pattern(match_pattern) => {
-                            self.bind_pattern_variables(&match_pattern, expr_type)?;
+                            self.bind_pattern_variables(match_pattern, expr_type)?;
                         }
                         ArrayPatternElement::Wildcard => {}
                         ArrayPatternElement::Rest(rest_var) => {
@@ -646,7 +645,7 @@ impl Parser {
 
                 if !(has_wildcard || (has_true && has_false)) {
                     return Err(ParseError::non_exhaustive_match(
-                        self.source.to_string(),
+                        self.source,
                         span.into(),
                         Some("patterns for both true and false".to_string()),
                     )
@@ -666,7 +665,7 @@ impl Parser {
                             .any(|p| matches!(p, MatchPattern::String(s) if s == variant));
                         if !is_covered {
                             return Err(ParseError::non_exhaustive_match(
-                                self.source.to_string(),
+                                self.source,
                                 span.into(),
                                 Some(format!("pattern for enum variant '{variant}'")),
                             )
@@ -683,7 +682,7 @@ impl Parser {
 
                 if !has_wildcard {
                     return Err(ParseError::non_exhaustive_match(
-                        self.source.to_string(),
+                        self.source,
                         span.into(),
                         Some(format!("patterns for type '{e}'")),
                     )
@@ -740,13 +739,13 @@ impl Parser {
             message.push_str(&format!(". {suggestion}"));
         }
 
-        ParseError::invalid_expression(message, self.source.as_ref().clone(), span.into())
+        ParseError::invalid_expression(message, self.source, span.into())
     }
 
     fn create_undefined_variable_error(&self, name: &str, span: &Span) -> ParseError {
         ParseError::invalid_expression(
             format!("Undefined variable: '{name}'"),
-            self.source.as_ref().clone(),
+            self.source,
             span.into(),
         )
     }

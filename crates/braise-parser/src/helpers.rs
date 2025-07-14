@@ -4,7 +4,7 @@ use miette::SourceSpan;
 
 use crate::Parser;
 
-impl Parser {
+impl<'input> Parser<'input> {
     pub fn create_error(&self, expected: String, found: Token) -> ParseError {
         let (span, code) = if self.current < self.tokens.len() {
             let token_span = &self.tokens[self.current].span;
@@ -12,13 +12,10 @@ impl Parser {
             let end_offset = token_span.end.offset;
             (
                 SourceSpan::new(start_offset.into(), end_offset.saturating_sub(start_offset)),
-                self.source.as_ref().clone(),
+                self.source,
             )
         } else {
-            (
-                SourceSpan::new(self.source.len().into(), 0),
-                self.source.as_ref().clone(),
-            )
+            (SourceSpan::new(self.source.len().into(), 0), self.source)
         };
 
         ParseError::unexpected_token(expected, found.to_string(), code, span)
@@ -149,27 +146,30 @@ impl Parser {
     }
 
     pub fn match_identifier(&mut self) -> Option<String> {
-        if let Token::Identifier(name) = self.peek().clone() {
+        if let Token::Identifier(name) = self.peek() {
+            let result = name.clone();
             self.advance();
-            Some(name)
+            Some(result)
         } else {
             None
         }
     }
 
     pub fn match_string(&mut self) -> Option<String> {
-        if let Token::String(s) = self.peek().clone() {
+        if let Token::String(s) = self.peek() {
+            let result = s.clone();
             self.advance();
-            Some(s)
+            Some(result)
         } else {
             None
         }
     }
 
     pub fn match_number(&mut self) -> Option<f64> {
-        if let Token::Number(n) = self.peek().clone() {
+        if let Token::Number(n) = self.peek() {
+            let result = *n;
             self.advance();
-            Some(n)
+            Some(result)
         } else {
             None
         }

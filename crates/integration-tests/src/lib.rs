@@ -1,5 +1,5 @@
 use core::{BraiseType, TypedValue};
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use braise_lexer::tokenize;
 use braise_parser::Parser;
@@ -17,10 +17,10 @@ pub fn execute_recipe(
     params: HashMap<String, TypedValue>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let tokens = tokenize(code)?;
-    let source = Arc::new(code.to_string());
-    let mut parser = Parser::new(tokens, source.clone(), "test.braise".to_string());
+    let mut parser = Parser::new(&tokens, code, "test.braise".to_string());
     let ast = parser.parse()?;
-    let runtime = Runtime::new(ast, source).with_executor(StringExecutor::new(false));
+    let runtime =
+        Runtime::new(ast, code.to_string().into()).with_executor(StringExecutor::new(false));
     runtime.execute_recipe(recipe, params)?;
     Ok(runtime.executor.output().unwrap_or_default())
 }

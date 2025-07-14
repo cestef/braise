@@ -208,7 +208,7 @@ pub fn create_lexer<'a>(source: &'a str) -> logos::Lexer<'a, Token> {
 pub fn tokenize(source: &str) -> Result<Vec<SpannedToken>, BraiseError> {
     debug!("Starting tokenization of {} character source", source.len());
     let result = _tokenize(source).map_err(|error_span| {
-        debug!("Tokenization failed at span {:?}", error_span);
+        debug!("Tokenization failed at span {error_span:?}");
         BraiseError::lexer(
             "Unrecognized token".to_string(),
             source.to_string(),

@@ -11,3 +11,10 @@ log.workspace = true
 
 lexer = { path = "../braise-lexer", package = "braise-lexer" }
 core = { path = "../braise-core", package = "braise-core" }
+
+[dev-dependencies]
+criterion = { version = "0.6", features = ["html_reports"] }
+
+[[bench]]
+name = "parser_benchmarks"
+harness = false

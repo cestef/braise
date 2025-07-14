@@ -10,7 +10,7 @@ mod tests {
 
     fn create_runtime(input: &str) -> Result<Runtime> {
         let tokens = tokenize(&input)?;
-        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
+        let mut parser = Parser::new(&tokens, input, "test.braise".to_string());
         let ast = parser.parse().map_err(|e| BraiseError::from(*e))?;
         Ok(Runtime::new(ast, input.to_string().into()).with_executor(StringExecutor::new(false)))
     }

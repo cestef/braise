@@ -10,7 +10,7 @@ mod tests {
 
     fn parse_input(input: &str) -> Result<Config, Box<ParserError>> {
         let tokens = tokenize(input).map_err(|_| ParserError::other("Tokenization failed"))?;
-        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
+        let mut parser = Parser::new(&tokens, input, "test.braise".to_string());
         parser.parse()
     }
 

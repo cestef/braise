@@ -86,7 +86,7 @@ impl Runtime {
                 self.cache_manager = Some(cache_manager);
             }
             Err(e) => {
-                warn!("Failed to initialize cache manager: {}", e);
+                warn!("Failed to initialize cache manager: {e}");
                 debug!("Runtime will continue without caching");
             }
         }
@@ -108,13 +108,13 @@ impl Runtime {
             name,
             user_params.len()
         );
-        trace!("Recipe parameters: {:?}", user_params);
+        trace!("Recipe parameters: {user_params:?}");
 
         {
             let mut stack = self.stack.write().unwrap();
-            debug!("Current execution stack: {:?}", stack);
+            debug!("Current execution stack: {stack:?}");
             if !stack.insert(name.to_string()) {
-                warn!("Circular dependency detected for recipe '{}'", name);
+                warn!("Circular dependency detected for recipe '{name}'");
                 return Err(RuntimeError::circular_dependency(
                     name.to_string(),
                     stack.iter().cloned().collect(),
@@ -128,12 +128,12 @@ impl Runtime {
         {
             let mut stack = self.stack.write().unwrap();
             stack.remove(name);
-            debug!("Cleaned up recipe '{}' from execution stack", name);
+            debug!("Cleaned up recipe '{name}' from execution stack");
         }
 
         match &result {
-            Ok(_) => debug!("Successfully completed recipe '{}'", name),
-            Err(e) => debug!("Recipe '{}' failed with error: {}", name, e),
+            Ok(_) => debug!("Successfully completed recipe '{name}'"),
+            Err(e) => debug!("Recipe '{name}' failed with error: {e}"),
         }
 
         result
@@ -165,7 +165,7 @@ impl Runtime {
             if let Ok(Some(cached_result)) =
                 self.try_get_cached_recipe(name, &user_params, &recipe.value, cache_manager)
             {
-                debug!("Recipe '{}' found in cache", name);
+                debug!("Recipe '{name}' found in cache");
                 let cache_files = recipe.value.cache.join(", ");
                 if !self.quiet {
                     println!(
@@ -177,7 +177,7 @@ impl Runtime {
                 }
                 return cached_result;
             } else {
-                debug!("Recipe '{}' not found in cache, executing", name);
+                debug!("Recipe '{name}' not found in cache, executing");
                 let cache_files = recipe.value.cache.join(", ");
                 if !self.quiet {
                     println!(
@@ -194,7 +194,7 @@ impl Runtime {
             debug!("Executing dependencies: {:?}", recipe.value.dependencies);
         }
         for dep in &recipe.value.dependencies {
-            debug!("Executing dependency: {}", dep);
+            debug!("Executing dependency: {dep}");
             self.execute_recipe(dep, HashMap::new())?;
         }
 
@@ -242,7 +242,7 @@ impl Runtime {
             let value = if let Some(user_value) = provided_params.remove(&param.value.name) {
                 user_value
                     .convert_to(&param.value.param_type)
-                    .map_err(|e| RuntimeError::type_error(e))?
+                    .map_err(RuntimeError::type_error)?
             } else if let Some(default_expr) = &param.value.default {
                 let evaluated = self.evaluate_expression(default_expr, &context)?;
 
@@ -307,7 +307,7 @@ impl Runtime {
             Statement::Run(expr) => {
                 let value = self.evaluate_expression(expr, context)?;
                 let command_str = value.to_string();
-                debug!("Executing command: {}", command_str);
+                debug!("Executing command: {command_str}");
                 if self.dry_run {
                     debug!("Dry run mode - showing command");
                     self.show_command(&command_str);
@@ -585,7 +585,7 @@ impl Runtime {
                 catch_context.set(error_var.clone(), error_value);
             }
 
-            debug!("Executing catch block for error: {}", error);
+            debug!("Executing catch block for error: {error}");
 
             // Execute catch block
             for stmt in &catch.body {
@@ -1155,17 +1155,17 @@ impl Runtime {
 
         match cache_manager.get_recipe_result(name, user_params, &file_hashes) {
             Ok(Some(cached_result)) => {
-                debug!("Cache hit for recipe '{}'", name);
+                debug!("Cache hit for recipe '{name}'");
                 Ok(Some(
                     cached_result.map_err(|e| RuntimeError::other(e).boxed()),
                 ))
             }
             Ok(None) => {
-                debug!("Cache miss for recipe '{}'", name);
+                debug!("Cache miss for recipe '{name}'");
                 Ok(None)
             }
             Err(e) => {
-                warn!("Cache lookup error for recipe '{}': {}", name, e);
+                warn!("Cache lookup error for recipe '{name}': {e}");
                 Ok(None)
             }
         }
@@ -1199,10 +1199,10 @@ impl Runtime {
             dependencies,
         ) {
             Ok(_) => {
-                debug!("Cached result for recipe '{}'", name);
+                debug!("Cached result for recipe '{name}'");
             }
             Err(e) => {
-                warn!("Failed to cache result for recipe '{}': {}", name, e);
+                warn!("Failed to cache result for recipe '{name}': {e}");
             }
         }
 
@@ -1230,7 +1230,7 @@ impl Runtime {
                         file_hashes.insert(file_path, hash);
                     }
                     Err(e) => {
-                        debug!("Failed to hash file {:?}: {}", file_path, e);
+                        debug!("Failed to hash file {file_path:?}: {e}");
                     }
                 }
             }

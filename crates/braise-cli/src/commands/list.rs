@@ -5,7 +5,7 @@ use parser::Parser as BraiseParser;
 
 pub fn list_recipes(contents: &str, file: &str) -> Result<()> {
     let tokens = tokenize(contents)?;
-    let mut parser = BraiseParser::new(tokens, contents.to_string().into(), file.to_string());
+    let mut parser = BraiseParser::new(&tokens, contents, file.to_string());
     let ast = parser.parse().map_err(|e| BraiseError::from(*e))?;
 
     if ast.recipes.is_empty() {
@@ -16,7 +16,7 @@ pub fn list_recipes(contents: &str, file: &str) -> Result<()> {
     println!(
         "{} {}",
         "Available recipes".cyan().bold(),
-        format!("in {}", file).dimmed()
+        format!("in {file}").dimmed()
     );
     for recipe in &ast.recipes {
         let deps = if recipe.value.dependencies.is_empty() {

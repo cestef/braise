@@ -6,7 +6,7 @@ use parser::Parser as BraiseParser;
 
 pub fn show_recipe_info(contents: &str, file: &str, recipe_name: &str) -> Result<()> {
     let tokens = tokenize(contents)?;
-    let mut parser = BraiseParser::new(tokens, contents.to_string().into(), file.to_string());
+    let mut parser = BraiseParser::new(&tokens, contents, file.to_string());
     let ast = parser.parse().map_err(|e| BraiseError::from(*e))?;
 
     let recipe = ast

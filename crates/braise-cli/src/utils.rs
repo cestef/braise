@@ -13,11 +13,11 @@ pub fn find_first_existing_file(files: &[&str]) -> Option<String> {
 
 /// Extract arguments from command line args into a HashMap
 /// Supports multiple formats:
+/// Passing a comma-separated list as a value will split it into an Array.
 /// - `--key value` or `--key=value` (long form)
 /// - `-k value` or `-k=value` (short form)  
 /// - `key=value` (direct assignment)
 /// - `--flag` (boolean flag, becomes true)
-/// Passing a comma-separated list as a value will split it into an Array.
 pub const ARG_ARRAY_SEP: char = ',';
 
 pub fn extract_args(args: &[String]) -> HashMap<String, TypedValue> {
@@ -48,10 +48,10 @@ pub fn extract_args(args: &[String]) -> HashMap<String, TypedValue> {
                 let existing = e.get_mut();
                 match (&mut existing.value_type, &value.value_type) {
                     (BraiseType::Array(_), BraiseType::Array(_)) => {
-                        if let ValueData::Array(arr) = &mut existing.value {
-                            if let ValueData::Array(new_arr) = value.value {
-                                arr.extend(new_arr);
-                            }
+                        if let ValueData::Array(arr) = &mut existing.value
+                            && let ValueData::Array(new_arr) = value.value
+                        {
+                            arr.extend(new_arr);
                         }
                     }
                     (BraiseType::Array(_), _) => {

@@ -64,7 +64,7 @@ impl Document {
 
         let tokens = tokenize(&text)?;
 
-        let mut parser = Parser::new(tokens.clone(), text.into(), self.uri.to_string());
+        let mut parser = Parser::new(&tokens, &text, self.uri.to_string());
         let ast = parser.parse()?;
 
         self.tokens = Some(tokens);

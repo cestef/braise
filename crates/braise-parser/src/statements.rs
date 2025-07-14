@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::Parser;
 
-impl Parser {
+impl<'input> Parser<'input> {
     pub fn parse_statement(&mut self) -> Result<SpannedNode<Statement>> {
         let start_token = self.current;
 
@@ -16,7 +16,10 @@ impl Parser {
             Token::Match => self.parse_match_statement()?,
             Token::For => self.parse_for_statement()?,
             Token::Let => self.parse_let_statement()?,
-            Token::Identifier(name) => self.parse_assign_statement(name.clone())?,
+            Token::Identifier(name) => {
+                let name = name.clone();
+                self.parse_assign_statement(name)?
+            }
             Token::Call => self.parse_call_statement()?,
             Token::Shell => self.parse_shell_statement()?,
             Token::Try => self.parse_try_statement()?,
@@ -416,7 +419,7 @@ mod tests {
 
     fn parse_statement_string(input: &str) -> Result<Statement, Box<ParserError>> {
         let tokens = tokenize(input).unwrap();
-        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
+        let mut parser = Parser::new(&tokens, input, "test.braise".to_string());
         let stmt = parser.parse_statement()?;
         Ok(stmt.value)
     }
@@ -518,7 +521,7 @@ mod tests {
         "#;
 
         let tokens = tokenize(input).unwrap();
-        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
+        let mut parser = Parser::new(&tokens, input, "test.braise".to_string());
         let stmt = parser.parse_statement().unwrap();
 
         if let Statement::Match { arms, .. } = stmt.value {
@@ -598,7 +601,7 @@ mod tests {
         "#;
 
         let tokens = tokenize(input)?;
-        let mut parser = Parser::new(tokens, input.to_string().into(), "test.braise".to_string());
+        let mut parser = Parser::new(&tokens, input, "test.braise".to_string());
         let config = parser.parse();
 
         let config = config.map_err(|e| miette::miette!(e.to_string()))?;
