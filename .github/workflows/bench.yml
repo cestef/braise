@@ -32,13 +32,13 @@ jobs:
         key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Run benchmarks
-      run: cd crates/braise-parser && cargo bench --bench parser_benchmarks
+      run: cd crates/braise-parser && cargo bench --bench parser_benchmarks -- --quick --output-format bencher | tee benchmark-results.txt
     
     - name: Store benchmark result
       uses: benchmark-action/github-action-benchmark@v1
       with:
         tool: 'cargo'
-        output-file-path: crates/braise-parser/target/criterion/*/base/estimates.json
+        output-file-path: crates/braise-parser/benchmark-results.txt
         github-token: ${{ secrets.GITHUB_TOKEN }}
         auto-push: true
         comment-on-alert: true
