@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752664497649,
+  "lastUpdate": 1752667032038,
   "repoUrl": "https://github.com/cestef/braise",
   "entries": {
     "Benchmark": [
@@ -287,6 +287,102 @@ window.BENCHMARK_DATA = {
             "name": "runtime/execute/large",
             "value": 7242,
             "range": "± 26",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "colin@petit-suisse.fr",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "committer": {
+            "email": "colin@petit-suisse.fr",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "distinct": true,
+          "id": "c0db1d1b827c26781129fd5ad72d613b1dd0ef62",
+          "message": "fix: use the return types from the new builtin system in the parser",
+          "timestamp": "2025-07-16T13:53:19+02:00",
+          "tree_id": "815549ffa63b5da1d01b98fd66f95129a5ff78e7",
+          "url": "https://github.com/cestef/braise/commit/c0db1d1b827c26781129fd5ad72d613b1dd0ef62"
+        },
+        "date": 1752667031401,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lexer/tokenize/small",
+            "value": 805,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lexer/tokenize/medium",
+            "value": 3649,
+            "range": "± 190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lexer/tokenize/large",
+            "value": 8894,
+            "range": "± 25",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/small",
+            "value": 13513,
+            "range": "± 143",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/medium",
+            "value": 52867,
+            "range": "± 166",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/large",
+            "value": 79441,
+            "range": "± 284",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/small",
+            "value": 16780,
+            "range": "± 95",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/medium",
+            "value": 62056,
+            "range": "± 797",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/large",
+            "value": 94508,
+            "range": "± 1209",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/small",
+            "value": 1459,
+            "range": "± 15",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/medium",
+            "value": 4991,
+            "range": "± 32",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/large",
+            "value": 8183,
+            "range": "± 70",
             "unit": "ns/iter"
           }
         ]
