@@ -4,12 +4,12 @@ use crate::{BraiseType, BuiltinTypeRegistry, TypeChecker};
 
 /// Type inference engine for Braise expressions and statements
 #[derive(Debug, Clone)]
-pub struct TypeInferenceEngine {
+pub struct TypeEngine {
     type_checker: TypeChecker,
     builtin_registry: BuiltinTypeRegistry,
 }
 
-impl TypeInferenceEngine {
+impl TypeEngine {
     /// Create a new type inference engine
     pub fn new() -> Self {
         Self {
@@ -57,8 +57,8 @@ impl TypeInferenceEngine {
     }
 
     /// Enter a new scope
-    pub fn enter_scope(&self) -> TypeInferenceEngine {
-        TypeInferenceEngine {
+    pub fn enter_scope(&self) -> TypeEngine {
+        TypeEngine {
             type_checker: self.type_checker.enter_scope(),
             builtin_registry: self.builtin_registry.clone(),
         }
@@ -197,7 +197,7 @@ impl TypeInferenceEngine {
     }
 }
 
-impl Default for TypeInferenceEngine {
+impl Default for TypeEngine {
     fn default() -> Self {
         Self::new()
     }
@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_inference_engine_creation() {
-        let engine = TypeInferenceEngine::new();
+        let engine = TypeEngine::new();
 
         // Test builtin function types
         assert_eq!(
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn test_variable_management() {
-        let mut engine = TypeInferenceEngine::new();
+        let mut engine = TypeEngine::new();
 
         engine.define_variable("x".to_string(), BraiseType::String);
         assert!(engine.is_variable_defined("x"));
@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_scope_management() {
-        let mut root = TypeInferenceEngine::new();
+        let mut root = TypeEngine::new();
         root.define_variable("x".to_string(), BraiseType::String);
 
         let child = root.enter_scope();
@@ -251,7 +251,7 @@ mod tests {
 
     #[test]
     fn test_array_type_inference() {
-        let engine = TypeInferenceEngine::new();
+        let engine = TypeEngine::new();
 
         // Homogeneous array
         let types = vec![BraiseType::String, BraiseType::String];
@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn test_validation_functions() {
-        let engine = TypeInferenceEngine::new();
+        let engine = TypeEngine::new();
 
         // Valid function call
         assert!(engine.validate_function_call("env", "get", &[]).is_ok());

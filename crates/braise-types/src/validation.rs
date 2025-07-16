@@ -1,32 +1,32 @@
 use braise_errors::TypeError;
 
-use crate::{BraiseType, TypeInferenceEngine, TypedValue};
+use crate::{BraiseType, TypeEngine, TypedValue};
 
 /// Type validation utilities for the Braise language
 pub struct TypeValidator {
-    engine: TypeInferenceEngine,
+    engine: TypeEngine,
 }
 
 impl TypeValidator {
     /// Create a new type validator
     pub fn new() -> Self {
         Self {
-            engine: TypeInferenceEngine::new(),
+            engine: TypeEngine::new(),
         }
     }
 
     /// Create with a custom inference engine
-    pub fn with_engine(engine: TypeInferenceEngine) -> Self {
+    pub fn with_engine(engine: TypeEngine) -> Self {
         Self { engine }
     }
 
     /// Get a reference to the inference engine
-    pub fn engine(&self) -> &TypeInferenceEngine {
+    pub fn engine(&self) -> &TypeEngine {
         &self.engine
     }
 
     /// Get a mutable reference to the inference engine
-    pub fn engine_mut(&mut self) -> &mut TypeInferenceEngine {
+    pub fn engine_mut(&mut self) -> &mut TypeEngine {
         &mut self.engine
     }
 

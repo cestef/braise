@@ -299,7 +299,8 @@ impl<'input> Parser<'input> {
 
                         self.consume_token(Token::RightParen)?;
 
-                        let return_type = Some(self.get_builtin_function_type(&name, &field));
+                        let return_type =
+                            Some(self.type_engine.get_builtin_function_type(&name, &field));
 
                         Ok(Expression::FunctionCall {
                             module: name,
@@ -308,7 +309,8 @@ impl<'input> Parser<'input> {
                             return_type,
                         })
                     } else {
-                        let field_type = Some(self.get_builtin_field_type(&name, &field));
+                        let field_type =
+                            Some(self.type_engine.get_builtin_field_type(&name, &field));
 
                         Ok(Expression::ModuleAccess {
                             module: name,
@@ -502,7 +504,7 @@ impl<'input> Parser<'input> {
                         self.source,
                         format!("interpolation_{}", current_span.start.offset),
                     );
-                    expr_parser.enable_type_checking = self.enable_type_checking;
+                    expr_parser.type_check = self.type_check;
 
                     // Parse the expression
                     let expr = expr_parser.parse_expression()?;
@@ -519,7 +521,7 @@ impl<'input> Parser<'input> {
 
     /// Validate expression types after parsing
     pub fn validate_expression_types(&mut self, expr: &mut Expression) -> Result<()> {
-        if !self.enable_type_checking {
+        if !self.type_check {
             return Ok(());
         }
 

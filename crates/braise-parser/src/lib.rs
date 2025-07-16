@@ -16,8 +16,8 @@ pub struct Parser<'input> {
     pub source: &'input str,
     pub current: usize,
     pub file_id: FileId,
-    pub type_engine: TypeInferenceEngine,
-    pub enable_type_checking: bool,
+    pub type_engine: TypeEngine,
+    pub type_check: bool,
 }
 
 impl<'input> Parser<'input> {
@@ -32,8 +32,8 @@ impl<'input> Parser<'input> {
             current: 0,
             source,
             file_id,
-            type_engine: TypeInferenceEngine::new(),
-            enable_type_checking: true,
+            type_engine: TypeEngine::new(),
+            type_check: true,
         }
     }
 
@@ -114,13 +114,13 @@ impl<'input> Parser<'input> {
         filename: String,
     ) -> Self {
         let mut parser = Self::new(tokens, source, filename);
-        parser.enable_type_checking = false;
+        parser.type_check = false;
         parser
     }
 
     /// Enable or disable type checking
     pub fn with_type_checking(mut self, enabled: bool) -> Self {
-        self.enable_type_checking = enabled;
+        self.type_check = enabled;
         self
     }
 
@@ -163,7 +163,7 @@ impl<'input> Parser<'input> {
 
         debug!("Parsed {} recipes successfully", config.recipes.len());
 
-        if self.enable_type_checking {
+        if self.type_check {
             debug!("Running type checking");
             self.type_check_config(&mut config)?;
         }
@@ -214,7 +214,7 @@ impl<'input> Parser<'input> {
 
     /// Type check a statement
     fn type_check_statement(&mut self, statement: &mut Spanned<Statement>) -> Result<()> {
-        if !self.enable_type_checking {
+        if !self.type_check {
             return Ok(());
         }
 
@@ -456,7 +456,7 @@ impl<'input> Parser<'input> {
         &mut self,
         expression: &mut Spanned<Expression>,
     ) -> Result<BraiseType> {
-        if !self.enable_type_checking {
+        if !self.type_check {
             return Ok(BraiseType::Any);
         }
 
@@ -497,7 +497,7 @@ impl<'input> Parser<'input> {
                     self.type_check_expression(arg)?;
                 }
 
-                let func_type = self.get_builtin_function_type(module, function);
+                let func_type = self.type_engine.get_builtin_function_type(module, function);
                 *return_type = Some(func_type.clone());
                 func_type
             }
@@ -507,7 +507,7 @@ impl<'input> Parser<'input> {
                 field,
                 field_type,
             } => {
-                let field_type_resolved = self.get_builtin_field_type(module, field);
+                let field_type_resolved = self.type_engine.get_builtin_field_type(module, field);
                 *field_type = Some(field_type_resolved.clone());
                 field_type_resolved
             }
@@ -724,37 +724,6 @@ impl<'input> Parser<'input> {
         }
 
         Ok(())
-    }
-
-    /// Get the return type of a builtin function
-    fn get_builtin_function_type(&self, module: &str, function: &str) -> BraiseType {
-        match (module, function) {
-            ("env", "get") => BraiseType::String,
-            ("env", "has") => BraiseType::Bool,
-            ("cpu", "count") => BraiseType::Number,
-            ("cpu", "physical_count") => BraiseType::Number,
-            ("git", "branch") => BraiseType::String,
-            ("git", "commit_hash") => BraiseType::String,
-            ("git", "commit_hash_short") => BraiseType::String,
-            ("git", "is_clean") => BraiseType::Bool,
-            ("git", "is_dirty") => BraiseType::Bool,
-            ("git", "tag") => BraiseType::String,
-            ("fs", "exists") => BraiseType::Bool,
-            ("fs", "is_file") => BraiseType::Bool,
-            ("fs", "is_dir") => BraiseType::Bool,
-            _ => BraiseType::Any,
-        }
-    }
-
-    /// Get the type of a builtin field
-    fn get_builtin_field_type(&self, module: &str, field: &str) -> BraiseType {
-        match (module, field) {
-            ("env", "HOME") => BraiseType::String,
-            ("env", "PWD") => BraiseType::String,
-            ("env", "CI") => BraiseType::Bool,
-            ("cpu", "arch") => BraiseType::String,
-            _ => BraiseType::Any,
-        }
     }
 
     fn create_type_error(

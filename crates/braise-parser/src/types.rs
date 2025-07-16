@@ -152,7 +152,7 @@ impl<'input> Parser<'input> {
 
     /// Try to infer type from expression (for type inference)
     pub fn infer_expression_type(&mut self, expr: &Expression) -> BraiseType {
-        if !self.enable_type_checking {
+        if !self.type_check {
             return BraiseType::Any;
         }
 
@@ -180,14 +180,14 @@ impl<'input> Parser<'input> {
                 ..
             } => return_type
                 .clone()
-                .unwrap_or_else(|| self.get_builtin_function_type(module, function)),
+                .unwrap_or_else(|| self.type_engine.get_builtin_function_type(module, function)),
             Expression::ModuleAccess {
                 field_type,
                 module,
                 field,
             } => field_type
                 .clone()
-                .unwrap_or_else(|| self.get_builtin_field_type(module, field)),
+                .unwrap_or_else(|| self.type_engine.get_builtin_field_type(module, field)),
             Expression::BinaryOp { result_type, .. } => {
                 result_type.clone().unwrap_or(BraiseType::Any)
             }
@@ -205,7 +205,7 @@ impl<'input> Parser<'input> {
 
     /// Validate parameter default value against parameter type
     pub fn validate_parameter_default(&mut self, param: &Parameter) -> Result<()> {
-        if !self.enable_type_checking {
+        if !self.type_check {
             return Ok(());
         }
 

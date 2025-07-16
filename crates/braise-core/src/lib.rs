@@ -6,7 +6,7 @@ pub mod span;
 pub mod symbol;
 
 // Re-export types from braise-types (excluding types that conflict with braise-errors)
-pub use braise_types::{BraiseType, TypeInferenceEngine, TypedValue, ValueData};
+pub use braise_types::{BraiseType, TypeEngine, TypedValue, ValueData};
 
 // Re-export the unified error system
 pub use error::{BraiseError, ErrorSeverity, Result};

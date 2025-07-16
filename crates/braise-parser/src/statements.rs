@@ -141,7 +141,7 @@ impl<'input> Parser<'input> {
         if self.match_token(&Token::Equals) {
             let value_expr = self.parse_expression()?;
 
-            if self.enable_type_checking {
+            if self.type_check {
                 let expr_type = self.infer_expression_type(&value_expr.value);
 
                 if !matches!(declared_type, BraiseType::Any)
@@ -354,7 +354,7 @@ impl<'input> Parser<'input> {
 
     /// Validate statement in current type context
     pub fn validate_statement_types(&mut self, statement: &mut Statement) -> Result<()> {
-        if !self.enable_type_checking {
+        if !self.type_check {
             return Ok(());
         }
 
