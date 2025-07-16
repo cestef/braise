@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752667032038,
+  "lastUpdate": 1752667411742,
   "repoUrl": "https://github.com/cestef/braise",
   "entries": {
     "Benchmark": [
@@ -383,6 +383,102 @@ window.BENCHMARK_DATA = {
             "name": "runtime/execute/large",
             "value": 8183,
             "range": "± 70",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "colin@petit-suisse.fr",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "committer": {
+            "email": "colin@petit-suisse.fr",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "distinct": true,
+          "id": "3ff03346c0371a1faae093d6f20173414cb85c21",
+          "message": "chore: add descriptions to each crate",
+          "timestamp": "2025-07-16T13:59:41+02:00",
+          "tree_id": "2f3eec841155a661a497cfb4b7994766a228dd8c",
+          "url": "https://github.com/cestef/braise/commit/3ff03346c0371a1faae093d6f20173414cb85c21"
+        },
+        "date": 1752667411382,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lexer/tokenize/small",
+            "value": 791,
+            "range": "± 19",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lexer/tokenize/medium",
+            "value": 3631,
+            "range": "± 18",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lexer/tokenize/large",
+            "value": 8624,
+            "range": "± 413",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/small",
+            "value": 13310,
+            "range": "± 114",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/medium",
+            "value": 53640,
+            "range": "± 378",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/large",
+            "value": 78987,
+            "range": "± 321",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/small",
+            "value": 15973,
+            "range": "± 113",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/medium",
+            "value": 61450,
+            "range": "± 755",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/large",
+            "value": 94144,
+            "range": "± 629",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/small",
+            "value": 1482,
+            "range": "± 37",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/medium",
+            "value": 4890,
+            "range": "± 24",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/large",
+            "value": 8387,
+            "range": "± 23",
             "unit": "ns/iter"
           }
         ]
