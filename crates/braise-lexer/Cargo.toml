@@ -1,5 +1,6 @@
 [package]
 name = "braise-lexer"
+description = "Lexer (text -> tokens)"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true

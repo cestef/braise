@@ -1,5 +1,6 @@
 [package]
 name = "braise-tests"
+description = "Tests for braisé"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true

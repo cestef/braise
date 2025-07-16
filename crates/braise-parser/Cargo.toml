@@ -1,5 +1,6 @@
 [package]
 name = "braise-parser"
+description = "Parser (tokens -> AST)"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
@@ -13,4 +14,3 @@ lexer = { path = "../braise-lexer", package = "braise-lexer" }
 core = { path = "../braise-core", package = "braise-core" }
 
 [dev-dependencies]
-

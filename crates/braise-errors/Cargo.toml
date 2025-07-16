@@ -1,5 +1,6 @@
 [package]
 name = "braise-errors"
+description = "Error types for braisé"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

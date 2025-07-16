@@ -1,5 +1,6 @@
 [package]
 name = "braise-fmt"
+description = "Formatter for braisé source code"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true

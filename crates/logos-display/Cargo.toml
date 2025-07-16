@@ -1,5 +1,6 @@
 [package]
 name = "logos-display"
+description = "Display implementation for logos tokens"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true

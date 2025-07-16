@@ -1,5 +1,6 @@
 [package]
 name = "braise-types"
+description = "Types for the braisé language"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

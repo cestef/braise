@@ -1,5 +1,6 @@
 [package]
 name = "braise-lsp"
+description = "Language Server Protocol implementation for braisé"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true

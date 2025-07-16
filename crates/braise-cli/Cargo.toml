@@ -6,6 +6,7 @@ authors.workspace = true
 homepage.workspace = true
 description.workspace = true
 repository.workspace = true
+
 [dependencies]
 clap = { version = "4.5.40", features = ["cargo", "derive"] }
 
