@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752501640197,
+  "lastUpdate": 1752664497649,
   "repoUrl": "https://github.com/cestef/braise",
   "entries": {
     "Benchmark": [
@@ -191,6 +191,102 @@ window.BENCHMARK_DATA = {
             "name": "runtime/execute/large",
             "value": 7566,
             "range": "± 13",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "colin@petit-suisse.fr",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "committer": {
+            "email": "colin@petit-suisse.fr",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "distinct": true,
+          "id": "5ac679285d289086a0e35a42d211df9392001a00",
+          "message": "chore: remove weird ï",
+          "timestamp": "2025-07-16T13:10:54+02:00",
+          "tree_id": "6606295113e223acebb5d081a45dacb227ad8005",
+          "url": "https://github.com/cestef/braise/commit/5ac679285d289086a0e35a42d211df9392001a00"
+        },
+        "date": 1752664497375,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lexer/tokenize/small",
+            "value": 828,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lexer/tokenize/medium",
+            "value": 3606,
+            "range": "± 27",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lexer/tokenize/large",
+            "value": 8598,
+            "range": "± 163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/small",
+            "value": 13760,
+            "range": "± 345",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/medium",
+            "value": 53085,
+            "range": "± 375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/large",
+            "value": 78622,
+            "range": "± 1606",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/small",
+            "value": 16689,
+            "range": "± 140",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/medium",
+            "value": 62394,
+            "range": "± 1100",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/large",
+            "value": 93153,
+            "range": "± 330",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/small",
+            "value": 1541,
+            "range": "± 32",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/medium",
+            "value": 4961,
+            "range": "± 16",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/large",
+            "value": 7242,
+            "range": "± 26",
             "unit": "ns/iter"
           }
         ]
