@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752667411742,
+  "lastUpdate": 1755510783261,
   "repoUrl": "https://github.com/cestef/braise",
   "entries": {
     "Benchmark": [
@@ -479,6 +479,102 @@ window.BENCHMARK_DATA = {
             "name": "runtime/execute/large",
             "value": 8387,
             "range": "± 23",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "root@cstef.dev",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "committer": {
+            "email": "root@cstef.dev",
+            "name": "cstef",
+            "username": "cestef"
+          },
+          "distinct": true,
+          "id": "93009033ee68cfb38c496c2f4bd8e3f790facac3",
+          "message": "feat: unnamed parameters support",
+          "timestamp": "2025-08-18T11:49:13+02:00",
+          "tree_id": "c6222cce6de3512021d8d809775705d7d6e627d2",
+          "url": "https://github.com/cestef/braise/commit/93009033ee68cfb38c496c2f4bd8e3f790facac3"
+        },
+        "date": 1755510782595,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "lexer/tokenize/small",
+            "value": 792,
+            "range": "± 53",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lexer/tokenize/medium",
+            "value": 3457,
+            "range": "± 91",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lexer/tokenize/large",
+            "value": 8247,
+            "range": "± 47",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/small",
+            "value": 13846,
+            "range": "± 307",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/medium",
+            "value": 53270,
+            "range": "± 487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "parser/parse/large",
+            "value": 80040,
+            "range": "± 190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/small",
+            "value": 16029,
+            "range": "± 176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/medium",
+            "value": 61082,
+            "range": "± 879",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "pipeline/full/large",
+            "value": 91740,
+            "range": "± 567",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/small",
+            "value": 1499,
+            "range": "± 17",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/medium",
+            "value": 4913,
+            "range": "± 47",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "runtime/execute/large",
+            "value": 8284,
+            "range": "± 54",
             "unit": "ns/iter"
           }
         ]
