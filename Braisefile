@@ -12,8 +12,8 @@ recipe "test" {
 }
 
 recipe "deploy" {
-    param env: ["dev", "prod"] = "dev"
     param version: string
+    param env: ["dev", "prod"] = "dev"
     param force: bool = false
     param replicas: number = 3
     param services: [string] = []

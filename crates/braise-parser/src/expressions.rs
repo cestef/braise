@@ -347,15 +347,34 @@ impl<'input> Parser<'input> {
             Token::At => {
                 self.advance();
                 let recipe_name = self.parse_identifier()?;
-                let mut args = HashMap::new();
+                let mut args = CallArguments::new();
 
                 if self.match_token(&Token::LeftParen) {
                     if !self.check(&Token::RightParen) {
                         loop {
-                            let arg_name = self.parse_identifier()?;
-                            self.consume_token(Token::Colon)?;
-                            let arg_value = self.parse_expression()?;
-                            args.insert(arg_name, arg_value);
+                            // Try to parse as named parameter first (identifier followed by colon)
+                            if self.check_identifier() {
+                                let checkpoint = self.current;
+                                let arg_name = self.parse_identifier()?;
+
+                                if self.check(&Token::Colon) {
+                                    // This is a named parameter
+                                    self.consume_token(Token::Colon)?;
+                                    let arg_value = self.parse_expression()?;
+                                    args.named.insert(arg_name, arg_value);
+                                } else {
+                                    // This is actually an unnamed parameter (identifier expression)
+                                    // Restore position and parse as expression
+                                    self.current = checkpoint;
+                                    let arg_value = self.parse_expression()?;
+                                    args.unnamed.push(arg_value);
+                                }
+                            } else {
+                                // This is an unnamed parameter (non-identifier expression)
+                                let arg_value = self.parse_expression()?;
+                                args.unnamed.push(arg_value);
+                            }
+
                             if !self.match_token(&Token::Comma) {
                                 break;
                             }
@@ -802,9 +821,10 @@ mod tests {
 
         if let Expression::RecipeRef { recipe, args } = expr {
             assert_eq!(recipe, "other");
-            assert_eq!(args.len(), 2);
-            assert!(args.contains_key("param1"));
-            assert!(args.contains_key("param2"));
+            assert_eq!(args.named.len(), 2);
+            assert_eq!(args.unnamed.len(), 0);
+            assert!(args.named.contains_key("param1"));
+            assert!(args.named.contains_key("param2"));
         } else {
             panic!("Expected recipe reference");
         }

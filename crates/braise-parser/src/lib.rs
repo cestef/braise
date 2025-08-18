@@ -367,7 +367,10 @@ impl<'input> Parser<'input> {
             }
             Statement::Call { recipe, args } => {
                 self.type_check_expression(recipe)?;
-                for arg in args.values_mut() {
+                for arg in &mut args.unnamed {
+                    self.type_check_expression(arg)?;
+                }
+                for arg in args.named.values_mut() {
                     self.type_check_expression(arg)?;
                 }
             }

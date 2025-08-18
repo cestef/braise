@@ -336,7 +336,7 @@ impl DiagnosticsProvider {
                         },
                     )
                 {
-                    for (arg_name, arg_expr) in args {
+                    for (arg_name, arg_expr) in &args.named {
                         if !Self::is_variable_defined(arg_name, &recipe_ref.value) {
                             diagnostics.push(Diagnostic {
                                 range: span_to_range(&arg_expr.span),

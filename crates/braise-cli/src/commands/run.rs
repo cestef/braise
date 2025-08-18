@@ -1,3 +1,4 @@
+use core::error::runtime::RuntimeError;
 use core::{BraiseError, Result};
 use lexer::tokenize;
 use parser::Parser as BraiseParser;
@@ -43,6 +44,11 @@ pub fn run_recipe(
         shell_config = shell_config.with_shell(shell_cmd);
     }
 
+    // Extract and resolve CLI arguments (including unnamed parameters) before creating runtime
+    let cli_args = utils::extract_args(args);
+    let params = utils::resolve_args(cli_args, &ast, recipe_name)
+        .map_err(|e| BraiseError::from(RuntimeError::other(e).boxed()))?;
+
     let mut runtime =
         Runtime::new(ast, contents.to_string().into()).with_shell_config(shell_config);
 
@@ -66,7 +72,6 @@ pub fn run_recipe(
         runtime = runtime.with_cache(cache_config);
     }
 
-    let params = utils::extract_args(args);
     runtime
         .execute_recipe(recipe_name, params)
         .map_err(BraiseError::from)?;

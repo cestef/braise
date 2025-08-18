@@ -514,9 +514,30 @@ impl Runtime {
                 };
 
                 if resolved_args.is_empty() {
-                    for (arg_name, arg_expr) in args {
-                        let value = self.evaluate_expression(arg_expr, context)?;
-                        resolved_args.insert(arg_name.clone(), value);
+                    // Find the recipe to get its parameters for resolving unnamed arguments
+                    let recipe = self
+                        .config
+                        .recipes
+                        .iter()
+                        .find(|r| r.value.name == recipe_name)
+                        .map(|r| &r.value);
+
+                    if let Some(recipe) = recipe {
+                        // Use the new resolution method to map both named and unnamed arguments
+                        let param_slice: Vec<Parameter> =
+                            recipe.parameters.iter().map(|p| p.value.clone()).collect();
+                        let resolved_param_map = args.resolve_to_named(&param_slice);
+
+                        for (arg_name, arg_expr) in resolved_param_map {
+                            let value = self.evaluate_expression(arg_expr, context)?;
+                            resolved_args.insert(arg_name, value);
+                        }
+                    } else {
+                        // Fallback: only use named arguments if recipe not found
+                        for (arg_name, arg_expr) in &args.named {
+                            let value = self.evaluate_expression(arg_expr, context)?;
+                            resolved_args.insert(arg_name.clone(), value);
+                        }
                     }
                 }
 
@@ -1006,9 +1027,34 @@ impl Runtime {
             }
             Expression::RecipeRef { recipe, args } => {
                 let mut arg_values = HashMap::new();
-                for (k, arg) in args {
-                    let value = self.evaluate_expression(arg, context)?;
-                    arg_values.insert(k.clone(), value);
+
+                // Find the recipe to get its parameters for resolving unnamed arguments
+                let recipe_def = self
+                    .config
+                    .recipes
+                    .iter()
+                    .find(|r| r.value.name == *recipe)
+                    .map(|r| &r.value);
+
+                if let Some(recipe_def) = recipe_def {
+                    // Use the new resolution method to map both named and unnamed arguments
+                    let param_slice: Vec<Parameter> = recipe_def
+                        .parameters
+                        .iter()
+                        .map(|p| p.value.clone())
+                        .collect();
+                    let resolved_param_map = args.resolve_to_named(&param_slice);
+
+                    for (arg_name, arg_expr) in resolved_param_map {
+                        let value = self.evaluate_expression(arg_expr, context)?;
+                        arg_values.insert(arg_name, value);
+                    }
+                } else {
+                    // Fallback: only use named arguments if recipe not found
+                    for (arg_name, arg_expr) in &args.named {
+                        let value = self.evaluate_expression(arg_expr, context)?;
+                        arg_values.insert(arg_name.clone(), value);
+                    }
                 }
 
                 Ok(TypedValue::new(

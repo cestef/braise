@@ -99,10 +99,17 @@ pub fn get_expression_preview(expr: &Expression) -> String {
             format!("if {}", get_expression_preview(&condition.value))
         }
         Expression::RecipeRef { recipe, args } => {
-            let args_preview: Vec<String> = args
-                .iter()
-                .map(|(k, arg)| format!("{k}: {}", get_expression_preview(&arg.value)))
-                .collect();
+            let mut args_preview: Vec<String> = Vec::new();
+
+            // Add unnamed arguments first
+            for arg in &args.unnamed {
+                args_preview.push(get_expression_preview(&arg.value));
+            }
+
+            // Then add named arguments
+            for (k, arg) in &args.named {
+                args_preview.push(format!("{k}: {}", get_expression_preview(&arg.value)));
+            }
             if args_preview.is_empty() {
                 recipe.clone()
             } else {

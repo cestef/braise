@@ -1,4 +1,5 @@
-use core::{BraiseType, TypedValue, ValueData};
+use braise_types::TypeConverter;
+use core::{BraiseType, TypedValue, ValueData, ast::Config};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
@@ -11,7 +12,15 @@ pub fn find_first_existing_file(files: &[&str]) -> Option<String> {
     None
 }
 
+/// Result of CLI argument parsing
+#[derive(Debug)]
+pub struct CliArguments {
+    pub unnamed: Vec<String>,
+    pub named: HashMap<String, TypedValue>,
+}
+
 /// Extract arguments from command line args into a HashMap
+/// Unnamed arguments (no prefix, no =) are collected separately
 /// Supports multiple formats:
 /// Passing a comma-separated list as a value will split it into an Array.
 /// - `--key value` or `--key=value` (long form)
@@ -20,8 +29,9 @@ pub fn find_first_existing_file(files: &[&str]) -> Option<String> {
 /// - `--flag` (boolean flag, becomes true)
 pub const ARG_ARRAY_SEP: char = ',';
 
-pub fn extract_args(args: &[String]) -> HashMap<String, TypedValue> {
-    let mut result = HashMap::new();
+pub fn extract_args(args: &[String]) -> CliArguments {
+    let mut named = HashMap::new();
+    let mut unnamed = Vec::new();
     let mut i = 0;
 
     while i < args.len() {
@@ -40,7 +50,7 @@ pub fn extract_args(args: &[String]) -> HashMap<String, TypedValue> {
             }
         }
 
-        let mut insert_value = |key: String, value: TypedValue| match result.entry(key) {
+        let mut insert_value = |key: String, value: TypedValue| match named.entry(key) {
             Entry::Vacant(e) => {
                 e.insert(value);
             }
@@ -111,10 +121,58 @@ pub fn extract_args(args: &[String]) -> HashMap<String, TypedValue> {
             let (name, value_str) = arg.split_at(equals_pos);
             let value_str = &value_str[1..];
             insert_value(name.to_string(), parse_value(value_str));
+        } else {
+            // This is an unnamed argument
+            unnamed.push(arg.clone());
         }
 
         i += 1;
     }
 
-    result
+    CliArguments { unnamed, named }
+}
+
+/// Resolve CLI arguments by mapping unnamed args to recipe parameters by position
+pub fn resolve_args(
+    cli_args: CliArguments,
+    config: &Config,
+    recipe_name: &str,
+) -> Result<HashMap<String, TypedValue>, String> {
+    // Find the recipe
+    let recipe = config
+        .recipes
+        .iter()
+        .find(|r| r.value.name == recipe_name)
+        .ok_or_else(|| format!("Recipe '{recipe_name}' not found"))?;
+
+    let mut result = cli_args.named;
+
+    // Map unnamed arguments by position to parameter names
+    for (i, unnamed_arg) in cli_args.unnamed.iter().enumerate() {
+        if let Some(param_spanned) = recipe.value.parameters.get(i) {
+            let param = &param_spanned.value;
+            let param_name = &param.name;
+
+            // Check if this parameter was already provided as a named argument
+            if result.contains_key(param_name) {
+                return Err(format!(
+                    "Parameter '{param_name}' specified both as positional argument (position {i}) and named argument"
+                ));
+            }
+
+            // Convert the string value to appropriate TypedValue
+            let typed_value =
+                TypeConverter::convert_parameter(unnamed_arg, param_name, &param.param_type)?;
+            result.insert(param_name.clone(), typed_value);
+        } else {
+            return Err(format!(
+                "Too many unnamed arguments: recipe '{}' has only {} parameters, but {} unnamed arguments were provided",
+                recipe_name,
+                recipe.value.parameters.len(),
+                cli_args.unnamed.len()
+            ));
+        }
+    }
+
+    Ok(result)
 }

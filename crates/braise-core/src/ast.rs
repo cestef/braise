@@ -130,7 +130,7 @@ pub enum Statement {
     },
     Call {
         recipe: SpannedNode<Expression>,
-        args: HashMap<String, SpannedNode<Expression>>,
+        args: CallArguments,
     },
     Shell {
         name: String,
@@ -181,7 +181,7 @@ pub enum Expression {
     },
     RecipeRef {
         recipe: String,
-        args: HashMap<String, SpannedNode<Expression>>,
+        args: CallArguments,
     },
     Match {
         expr: Box<SpannedNode<Expression>>,
@@ -286,10 +286,16 @@ impl std::fmt::Display for Expression {
                 )
             }
             Expression::RecipeRef { recipe, args } => {
-                let args_str: Vec<String> = args
-                    .iter()
-                    .map(|(k, v)| format!("{}: {}", k, v.value))
-                    .collect();
+                let mut args_str: Vec<String> = Vec::new();
+
+                for arg in &args.unnamed {
+                    args_str.push(arg.value.to_string());
+                }
+
+                for (k, v) in &args.named {
+                    args_str.push(format!("{}: {}", k, v.value));
+                }
+
                 write!(f, "{}({})", recipe, args_str.join(", "))
             }
             Expression::Match {
@@ -457,5 +463,62 @@ pub struct CatchBlock {
 impl CatchBlock {
     pub fn new(error_var: Option<String>, body: Vec<SpannedNode<Statement>>) -> Self {
         Self { error_var, body }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CallArguments {
+    pub unnamed: Vec<SpannedNode<Expression>>,
+    pub named: HashMap<String, SpannedNode<Expression>>,
+}
+
+impl CallArguments {
+    pub fn new() -> Self {
+        Self {
+            unnamed: Vec::new(),
+            named: HashMap::new(),
+        }
+    }
+
+    pub fn with_unnamed(mut self, args: Vec<SpannedNode<Expression>>) -> Self {
+        self.unnamed = args;
+        self
+    }
+
+    pub fn with_named(mut self, args: HashMap<String, SpannedNode<Expression>>) -> Self {
+        self.named = args;
+        self
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.unnamed.is_empty() && self.named.is_empty()
+    }
+
+    /// Resolve arguments to a HashMap, mapping unnamed args by position to parameter names
+    pub fn resolve_to_named(
+        &self,
+        parameters: &[Parameter],
+    ) -> HashMap<String, &SpannedNode<Expression>> {
+        let mut resolved = HashMap::new();
+
+        // First, add unnamed arguments by position
+        for (i, arg) in self.unnamed.iter().enumerate() {
+            if let Some(param) = parameters.get(i) {
+                resolved.insert(param.name.clone(), arg);
+            }
+        }
+
+        // Then, add named arguments (these can override positional ones)
+        for (name, arg) in &self.named {
+            resolved.insert(name.clone(), arg);
+        }
+
+        resolved
+    }
+}
+
+impl Default for CallArguments {
+    fn default() -> Self {
+        Self::new()
     }
 }

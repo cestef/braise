@@ -236,6 +236,7 @@ dependencies = [
  "braise-lsp",
  "braise-parser",
  "braise-runtime",
+ "braise-types",
  "clap",
  "env_logger",
  "log",

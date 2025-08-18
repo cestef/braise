@@ -261,15 +261,19 @@ mod tests {
                 recipe,
                 args: call_args,
             } => {
-                assert_eq!(call_args.len(), 0);
+                assert!(call_args.is_empty());
                 if let Expression::RecipeRef { recipe, args } = &recipe.value {
                     assert_eq!(recipe, "other");
-                    assert_eq!(args.len(), 2);
+                    assert_eq!(args.named.len(), 2);
+                    assert_eq!(args.unnamed.len(), 0);
                     assert_eq!(
-                        args.get("param1").unwrap().value,
+                        args.named.get("param1").unwrap().value,
                         Expression::String("value".to_string())
                     );
-                    assert_eq!(args.get("param2").unwrap().value, Expression::Number(42.0));
+                    assert_eq!(
+                        args.named.get("param2").unwrap().value,
+                        Expression::Number(42.0)
+                    );
                 } else {
                     panic!("Expected recipe reference expression");
                 }
@@ -282,18 +286,19 @@ mod tests {
                 recipe,
                 args: call_args,
             } => {
-                assert_eq!(call_args.len(), 2);
+                assert_eq!(call_args.named.len(), 2);
+                assert_eq!(call_args.unnamed.len(), 0);
                 assert_eq!(
-                    call_args.get("param1").unwrap().value,
+                    call_args.named.get("param1").unwrap().value,
                     Expression::String("value2".to_string())
                 );
                 assert_eq!(
-                    call_args.get("param2").unwrap().value,
+                    call_args.named.get("param2").unwrap().value,
                     Expression::Number(69.0)
                 );
                 if let Expression::RecipeRef { recipe, args } = &recipe.value {
                     assert_eq!(recipe, "other");
-                    assert_eq!(args.len(), 0);
+                    assert!(args.is_empty());
                 } else {
                     panic!("Expected recipe reference expression");
                 }
@@ -349,5 +354,98 @@ mod tests {
             panic!("Expected let statement with match expression");
         }
         Ok(())
+    }
+
+    #[test]
+    fn test_unnamed_parameters() {
+        let input = r#"
+        recipe "main" {
+            call @other("value", 42)
+            call @other("value", param2: 42)
+            call @another("first", "second", named: "third")
+        }
+        "#;
+
+        let config = parse_input(input).unwrap();
+        let recipe = &config.recipes[0].value;
+
+        // Test all unnamed parameters
+        match &recipe.body[0].value {
+            Statement::Call {
+                recipe,
+                args: call_args,
+            } => {
+                assert!(call_args.is_empty());
+                if let Expression::RecipeRef { recipe, args } = &recipe.value {
+                    assert_eq!(recipe, "other");
+                    assert_eq!(args.unnamed.len(), 2);
+                    assert_eq!(args.named.len(), 0);
+                    assert_eq!(
+                        args.unnamed[0].value,
+                        Expression::String("value".to_string())
+                    );
+                    assert_eq!(args.unnamed[1].value, Expression::Number(42.0));
+                } else {
+                    panic!("Expected recipe reference expression");
+                }
+            }
+            _ => panic!("Expected call statement"),
+        }
+
+        // Test mixed unnamed and named parameters
+        match &recipe.body[1].value {
+            Statement::Call {
+                recipe,
+                args: call_args,
+            } => {
+                assert!(call_args.is_empty());
+                if let Expression::RecipeRef { recipe, args } = &recipe.value {
+                    assert_eq!(recipe, "other");
+                    assert_eq!(args.unnamed.len(), 1);
+                    assert_eq!(args.named.len(), 1);
+                    assert_eq!(
+                        args.unnamed[0].value,
+                        Expression::String("value".to_string())
+                    );
+                    assert_eq!(
+                        args.named.get("param2").unwrap().value,
+                        Expression::Number(42.0)
+                    );
+                } else {
+                    panic!("Expected recipe reference expression");
+                }
+            }
+            _ => panic!("Expected call statement"),
+        }
+
+        // Test multiple unnamed and one named parameter
+        match &recipe.body[2].value {
+            Statement::Call {
+                recipe,
+                args: call_args,
+            } => {
+                assert!(call_args.is_empty());
+                if let Expression::RecipeRef { recipe, args } = &recipe.value {
+                    assert_eq!(recipe, "another");
+                    assert_eq!(args.unnamed.len(), 2);
+                    assert_eq!(args.named.len(), 1);
+                    assert_eq!(
+                        args.unnamed[0].value,
+                        Expression::String("first".to_string())
+                    );
+                    assert_eq!(
+                        args.unnamed[1].value,
+                        Expression::String("second".to_string())
+                    );
+                    assert_eq!(
+                        args.named.get("named").unwrap().value,
+                        Expression::String("third".to_string())
+                    );
+                } else {
+                    panic!("Expected recipe reference expression");
+                }
+            }
+            _ => panic!("Expected call statement"),
+        }
     }
 }
